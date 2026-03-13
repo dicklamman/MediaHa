@@ -8,7 +8,6 @@
   "boot": "auto",
   "options": {},
   "schema": {},
-  "image": "ghcr.io/dicklamman/epub_converter-{arch}",
   "webui": "http://[HOST]:[PORT:5000]/",
   "ports": {
     "5000/tcp": 5000
