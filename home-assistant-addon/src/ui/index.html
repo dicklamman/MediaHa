@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPUB Converter</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>EPUB Converter</h1>
+        <form id="conversion-form">
+            <label for="epub-file">Select EPUB File:</label>
+            <select id="epub-file" name="epub-file" required>
+                <!-- Options will be populated by app.js -->
+            </select>
+            <button type="submit">Convert to 香港繁體</button>
+        </form>
+        <div id="result"></div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
