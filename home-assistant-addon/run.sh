@@ -1,4 +1,4 @@
-#!/usr/bin/env bashio
+#!/bin/sh
 
 echo "Starting EPUB Converter Add-on..."
 
