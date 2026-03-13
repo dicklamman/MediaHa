@@ -43,6 +43,23 @@ def list_files():
     items.sort(key=lambda x: (0 if x['type'] == 'folder' else 1, x['name'].lower()))
     return jsonify(items)
 
+@app.route('/api/download', methods=['GET'])
+def download_file():
+    file_name = request.args.get('file_name')
+    if not file_name:
+        return jsonify({'error': 'No file name provided'}), 400
+
+    file_path = os.path.abspath(os.path.join(MEDIA_DIR, file_name))
+    if not file_path.startswith(os.path.abspath(MEDIA_DIR)):
+        return jsonify({'error': 'Access denied'}), 403
+
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'File not found'}), 404
+
+    directory = os.path.dirname(file_path)
+    filename = os.path.basename(file_path)
+    return send_from_directory(directory, filename)
+
 @app.route('/convert', methods=['POST'])
 def convert():
     file_name = request.json.get('file_name')

@@ -5,9 +5,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultMessage = document.getElementById('result');
     const contextMenu = document.getElementById('context-menu');
     const menuConvert = document.getElementById('menu-convert');
+    const menuPreview = document.getElementById('menu-preview');
+    const previewModal = document.getElementById('preview-modal');
+    const closePreviewBtn = document.getElementById('close-preview');
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
+    const previewContent = document.getElementById('preview-content');
+    const previewTitle = document.getElementById('preview-title');
     
     let currentPath = '';
     let selectedFile = null;
+    let book = null;
+    let rendition = null;
 
     if (rootCrumb) {
         rootCrumb.addEventListener('click', () => loadFiles(''));
@@ -99,8 +108,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedFile = item;
                 if (item.type === 'folder') {
                     menuConvert.textContent = 'Convert all in Folder to 繁體';
+                    if (menuPreview) menuPreview.style.display = 'none';
                 } else {
                     menuConvert.textContent = 'Convert to 繁體 (Traditional)';
+                    if (menuPreview) menuPreview.style.display = 'block';
                 }
                 contextMenu.style.left = e.pageX + 'px';
                 contextMenu.style.top = e.pageY + 'px';
@@ -114,6 +125,48 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', () => {
         contextMenu.classList.add('hidden');
     });
+
+    if (menuPreview) {
+        menuPreview.addEventListener('click', () => {
+            if (!selectedFile || selectedFile.type === 'folder') return;
+            contextMenu.classList.add('hidden');
+            
+            previewTitle.textContent = selectedFile.name;
+            previewModal.classList.remove('hidden');
+            previewContent.innerHTML = '<div style="padding:20px;text-align:center;">Loading preview...</div>';
+
+            const fileUrl = '/api/download?file_name=' + encodeURIComponent(selectedFile.path);
+            
+            book = ePub(fileUrl);
+            previewContent.innerHTML = '';
+            rendition = book.renderTo(previewContent, {
+                width: "100%",
+                height: "100%",
+                spread: "none"
+            });
+            rendition.display();
+        });
+    }
+
+    if (closePreviewBtn) {
+        closePreviewBtn.addEventListener('click', () => {
+            previewModal.classList.add('hidden');
+            if (book) {
+                book.destroy();
+                book = null;
+                rendition = null;
+            }
+            previewContent.innerHTML = '';
+        });
+
+        prevPageBtn.addEventListener('click', () => {
+            if (rendition) rendition.prev();
+        });
+
+        nextPageBtn.addEventListener('click', () => {
+            if (rendition) rendition.next();
+        });
+    }
 
     menuConvert.addEventListener('click', async () => {
         if (!selectedFile) return;
