@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const fileBrowser = document.getElementById('file-browser');
-    const breadcrumb = document.getElementById('breadcrumb');
+    const dynamicCrumbs = document.getElementById('dynamic-crumbs');
+    const rootCrumb = document.getElementById('root-crumb');
     const resultMessage = document.getElementById('result');
     const contextMenu = document.getElementById('context-menu');
     const menuConvert = document.getElementById('menu-convert');
@@ -8,9 +9,44 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPath = '';
     let selectedFile = null;
 
+    if (rootCrumb) {
+        rootCrumb.addEventListener('click', () => loadFiles(''));
+    }
+
+    function updateBreadcrumb() {
+        if (!dynamicCrumbs) return;
+        dynamicCrumbs.innerHTML = '';
+        if (!currentPath) return;
+        
+        const pathParts = currentPath.split('/');
+        let builtPath = '';
+        
+        pathParts.forEach((part, index) => {
+            if (!part) return;
+            builtPath += (builtPath ? '/' : '') + part;
+            
+            const separator = document.createElement('span');
+            separator.textContent = ' / ';
+            dynamicCrumbs.appendChild(separator);
+            
+            const crumb = document.createElement('span');
+            crumb.textContent = part;
+            crumb.className = 'crumb';
+            crumb.style.cursor = 'pointer';
+            crumb.style.color = '#0056b3';
+            crumb.style.textDecoration = 'underline';
+            
+            const targetPath = builtPath;
+            crumb.addEventListener('click', () => {
+                loadFiles(targetPath);
+            });
+            dynamicCrumbs.appendChild(crumb);
+        });
+    }
+
     async function loadFiles(dir = '') {
         currentPath = dir;
-        breadcrumb.textContent = '/media/eBook/' + dir;
+        updateBreadcrumb();
         fileBrowser.innerHTML = '<div style="padding:10px;">Loading...</div>';
         try {
             const response = await fetch('/api/files?dir=' + encodeURIComponent(dir));
@@ -28,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentPath !== '') {
             const upDiv = document.createElement('div');
             upDiv.className = 'file-item';
-            upDiv.innerHTML = '<span class="icon">??</span> ..';
+            upDiv.innerHTML = '<span class="icon">ğŸ“</span> ..';
             upDiv.addEventListener('click', () => {
                 const parts = currentPath.split('/');
                 parts.pop();
@@ -45,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach(item => {
             const div = document.createElement('div');
             div.className = 'file-item';
-            div.innerHTML = '<span class="icon">' + (item.type === 'folder' ? '??' : '??') + '</span> ' + item.name;
+            div.innerHTML = '<span class="icon">' + (item.type === 'folder' ? 'ğŸ“' : 'ğŸ“„') + '</span> ' + item.name;
             
             if (item.type === 'folder') {
                 div.addEventListener('click', () => {
@@ -54,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 div.addEventListener('click', () => {
                     resultMessage.className = 'info';
-                    resultMessage.textContent = "Right-click '" + item.name + "' and select 'Convert to ÁcÅé' to process.";
+                    resultMessage.textContent = "Right-click '" + item.name + "' and select 'Convert to ç¹é«”' to process.";
                 });
             }
 
