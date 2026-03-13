@@ -13,12 +13,17 @@ body {
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 h1 { margin-top: 0; }
-#breadcrumb {
+#breadcrumb-container {
     background: #e9ecef;
     padding: 8px 12px;
     border-radius: 4px;
     margin-bottom: 10px;
     font-family: monospace;
+    font-size: 1.1em;
+}
+.crumb:hover {
+    text-decoration: underline;
+    color: #003366 !important;
 }
 #file-browser {
     border: 1px solid #ddd;
