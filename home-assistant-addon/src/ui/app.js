@@ -1,34 +1,41 @@
-const apiUrl = '/api/convert'; // API endpoint for conversion
+const apiUrl = '/convert'; // API endpoint for conversion
 
 document.addEventListener('DOMContentLoaded', () => {
-    const fileInput = document.getElementById('file-input');
-    const convertButton = document.getElementById('convert-button');
-    const statusMessage = document.getElementById('status-message');
+    const conversionForm = document.getElementById('conversion-form');
+    const fileSelect = document.getElementById('epub-file');
+    const resultMessage = document.getElementById('result');
 
-    convertButton.addEventListener('click', async () => {
-        const file = fileInput.files[0];
-        if (!file) {
-            statusMessage.textContent = 'Please select an EPUB file.';
+    conversionForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fileName = fileSelect.value;
+        if (!fileName) {
+            resultMessage.textContent = 'Please select an EPUB file.';
             return;
         }
 
-        const formData = new FormData();
-        formData.append('file', file);
+        resultMessage.textContent = 'Converting...';
 
         try {
             const response = await fetch(apiUrl, {
                 method: 'POST',
-                body: formData,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ file_name: fileName }),
             });
 
             if (!response.ok) {
-                throw new Error('Conversion failed');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Conversion failed');
             }
 
             const result = await response.json();
-            statusMessage.textContent = `Conversion successful! Download your file: ${result.downloadUrl}`;
+            resultMessage.textContent = `Conversion successful! File saved to: ${result.output_file}`;
         } catch (error) {
-            statusMessage.textContent = `Error: ${error.message}`;
+            resultMessage.textContent = `Error: ${error.message}`;
         }
     });
+
+    // Optional: Fetch the list of EPUB files from a new endpoint later
+    // For now, it expects the user to type or have options populated.
 });
