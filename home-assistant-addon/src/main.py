@@ -14,6 +14,35 @@ def index():
 def serve_ui(filename):
     return send_from_directory(os.path.join(os.path.dirname(__file__), 'ui'), filename)
 
+@app.route('/api/files', methods=['GET'])
+def list_files():
+    sub_dir = request.args.get('dir', '')
+    target_dir = os.path.abspath(os.path.join(MEDIA_DIR, sub_dir))
+    
+    # Security: Ensure we don't traverse outside MEDIA_DIR
+    if not target_dir.startswith(os.path.abspath(MEDIA_DIR)):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    if not os.path.exists(target_dir):
+        return jsonify([])
+
+    items = []
+    for item in os.listdir(target_dir):
+        full_path = os.path.join(target_dir, item)
+        rel_path = os.path.relpath(full_path, MEDIA_DIR)
+        
+        # Windows compatibility for rel_path
+        rel_path = rel_path.replace('\\', '/')
+        
+        if os.path.isdir(full_path):
+            items.append({'name': item, 'type': 'folder', 'path': rel_path})
+        elif item.lower().endswith('.epub'):
+            items.append({'name': item, 'type': 'file', 'path': rel_path})
+            
+    # Sort folders first, then files
+    items.sort(key=lambda x: (0 if x['type'] == 'folder' else 1, x['name'].lower()))
+    return jsonify(items)
+
 @app.route('/convert', methods=['POST'])
 def convert():
     file_name = request.json.get('file_name')

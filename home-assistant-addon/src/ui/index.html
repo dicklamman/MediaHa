@@ -9,15 +9,18 @@
 <body>
     <div class="container">
         <h1>EPUB Converter</h1>
-        <form id="conversion-form">
-            <label for="epub-file">Select EPUB File:</label>
-            <select id="epub-file" name="epub-file" required>
-                <!-- Options will be populated by app.js -->
-            </select>
-            <button type="submit">Convert to È¶ôÊ∏ØÁπÅÈ´î</button>
-        </form>
+        <div id="breadcrumb">/media/eBook/</div>
+        <div id="file-browser">
+            <!-- Items populated here -->
+        </div>
         <div id="result"></div>
     </div>
+
+    <!-- Right-click context menu -->
+    <div id="context-menu" class="hidden">
+        <div class="menu-item" id="menu-convert">Convert to ¡c≈È (Traditional)</div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>

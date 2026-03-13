@@ -1,27 +1,93 @@
-const apiUrl = '/convert'; // API endpoint for conversion
-
 document.addEventListener('DOMContentLoaded', () => {
-    const conversionForm = document.getElementById('conversion-form');
-    const fileSelect = document.getElementById('epub-file');
+    const fileBrowser = document.getElementById('file-browser');
+    const breadcrumb = document.getElementById('breadcrumb');
     const resultMessage = document.getElementById('result');
+    const contextMenu = document.getElementById('context-menu');
+    const menuConvert = document.getElementById('menu-convert');
+    
+    let currentPath = '';
+    let selectedFile = null;
 
-    conversionForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const fileName = fileSelect.value;
-        if (!fileName) {
-            resultMessage.textContent = 'Please select an EPUB file.';
+    async function loadFiles(dir = '') {
+        currentPath = dir;
+        breadcrumb.textContent = '/media/eBook/' + dir;
+        fileBrowser.innerHTML = '<div style="padding:10px;">Loading...</div>';
+        try {
+            const response = await fetch('/api/files?dir=' + encodeURIComponent(dir));
+            if (!response.ok) throw new Error('Failed to load files');
+            const items = await response.json();
+            renderFiles(items);
+        } catch (err) {
+            fileBrowser.innerHTML = '<div style="padding:10px;color:red">Error loading files. Ensure /media/eBook exists!</div>';
+        }
+    }
+
+    function renderFiles(items) {
+        fileBrowser.innerHTML = '';
+        
+        if (currentPath !== '') {
+            const upDiv = document.createElement('div');
+            upDiv.className = 'file-item';
+            upDiv.innerHTML = '<span class="icon">??</span> ..';
+            upDiv.addEventListener('click', () => {
+                const parts = currentPath.split('/');
+                parts.pop();
+                loadFiles(parts.join('/'));
+            });
+            fileBrowser.appendChild(upDiv);
+        }
+
+        if (items.length === 0 && currentPath === '') {
+            fileBrowser.innerHTML += '<div style="padding:10px;color:#888;">No EPUB files found in /media/eBook</div>';
             return;
         }
 
-        resultMessage.textContent = 'Converting...';
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'file-item';
+            div.innerHTML = '<span class="icon">' + (item.type === 'folder' ? '??' : '??') + '</span> ' + item.name;
+            
+            if (item.type === 'folder') {
+                div.addEventListener('click', () => {
+                    loadFiles(item.path);
+                });
+            } else {
+                div.addEventListener('click', () => {
+                    resultMessage.className = 'info';
+                    resultMessage.textContent = "Right-click '" + item.name + "' and select 'Convert to มcล้' to process.";
+                });
+            }
 
+            div.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (item.type === 'file') {
+                    selectedFile = item;
+                    contextMenu.style.left = e.pageX + 'px';
+                    contextMenu.style.top = e.pageY + 'px';
+                    contextMenu.classList.remove('hidden');
+                }
+            });
+
+            fileBrowser.appendChild(div);
+        });
+    }
+
+    document.addEventListener('click', () => {
+        contextMenu.classList.add('hidden');
+    });
+
+    menuConvert.addEventListener('click', async () => {
+        if (!selectedFile) return;
+        
+        resultMessage.className = 'info';
+        resultMessage.textContent = 'Converting "' + selectedFile.name + '"... this may take a moment.';
+        contextMenu.classList.add('hidden');
+        
         try {
-            const response = await fetch(apiUrl, {
+            const response = await fetch('/convert', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ file_name: fileName }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_name: selectedFile.path }),
             });
 
             if (!response.ok) {
@@ -30,12 +96,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await response.json();
-            resultMessage.textContent = `Conversion successful! File saved to: ${result.output_file}`;
+            resultMessage.className = 'success';
+            resultMessage.textContent = 'Conversion successful! File exported to: ' + result.output_file;
+            
+            setTimeout(() => loadFiles(currentPath), 1500);
         } catch (error) {
-            resultMessage.textContent = `Error: ${error.message}`;
+            resultMessage.className = 'error';
+            resultMessage.textContent = 'Error: ' + error.message;
         }
     });
 
-    // Optional: Fetch the list of EPUB files from a new endpoint later
-    // For now, it expects the user to type or have options populated.
+    loadFiles();
 });
