@@ -13,11 +13,52 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextPageBtn = document.getElementById('next-page');
     const previewContent = document.getElementById('preview-content');
     const previewTitle = document.getElementById('preview-title');
+    const themeToggle = document.getElementById('theme-toggle');
     
     let currentPath = '';
     let selectedFile = null;
     let book = null;
     let rendition = null;
+
+    // Theme Management
+    const initTheme = () => {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeToggleIcon(savedTheme);
+    };
+
+    const updateThemeToggleIcon = (theme) => {
+        if (themeToggle) {
+            themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+    };
+
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeToggleIcon(newTheme);
+            
+            // Re-render book if open to match theme
+            if (rendition) {
+                if (newTheme === 'dark') {
+                    rendition.themes.register("dark", {
+                        "body": { "background": "#2d2d2d", "color": "#e0e0e0" }
+                    });
+                    rendition.themes.select("dark");
+                } else {
+                    rendition.themes.register("light", {
+                        "body": { "background": "white", "color": "#333" }
+                    });
+                    rendition.themes.select("light");
+                }
+            }
+        });
+    }
+
+    initTheme();
 
     if (rootCrumb) {
         rootCrumb.addEventListener('click', () => loadFiles(''));
@@ -146,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             previewContent.innerHTML = '<div style="padding:20px;text-align:center;">Loading preview...</div>';
 
             const fileUrl = '/api/download?file_name=' + encodeURIComponent(selectedFile.path);
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
             
             book = ePub(fileUrl);
             previewContent.innerHTML = '';
@@ -154,6 +196,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 height: "100%",
                 spread: "none"
             });
+            
+            if (currentTheme === 'dark') {
+                rendition.themes.register("dark", {
+                    "body": { "background": "#2d2d2d", "color": "#e0e0e0" }
+                });
+                rendition.themes.select("dark");
+            }
+            
             rendition.display();
         });
     }
