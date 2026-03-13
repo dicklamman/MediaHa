@@ -8,16 +8,10 @@
   "boot": "auto",
   "options": {},
   "schema": {},
-  "image": "ghcr.io/yourusername/epub_converter:latest",
-  "webui": true,
-  "homeassistant": "0.118.0",
-  "requirements": [
-    "ebooklib",
-    "beautifulsoup4",
-    "opencc"
-  ],
+  "image": "ghcr.io/dicklamman/epub_converter-{arch}",
+  "webui": "http://[HOST]:[PORT:5000]/",
   "ports": {
-    "80": 80
+    "5000/tcp": 5000
   },
   "map": ["media:rw"]
 }
