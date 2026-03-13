@@ -1,8 +1,8 @@
 {
-  "name": "EPUB Converter",
-  "version": "1.0.13",
-  "slug": "epub_converter",
-  "description": "A Home Assistant add-on to convert EPUB books to 香港繁體 (Hong Kong Traditional Chinese).",
+  "name": "Media Converter",
+  "version": "1.0.14",
+  "slug": "media_converter",
+  "description": "A Home Assistant add-on to convert EPUB books and enhance MP3 files.",
   "arch": ["amd64", "armv7", "aarch64"],
   "startup": "application",
   "boot": "auto",

@@ -1,47 +1,16 @@
-# Home Assistant EPUB Converter Add-on
+# Home Assistant Media Converter Add-on
 
-This Home Assistant add-on provides a web interface for converting EPUB files to 香港繁體 (Hong Kong Traditional Chinese). Users can select books from the `/media/eBook` directory and initiate the conversion process.
+This Home Assistant add-on provides a web interface for managing media files. It allows you to:
+- Convert EPUB files to Hong Kong Traditional Chinese.
+- Fix broken MP3 metadata, embed lyrics, and setup cover arts.
+- Browse, preview, and play media files right from your browser.
 
 ## Features
-
-- User-friendly web UI for selecting EPUB files.
-- Converts selected EPUB files to Hong Kong Traditional Chinese.
-- Easy integration with Home Assistant.
+- User-friendly web UI for media management.
+- Batch convert directories.
+- Full MP3 integration (playback, lyrics, id3 tags) using MusicBrainz/iTunes APIs.
 
 ## Installation
-
-1. Clone this repository to your Home Assistant add-ons directory.
-2. Navigate to the add-on directory:
-   ```
-   cd home-assistant-addon
-   ```
-3. Build the Docker image:
-   ```
-   docker build -t home-assistant-addon .
-   ```
-4. Add the add-on to your Home Assistant instance through the UI.
-
-## Usage
-
-1. Access the add-on from the Home Assistant sidebar.
-2. Select an EPUB file from the `/media/eBook` directory.
-3. Click the "Convert" button to start the conversion process.
-4. Download the converted file once the process is complete.
-
-## Configuration
-
-The add-on can be configured through the Home Assistant UI. Ensure that the `/media/eBook` directory is accessible and contains the EPUB files you wish to convert.
-
-## Dependencies
-
-This add-on requires the following Python packages:
-
-- `ebooklib`
-- `beautifulsoup4`
-- `opencc`
-
-These packages are installed automatically when building the Docker image.
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
+1. Add this repository to your Home Assistant Add-ons.
+2. Install the **Media Converter** Add-on.
+3. Ensure /media folder mapping is configured correctly.
