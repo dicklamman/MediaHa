@@ -8,7 +8,11 @@ MEDIA_DIR = '/media/eBook'
 
 @app.route('/')
 def index():
-    return send_from_directory('ui', 'index.html')
+    return send_from_directory(os.path.join(os.path.dirname(__file__), 'ui'), 'index.html')
+
+@app.route('/<path:filename>')
+def serve_ui(filename):
+    return send_from_directory(os.path.join(os.path.dirname(__file__), 'ui'), filename)
 
 @app.route('/convert', methods=['POST'])
 def convert():
