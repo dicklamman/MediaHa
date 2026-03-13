@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EPUB Converter</title>
+    <title>Media Converter</title>
     <link rel="stylesheet" href="styles.css">
     <!-- EPUB.js for preview -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
@@ -11,9 +11,18 @@
 </head>
 <body>
     <button id="theme-toggle" aria-label="Toggle Dark Mode">🌙</button>
-    <div class="container">
-        <h1>EPUB Converter</h1>
-        <div id="breadcrumb-container"><span class="crumb" id="root-crumb" style="cursor:pointer; font-weight:bold; color:#0056b3;">/media/eBook</span><span id="dynamic-crumbs"></span></div>
+    
+    <div class="sidebar">
+        <h2>Media Converter</h2>
+        <ul>
+            <li id="tab-epub" class="active">EPUB Converter</li>
+            <li id="tab-mp3">MP3 Converter</li>
+        </ul>
+    </div>
+
+    <div class="container main-content">
+        <h1 id="page-title">EPUB Converter</h1>
+        <div id="breadcrumb-container"><span class="crumb" id="root-crumb" style="cursor:pointer; font-weight:bold; color:#0056b3;">/media</span><span id="dynamic-crumbs"></span></div>
         <div id="file-browser">
             <!-- Items populated here -->
         </div>
@@ -40,6 +49,20 @@
         <div id="preview-content"></div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- MP3 Player Modal -->
+    <div id="mp3-modal" class="hidden">
+        <div id="mp3-header">
+            <div style="font-weight: bold;" id="mp3-title">Music Player</div>
+            <button id="close-mp3" class="btn btn-close">Close ✖</button>
+        </div>
+        <div id="mp3-content">
+            <img id="mp3-cover" src="" alt="Album Art" style="max-width:300px; display:block; margin:auto;" />
+            <audio id="mp3-audio" controls style="width: 100%; margin-top:10px;"></audio>
+            <div id="mp3-lyrics" style="max-height: 200px; overflow-y:auto; margin-top:10px; padding:10px; background:#f4f4f4; white-space:pre-wrap;"></div>
+        </div>
+    </div>
+
+    <!-- Link the main module script -->
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>

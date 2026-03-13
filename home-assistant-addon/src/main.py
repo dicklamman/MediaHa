@@ -4,7 +4,7 @@ from utils.epub_converter import convert_to_hk_traditional_chinese
 
 app = Flask(__name__)
 
-MEDIA_DIR = '/media/eBook'
+MEDIA_DIR = '/media'
 
 @app.route('/')
 def index():
@@ -36,9 +36,7 @@ def list_files():
         
         if os.path.isdir(full_path):
             items.append({'name': item, 'type': 'folder', 'path': rel_path})
-        elif item.lower().endswith('.epub'):
-            items.append({'name': item, 'type': 'file', 'path': rel_path})
-            
+        elif item.lower().endswith(('.epub', '.mp3', '.lrc', '.jpg', '.jpeg', '.png')):
     # Sort folders first, then files
     items.sort(key=lambda x: (0 if x['type'] == 'folder' else 1, x['name'].lower()))
     return jsonify(items)
