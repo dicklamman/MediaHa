@@ -96,12 +96,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             div.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
-                if (item.type === 'file') {
-                    selectedFile = item;
-                    contextMenu.style.left = e.pageX + 'px';
-                    contextMenu.style.top = e.pageY + 'px';
-                    contextMenu.classList.remove('hidden');
+                selectedFile = item;
+                if (item.type === 'folder') {
+                    menuConvert.textContent = 'Convert all in Folder to 繁體';
+                } else {
+                    menuConvert.textContent = 'Convert to 繁體 (Traditional)';
                 }
+                contextMenu.style.left = e.pageX + 'px';
+                contextMenu.style.top = e.pageY + 'px';
+                contextMenu.classList.remove('hidden');
             });
 
             fileBrowser.appendChild(div);
@@ -114,16 +117,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     menuConvert.addEventListener('click', async () => {
         if (!selectedFile) return;
-        
-        resultMessage.className = 'info';
-        resultMessage.textContent = 'Converting "' + selectedFile.name + '"... this may take a moment.';
         contextMenu.classList.add('hidden');
+
+        if (selectedFile.type === 'folder') {
+            await convertFolder(selectedFile);
+        } else {
+            await convertSingleFile(selectedFile);
+        }
+    });
+
+    async function convertSingleFile(fileItem) {
+        resultMessage.className = 'info';
+        resultMessage.textContent = 'Converting "' + fileItem.name + '"... this may take a moment.';
         
         try {
             const response = await fetch('/convert', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ file_name: selectedFile.path }),
+                body: JSON.stringify({ file_name: fileItem.path }),
             });
 
             if (!response.ok) {
@@ -140,7 +151,52 @@ document.addEventListener('DOMContentLoaded', () => {
             resultMessage.className = 'error';
             resultMessage.textContent = 'Error: ' + error.message;
         }
-    });
+    }
+
+    async function convertFolder(folderItem) {
+        resultMessage.className = 'info';
+        resultMessage.textContent = 'Scanning folder "' + folderItem.name + '"...';
+        try {
+            const response = await fetch('/api/files?dir=' + encodeURIComponent(folderItem.path));
+            if (!response.ok) throw new Error('Failed to list files');
+            const items = await response.json();
+            const epubs = items.filter(i => i.type === 'file' && i.name.toLowerCase().endsWith('.epub'));
+            
+            if (epubs.length === 0) {
+                resultMessage.className = 'info';
+                resultMessage.textContent = 'No EPUB files found in this folder.';
+                return;
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < epubs.length; i++) {
+                const epub = epubs[i];
+                resultMessage.className = 'info';
+                resultMessage.textContent = `Converting ${i + 1} of ${epubs.length}: "${epub.name}"...`;
+                
+                try {
+                    const res = await fetch('/convert', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ file_name: epub.path }),
+                    });
+                    if (!res.ok) throw new Error('Failed');
+                    successCount++;
+                } catch (e) {
+                    errorCount++;
+                }
+            }
+            
+            resultMessage.className = errorCount === 0 ? 'success' : 'info';
+            resultMessage.textContent = `Batch conversion complete! ${successCount} successful, ${errorCount} failed.`;
+            setTimeout(() => loadFiles(currentPath), 2500);
+        } catch (err) {
+            resultMessage.className = 'error';
+            resultMessage.textContent = 'Error reading folder: ' + err.message;
+        }
+    }
 
     loadFiles();
 });
