@@ -60,6 +60,32 @@ def download_file():
     filename = os.path.basename(file_path)
     return send_from_directory(directory, filename)
 
+@app.route('/api/rename', methods=['POST'])
+def rename_item():
+    data = request.json
+    old_rel_path = data.get('old_path')
+    new_name = data.get('new_name')
+
+    if not old_rel_path or not new_name:
+        return jsonify({'error': 'Missing parameters'}), 400
+
+    old_abs_path = os.path.abspath(os.path.join(MEDIA_DIR, old_rel_path))
+    if not old_abs_path.startswith(os.path.abspath(MEDIA_DIR)):
+        return jsonify({'error': 'Access denied'}), 403
+
+    if not os.path.exists(old_abs_path):
+        return jsonify({'error': 'File or folder not found'}), 404
+
+    # Calculate new absolute path
+    parent_dir = os.path.dirname(old_abs_path)
+    new_abs_path = os.path.join(parent_dir, new_name)
+
+    try:
+        os.rename(old_abs_path, new_abs_path)
+        return jsonify({'message': 'Renamed successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/convert', methods=['POST'])
 def convert():
     file_name = request.json.get('file_name')

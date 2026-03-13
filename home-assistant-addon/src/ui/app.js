@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const contextMenu = document.getElementById('context-menu');
     const menuConvert = document.getElementById('menu-convert');
     const menuPreview = document.getElementById('menu-preview');
+    const menuRename = document.getElementById('menu-rename');
     const previewModal = document.getElementById('preview-modal');
     const closePreviewBtn = document.getElementById('close-preview');
     const prevPageBtn = document.getElementById('prev-page');
@@ -165,6 +166,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
         nextPageBtn.addEventListener('click', () => {
             if (rendition) rendition.next();
+        });
+    }
+
+    if (menuRename) {
+        menuRename.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            contextMenu.classList.add('hidden');
+            
+            const newName = prompt(`Enter new name for "${selectedFile.name}":`, selectedFile.name);
+            if (!newName || newName === selectedFile.name) return;
+
+            try {
+                const response = await fetch('/api/rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_path: selectedFile.path, new_name: newName }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Rename failed');
+                }
+
+                resultMessage.className = 'success';
+                resultMessage.textContent = 'Renamed successfully!';
+                loadFiles(currentPath);
+            } catch (err) {
+                resultMessage.className = 'error';
+                resultMessage.textContent = 'Rename error: ' + err.message;
+            }
         });
     }
 
