@@ -91,7 +91,19 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach(item => {
             const div = document.createElement('div');
             div.className = 'file-item';
-            div.innerHTML = '<span class="icon">' + (item.type === 'folder' ? '📁' : '📄') + '</span> ' + item.name;
+            
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'icon';
+            iconSpan.textContent = item.type === 'folder' ? '📁' : '📄';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'item-name';
+            nameSpan.textContent = item.name;
+            
+            div.appendChild(iconSpan);
+            div.appendChild(nameSpan);
+            
+            item.nameSpan = nameSpan; // Store reference to inline edit later
             
             if (item.type === 'folder') {
                 div.addEventListener('click', () => {
@@ -171,31 +183,93 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (menuRename) {
         menuRename.addEventListener('click', async () => {
-            if (!selectedFile) return;
+            if (!selectedFile || !selectedFile.nameSpan) return;
             contextMenu.classList.add('hidden');
             
-            const newName = prompt(`Enter new name for "${selectedFile.name}":`, selectedFile.name);
-            if (!newName || newName === selectedFile.name) return;
+            const nameSpan = selectedFile.nameSpan;
+            const originalName = selectedFile.name;
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = originalName;
+            input.className = 'rename-input';
+            
+            nameSpan.style.display = 'none';
+            nameSpan.parentNode.insertBefore(input, nameSpan.nextSibling);
+            input.focus();
 
-            try {
-                const response = await fetch('/api/rename', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ old_path: selectedFile.path, new_name: newName }),
-                });
+            // Select filename without extension if it's a file
+            if (selectedFile.type === 'file') {
+                const lastDot = originalName.lastIndexOf('.');
+                if (lastDot > 0) {
+                    input.setSelectionRange(0, lastDot);
+                } else {
+                    input.select();
+                }
+            } else {
+                input.select();
+            }
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Rename failed');
+            let isSaving = false;
+
+            const saveRename = async () => {
+                if (isSaving) return;
+                isSaving = true;
+                
+                const newName = input.value.trim();
+                
+                // If unchanged or empty, silently cancel
+                if (!newName || newName === originalName) {
+                    cancelRename();
+                    return;
                 }
 
-                resultMessage.className = 'success';
-                resultMessage.textContent = 'Renamed successfully!';
-                loadFiles(currentPath);
-            } catch (err) {
-                resultMessage.className = 'error';
-                resultMessage.textContent = 'Rename error: ' + err.message;
-            }
+                input.disabled = true;
+                
+                try {
+                    const response = await fetch('/api/rename', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ old_path: selectedFile.path, new_name: newName }),
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Rename failed');
+                    }
+
+                    resultMessage.className = 'success';
+                    resultMessage.textContent = 'Renamed successfully!';
+                    loadFiles(currentPath);
+                } catch (err) {
+                    resultMessage.className = 'error';
+                    resultMessage.textContent = 'Rename error: ' + err.message;
+                    cancelRename();
+                }
+            };
+
+            const cancelRename = () => {
+                if (input.parentNode) {
+                    input.parentNode.removeChild(input);
+                }
+                nameSpan.style.display = '';
+            };
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveRename();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelRename();
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                if (!isSaving) {
+                    saveRename();
+                }
+            });
         });
     }
 
