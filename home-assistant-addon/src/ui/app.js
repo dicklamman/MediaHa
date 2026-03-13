@@ -189,13 +189,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const nameSpan = selectedFile.nameSpan;
             const originalName = selectedFile.name;
             
+            // Create container for input and buttons
+            const renameContainer = document.createElement('div');
+            renameContainer.className = 'rename-container';
+
             const input = document.createElement('input');
             input.type = 'text';
             input.value = originalName;
             input.className = 'rename-input';
             
+            const confirmBtn = document.createElement('button');
+            confirmBtn.textContent = '✓';
+            confirmBtn.className = 'rename-btn rename-confirm';
+            confirmBtn.title = 'Confirm Rename';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = '✕';
+            cancelBtn.className = 'rename-btn rename-cancel';
+            cancelBtn.title = 'Cancel';
+
+            renameContainer.appendChild(input);
+            renameContainer.appendChild(confirmBtn);
+            renameContainer.appendChild(cancelBtn);
+            
             nameSpan.style.display = 'none';
-            nameSpan.parentNode.insertBefore(input, nameSpan.nextSibling);
+            nameSpan.parentNode.insertBefore(renameContainer, nameSpan.nextSibling);
             input.focus();
 
             // Select filename without extension if it's a file
@@ -225,6 +243,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 input.disabled = true;
+                confirmBtn.disabled = true;
+                cancelBtn.disabled = true;
                 
                 try {
                     const response = await fetch('/api/rename', {
@@ -249,11 +269,21 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const cancelRename = () => {
-                if (input.parentNode) {
-                    input.parentNode.removeChild(input);
+                if (renameContainer.parentNode) {
+                    renameContainer.parentNode.removeChild(renameContainer);
                 }
                 nameSpan.style.display = '';
             };
+
+            confirmBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // prevent clicking file row
+                saveRename();
+            });
+
+            cancelBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                cancelRename();
+            });
 
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
@@ -264,12 +294,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     cancelRename();
                 }
             });
-
-            input.addEventListener('blur', () => {
-                if (!isSaving) {
-                    saveRename();
-                }
-            });
+            
+            // Prevent file-item click event when clicking input
+            input.addEventListener('click', (e) => e.stopPropagation());
         });
     }
 

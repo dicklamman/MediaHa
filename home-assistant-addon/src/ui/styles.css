@@ -112,3 +112,30 @@ h1 { margin-top: 0; }
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+.rename-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+}
+.rename-btn {
+    padding: 2px 8px;
+    font-size: 0.9em;
+    cursor: pointer;
+    border: none;
+    border-radius: 3px;
+    color: white;
+}
+.rename-confirm {
+    background-color: #28a745;
+}
+.rename-confirm:hover {
+    background-color: #218838;
+}
+.rename-cancel {
+    background-color: #6c757d;
+}
+.rename-cancel:hover {
+    background-color: #5a6268;
+}
