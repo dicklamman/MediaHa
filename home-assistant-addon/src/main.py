@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os
-from utils.epub_converter import convert_epub_to_hk_traditional
+from utils.epub_converter import convert_to_hk_traditional_chinese
 
 app = Flask(__name__)
 
@@ -24,7 +24,7 @@ def convert():
     if not os.path.exists(input_path):
         return jsonify({'error': 'File not found'}), 404
 
-    output_path = convert_epub_to_hk_traditional(input_path)
+    output_path = convert_to_hk_traditional_chinese(input_path)
     return jsonify({'message': 'Conversion successful', 'output_file': output_path})
 
 if __name__ == '__main__':
