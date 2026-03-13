@@ -110,10 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadFiles(item.path);
                 });
             } else {
-                div.addEventListener('click', () => {
-                    resultMessage.className = 'info';
-                    resultMessage.textContent = "Right-click '" + item.name + "' and select 'Convert to 繁體' to process.";
-                });
+                // Removed the right-click hint on left-click as requested
             }
 
             div.addEventListener('contextmenu', (e) => {
