@@ -20,7 +20,7 @@ export const ui = {
     updateThemeToggleIcon(theme) {
         const themeToggle = document.getElementById('theme-toggle');
         if (themeToggle) {
-            themeToggle.textContent = theme === 'dark' ? '??' : '??';
+            themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
         }
     },
     showContextMenu(x, y) {

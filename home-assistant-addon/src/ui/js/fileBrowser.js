@@ -65,7 +65,7 @@ export const fileBrowser = {
         if (this.currentPath !== '') {
             const upDiv = document.createElement('div');
             upDiv.className = 'file-item';
-            upDiv.innerHTML = '<span class="icon">??</span> ..';
+            upDiv.innerHTML = '<span class="icon">📁</span> ..';
             upDiv.addEventListener('click', () => {
                 const parts = this.currentPath.split('/');
                 parts.pop();
@@ -86,13 +86,13 @@ export const fileBrowser = {
             const iconSpan = document.createElement('span');
             iconSpan.className = 'icon';
             if (item.type === 'folder') {
-                iconSpan.textContent = '??';
+                iconSpan.textContent = '📁';
             } else if (item.name.toLowerCase().endsWith('.mp3')) {
-                iconSpan.textContent = '??';
+                iconSpan.textContent = '🎵';
             } else if (item.name.toLowerCase().endsWith('.jpg') || item.name.toLowerCase().endsWith('.png')) {
-                iconSpan.textContent = '???';
+                iconSpan.textContent = '🖼️';
             } else {
-                iconSpan.textContent = '??';
+                iconSpan.textContent = '📄';
             }
             
             const nameSpan = document.createElement('span');
@@ -149,11 +149,11 @@ export const fileBrowser = {
         input.className = 'rename-input';
         
         const confirmBtn = document.createElement('button');
-        confirmBtn.textContent = '??';
+        confirmBtn.textContent = '✔️';
         confirmBtn.className = 'rename-btn rename-confirm';
 
         const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = '?';
+        cancelBtn.textContent = '❌';
         cancelBtn.className = 'rename-btn rename-cancel';
 
         renameContainer.appendChild(input);

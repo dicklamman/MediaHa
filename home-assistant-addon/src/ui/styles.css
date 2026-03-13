@@ -250,3 +250,66 @@ body {
 #theme-toggle:hover {
     background: var(--hover-bg);
 }
+
+/* Sidebar Layout */
+body {
+    display: flex;
+    flex-wrap: nowrap;
+}
+.sidebar {
+    width: 250px;
+    background: var(--container-bg);
+    margin-right: 20px;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    align-self: flex-start;
+}
+.sidebar h2 {
+    margin-top: 0;
+    font-size: 1.2rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.sidebar li {
+    padding: 10px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+.sidebar li:hover {
+    background: var(--hover-bg);
+}
+.sidebar li.active {
+    background: var(--context-menu-hover);
+    color: var(--context-menu-hover-text);
+}
+.main-content {
+    flex: 1;
+    min-width: 0;
+}
+
+#mp3-modal {
+    position: fixed; top: 15%; left: 15%; right: 15%; bottom: 15%;
+    background: var(--modal-bg); border: 1px solid var(--border-color);
+    box-shadow: 0 0 15px var(--modal-overlay);
+    z-index: 2000;
+    display: flex; flex-direction: column;
+    border-radius: 8px;
+    overflow: hidden;
+}
+#mp3-modal.hidden { display: none; }
+#mp3-header {
+    padding: 10px 15px; background: var(--modal-header-bg);
+    display:flex; justify-content:space-between; align-items: center;
+    border-bottom: 1px solid var(--border-color);
+}
+#mp3-content {
+    flex: 1; overflow-y: auto; background: var(--container-bg); padding: 20px;  
+}
