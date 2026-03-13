@@ -277,6 +277,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let isSaving = false;
 
+            const handleOutsideClick = (e) => {
+                if (!renameContainer.contains(e.target)) {
+                    cancelRename();
+                }
+            };
+            
+            // Short delay to avoid catching the immediate click that opened it
+            setTimeout(() => document.addEventListener('click', handleOutsideClick), 0);
+
+            const cleanup = () => {
+                document.removeEventListener('click', handleOutsideClick);
+            };
+
             const saveRename = async () => {
                 if (isSaving) return;
                 isSaving = true;
@@ -305,6 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         throw new Error(errorData.error || 'Rename failed');
                     }
 
+                    cleanup();
                     resultMessage.className = 'success';
                     resultMessage.textContent = 'Renamed successfully!';
                     loadFiles(currentPath);
@@ -316,6 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const cancelRename = () => {
+                cleanup();
                 if (renameContainer.parentNode) {
                     renameContainer.parentNode.removeChild(renameContainer);
                 }
