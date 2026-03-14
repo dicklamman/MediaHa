@@ -17,16 +17,35 @@
         <ul>
             <li id="tab-epub" class="active">EPUB Converter</li>
             <li id="tab-mp3">MP3 Converter</li>
+            <li id="tab-alist">AList to STRM</li>
         </ul>
     </div>
 
-    <div class="container main-content">
+    <div class="container main-content" id="view-file-browser">
         <h1 id="page-title">EPUB Converter</h1>
         <div id="breadcrumb-container"><span class="crumb" id="root-crumb" style="cursor:pointer; font-weight:bold; color:#0056b3;">/media/eBook</span><span id="dynamic-crumbs"></span></div>
         <div id="file-browser">
             <!-- Items populated here -->
         </div>
         <div id="result"></div>
+    </div>
+
+    <div class="container main-content hidden" id="view-alist">
+        <h1>AList to STRM</h1>
+        <div class="form-group" style="display:flex; flex-direction:column; gap:10px; max-width: 400px; margin-top:20px;">
+            <label>AList URL <input type="text" id="alist-url" class="rename-input" placeholder="http://192.168.0.142:5244"></label>
+            <label>Public Domain <input type="text" id="alist-domain" class="rename-input" placeholder="https://alist.yourdomain.com"></label>
+            <label>Remote Path <input type="text" id="alist-remote" class="rename-input" placeholder="/OneDriveShare"></label>
+            <label>Local Path <input type="text" id="alist-local" class="rename-input" placeholder="/media/alist"></label>
+            <label>Username <input type="text" id="alist-user" class="rename-input" placeholder="admin"></label>
+            <label>Password <input type="password" id="alist-pass" class="rename-input" placeholder="password"></label>
+            <div style="display:flex; gap:10px; margin-top: 10px;">
+                <button class="btn" id="save-alist" style="background:#0056b3;">Save Settings</button>
+                <button class="btn" id="run-alist" style="background:#28a745;">Run Generator</button>
+            </div>
+            <div id="alist-status" style="margin-top:10px; font-weight:bold;"></div>
+        </div>
+        <div id="alist-log" style="white-space: pre-wrap; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; font-family: monospace; padding: 10px; margin-top: 20px; height: 300px; overflow-y: auto;"></div>
     </div>
 
     <!-- Right-click context menu -->
