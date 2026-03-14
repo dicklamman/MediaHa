@@ -306,6 +306,7 @@ def enhance_metadata():
         return jsonify({'error': str(e)}), 500
 
 
+import json
 ALIST_CONFIG_PATH = '/data/alist_options.json' if os.path.exists('/data') else os.path.join(os.path.dirname(__file__), '../config/alist_options.json')
 
 @app.route('/api/alist/settings', methods=['GET'])
