@@ -127,10 +127,24 @@ export const fileBrowser = {
                 const menuPreview = document.getElementById('menu-preview');
                 
                 if (item.type === 'folder') {
-                    if(menuConvert) menuConvert.textContent = 'Convert all in Folder to Traditional';
+                    if (menuConvert) {
+                        if (this.basePath === 'eBook') {
+                            menuConvert.style.display = 'block';
+                            menuConvert.textContent = 'Convert all in Folder to Traditional';
+                        } else {
+                            menuConvert.style.display = 'none';
+                        }
+                    }
                     if (menuPreview) menuPreview.style.display = 'none';
                 } else {
-                    if(menuConvert) menuConvert.textContent = 'Convert to Traditional';
+                    if (menuConvert) {
+                        if (item.name.toLowerCase().endsWith('.epub') || this.basePath === 'eBook') {
+                            menuConvert.style.display = 'block';
+                            menuConvert.textContent = 'Convert to Traditional';
+                        } else {
+                            menuConvert.style.display = 'none';
+                        }
+                    }
                     if (menuPreview) {
                         if (item.name.toLowerCase().endsWith('.mp3')) {
                             menuPreview.style.display = 'block';
