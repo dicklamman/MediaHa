@@ -505,3 +505,4 @@ body {
 #file-browser::-webkit-scrollbar-thumb:hover {
     background: #bbb;
 }
+\n/* Ruby Styles */\nruby {\n    ruby-align: center;\n}\nrt {\n    font-size: 0.5em;\n    color: var(--text-color);\n    opacity: 0.8;\n}\n#mp3-lyrics.synced p.active rt {\n    color: #fff;\n    opacity: 1;\n    font-weight: normal;\n}\n

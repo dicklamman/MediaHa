@@ -367,6 +367,33 @@ def run_dropbox_sync():
     from utils.dropbox_sync import run_sync
     return Response(run_sync(target, app_key, app_secret, refresh_token), mimetype='text/plain')
 
+@app.route('/api/lyrics/ruby', methods=['POST'])
+def lyrics_ruby():
+    text = request.json.get('text', '')
+    if not text:
+        return jsonify({'result': ''})
+    try:
+        import pykakasi
+        import re
+        
+        # Check if contains Japanese characters (Hiragana, Katakana, Kanji)
+        if not re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]', text):
+             return jsonify({'result': text})
+
+        kks = pykakasi.kakasi()
+        result = []
+        for item in kks.convert(text):
+            orig = item['orig']
+            hira = item['hira']
+            # If the original string contains Kanji (simplistic check: it's not all hiragana/katakana/alpha)
+            if orig != hira and re.search(r'[\u4E00-\u9FAF]', orig):
+                result.append(f"<ruby>{orig}<rt>{hira}</rt></ruby>")
+            else:
+                result.append(orig)
+        return jsonify({'result': "".join(result)})
+    except ImportError:
+        return jsonify({'result': text}) # Fallback if module fails
+
 if __name__ == '__main__':
     from waitress import serve
     print("Starting production WSGI server on port 5000...")

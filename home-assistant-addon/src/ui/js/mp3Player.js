@@ -138,9 +138,23 @@ export const mp3Player = {
         return parsed.sort((a, b) => a.time - b.time);
     },
 
-    renderLyrics(text) {
+    async renderLyrics(text) {
         const lyricsDiv = document.getElementById('mp3-lyrics');
         if (!lyricsDiv) return;
+
+        try {
+            const res = await fetch('/api/lyrics/ruby', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({text: text})
+            });
+            if (res.ok) {
+                const data = await res.json();
+                text = data.result;
+            }
+        } catch(e) {
+            console.error("Ruby parsing failed:", e);
+        }
 
         this.lrcData = this.parseLRC(text);
         this.activeIndex = -1;
@@ -150,13 +164,14 @@ export const mp3Player = {
             lyricsDiv.innerHTML = '';
             this.lrcData.forEach((line, index) => {
                 const p = document.createElement('p');
-                p.textContent = line.text;
+                p.innerHTML = line.text; // Use innerHTML to render <ruby>
                 p.id = 'lrc-line-' + index;
                 lyricsDiv.appendChild(p);
             });
         } else {
+            // Check if text is HTML (contains ruby) or plain
             lyricsDiv.classList.remove('synced');
-            lyricsDiv.textContent = text || 'No lyrics found for this item.';
+            lyricsDiv.innerHTML = text; // Fallback unstructured 
         }
     },
 
