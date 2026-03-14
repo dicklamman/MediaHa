@@ -52,6 +52,11 @@ def run_sync(sync_target, app_key, app_secret, refresh_token):
             for entry in result.entries:
                 if isinstance(entry, dropbox.files.FileMetadata):
                     files[entry.name] = entry.size
+            while result.has_more:
+                result = dbx.files_list_folder_continue(result.cursor)
+                for entry in result.entries:
+                    if isinstance(entry, dropbox.files.FileMetadata):
+                        files[entry.name] = entry.size
         except dropbox.exceptions.ApiError as e:
             yield f"Error listing Dropbox folder {folder}: {e}\n".encode('utf-8')
         return files
@@ -98,17 +103,14 @@ def run_sync(sync_target, app_key, app_secret, refresh_token):
                 for f in files
             }
             
-            dropbox_files = list_dropbox_files(current_dbx_folder)
-            
+            dropbox_files = yield from list_dropbox_files(current_dbx_folder)
+
             for fname, fsize in local_files.items():
                 dbx_path = f"{current_dbx_folder}/{fname}"
                 if fname not in dropbox_files or dropbox_files[fname] != fsize:
                     yield from upload_file(os.path.join(root, fname), dbx_path)
-            
-            for fname in dropbox_files:
-                if fname not in local_files:
-                    yield from delete_file(f"{current_dbx_folder}/{fname}")
-        
+                else:
+                    yield f"Skipped (already exists with same size): {fname}\n".encode('utf-8')
         yield f"Sync completed: {local_root} -> {dropbox_root}\n".encode('utf-8')
 
     for local_folder, dropbox_folder in FOLDER_PAIRS:
