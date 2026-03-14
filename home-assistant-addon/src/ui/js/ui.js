@@ -46,15 +46,19 @@ export const ui = {
         const pageTitle = document.getElementById('page-title');
         
         if(tabEpub && tabMp3) {
-            tabEpub.addEventListener('click', () => {
+            tabEpub.addEventListener('click', async () => {
                 tabEpub.classList.add('active');
                 tabMp3.classList.remove('active');
                 if(pageTitle) pageTitle.textContent = 'EPUB Converter';
+                const { fileBrowser } = await import('./fileBrowser.js');
+                fileBrowser.setBasePath('eBook');
             });
-            tabMp3.addEventListener('click', () => {
+            tabMp3.addEventListener('click', async () => {
                 tabMp3.classList.add('active');
                 tabEpub.classList.remove('active');
                 if(pageTitle) pageTitle.textContent = 'MP3 Converter';
+                const { fileBrowser } = await import('./fileBrowser.js');
+                fileBrowser.setBasePath('music');
             });
         }
     }

@@ -1,6 +1,6 @@
 {
   "name": "Media Converter",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "slug": "media_converter",
   "description": "A Home Assistant add-on to convert EPUB books and enhance MP3 files.",
   "arch": ["amd64", "armv7", "aarch64"],
