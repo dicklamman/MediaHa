@@ -45,9 +45,11 @@ export const ui = {
     const tabMp3 = document.getElementById('tab-mp3');
     const tabAlistVideo = document.getElementById('tab-alist-video');
     const tabAlist = document.getElementById('tab-alist');
+    const tabDropbox = document.getElementById('tab-dropbox');
     const pageTitle = document.getElementById('page-title');
     const viewBrowser = document.getElementById('view-file-browser');
     const viewAlist = document.getElementById('view-alist');
+    const viewDropbox = document.getElementById('view-dropbox');
 
     if (tabEpub && tabMp3 && tabAlistVideo && tabAlist) {
         tabEpub.addEventListener('click', async () => {
@@ -55,8 +57,11 @@ export const ui = {
             tabMp3.classList.remove('active');
             tabAlistVideo.classList.remove('active');
             tabAlist.classList.remove('active');
+            if (tabDropbox) tabDropbox.classList.remove('active');
             viewBrowser.classList.remove('hidden');
+            viewBrowser.style.display = '';
             viewAlist.classList.add('hidden');
+            if (viewDropbox) viewDropbox.style.display = 'none';
             if (pageTitle) pageTitle.textContent = 'EPUB Converter';
             const { fileBrowser } = await import('./fileBrowser.js');
             fileBrowser.setBasePath('eBook');
@@ -66,8 +71,11 @@ export const ui = {
             tabEpub.classList.remove('active');
             tabAlistVideo.classList.remove('active');
             tabAlist.classList.remove('active');
+            if (tabDropbox) tabDropbox.classList.remove('active');
             viewBrowser.classList.remove('hidden');
+            viewBrowser.style.display = '';
             viewAlist.classList.add('hidden');
+            if (viewDropbox) viewDropbox.style.display = 'none';
             if (pageTitle) pageTitle.textContent = 'MP3 Converter';
             const { fileBrowser } = await import('./fileBrowser.js');
             fileBrowser.setBasePath('music');
@@ -77,8 +85,11 @@ export const ui = {
             tabEpub.classList.remove('active');
             tabMp3.classList.remove('active');
             tabAlist.classList.remove('active');
+            if (tabDropbox) tabDropbox.classList.remove('active');
             viewBrowser.classList.remove('hidden');
+            viewBrowser.style.display = '';
             viewAlist.classList.add('hidden');
+            if (viewDropbox) viewDropbox.style.display = 'none';
             if (pageTitle) pageTitle.textContent = 'AList Video';
             const { fileBrowser } = await import('./fileBrowser.js');
             fileBrowser.setBasePath('alist');
@@ -88,9 +99,24 @@ export const ui = {
             tabEpub.classList.remove('active');
             tabMp3.classList.remove('active');
             tabAlistVideo.classList.remove('active');
+            if (tabDropbox) tabDropbox.classList.remove('active');
             viewBrowser.classList.add('hidden');
             viewAlist.classList.remove('hidden');
+            if (viewDropbox) viewDropbox.style.display = 'none';
         });
+        if (tabDropbox) {
+            tabDropbox.addEventListener('click', () => {
+                tabDropbox.classList.add('active');
+                tabAlist.classList.remove('active');
+                tabEpub.classList.remove('active');
+                tabMp3.classList.remove('active');
+                tabAlistVideo.classList.remove('active');
+                viewBrowser.classList.add('hidden');
+                viewBrowser.style.display = 'none';
+                viewAlist.classList.add('hidden');
+                if (viewDropbox) viewDropbox.style.display = 'block';
+            });
+        }
     }
 }
 };
