@@ -118,6 +118,17 @@ export const fileBrowser = {
                 div.addEventListener('click', () => {
                     this.loadFiles(item.path);
                 });
+            } else if (item.name.toLowerCase().endsWith('.mp3')) {
+                div.addEventListener('click', async () => {
+                    const { mp3Player } = await import('./mp3Player.js');
+                    const { api } = await import('./api.js');
+                    mp3Player.open(item, api);
+                });
+            } else if (item.name.toLowerCase().endsWith('.epub')) {
+                div.addEventListener('click', async () => {
+                    const { epubPlayer } = await import('./epubPlayer.js');
+                    epubPlayer.open(item);
+                });
             }
 
             div.addEventListener('contextmenu', (e) => {
