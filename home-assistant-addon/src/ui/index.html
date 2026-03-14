@@ -32,16 +32,34 @@
 
     <div class="container main-content hidden" id="view-alist">
         <h1>AList to STRM</h1>
-        <div class="form-group" style="display:flex; flex-direction:column; gap:10px; max-width: 400px; margin-top:20px;">
-            <label>AList URL <input type="text" id="alist-url" class="rename-input" placeholder="http://192.168.1.100:5244"></label>
-            <label>Public Domain <input type="text" id="alist-domain" class="rename-input" placeholder="https://alist.example.com"></label>
-            <label>Remote Path <input type="text" id="alist-remote" class="rename-input" placeholder="/OneDriveShare"></label>
-            <label>Local Path <input type="text" id="alist-local" class="rename-input" placeholder="/media/alist"></label>
-            <label>Username <input type="text" id="alist-user" class="rename-input" placeholder="admin"></label>
-            <label>Password <input type="password" id="alist-pass" class="rename-input" placeholder="password"></label>
-            <div style="display:flex; gap:10px; margin-top: 10px;">
-                <button class="btn" id="save-alist" style="background:#0056b3;">Save Settings</button>
-                <button class="btn" id="run-alist" style="background:#28a745;">Run Generator</button>
+        <div class="modern-form" style="margin-top:20px;">
+            <div class="form-group-modern">
+                <label class="form-label-modern">AList URL</label>
+                <input type="text" id="alist-url" class="form-control-modern" placeholder="http://192.168.1.100:5244">
+            </div>
+            <div class="form-group-modern">
+                <label class="form-label-modern">Public Domain</label>
+                <input type="text" id="alist-domain" class="form-control-modern" placeholder="https://alist.example.com">
+            </div>
+            <div class="form-group-modern">
+                <label class="form-label-modern">Remote Path</label>
+                <input type="text" id="alist-remote" class="form-control-modern" placeholder="/OneDriveShare">
+            </div>
+            <div class="form-group-modern">
+                <label class="form-label-modern">Local Path</label>
+                <input type="text" id="alist-local" class="form-control-modern" placeholder="/media/alist">
+            </div>
+            <div class="form-group-modern">
+                <label class="form-label-modern">Username</label>
+                <input type="text" id="alist-user" class="form-control-modern" placeholder="admin">
+            </div>
+            <div class="form-group-modern">
+                <label class="form-label-modern">Password</label>
+                <input type="password" id="alist-pass" class="form-control-modern" placeholder="password">
+            </div>
+            <div class="form-actions-modern">
+                <button id="save-alist" class="btn-save-modern">Save Settings</button>
+                <button id="run-alist" class="btn-run-modern">Run Generator</button>
             </div>
             <div id="alist-status" style="margin-top:10px; font-weight:bold;"></div>
         </div>
