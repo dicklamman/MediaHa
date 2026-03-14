@@ -134,6 +134,11 @@ export const fileBrowser = {
                     const { mediaPreview } = await import('./mediaPreview.js');
                     mediaPreview.open(item);
                 });
+            } else if (item.name.toLowerCase().endsWith('.strm') || item.name.toLowerCase().endsWith('.mp4')) {
+                div.addEventListener('click', async () => {
+                    const { videoPlayer } = await import('./videoPlayer.js');
+                    videoPlayer.open(item);
+                });
             }
 
             div.addEventListener('contextmenu', (e) => {

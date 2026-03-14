@@ -29,14 +29,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const previewModal = document.getElementById('preview-modal');
-        if (previewModal && !previewModal.classList.contains('hidden')) {
+        if (previewModal && !previewModal.classList.contains('hidden')) {       
             if (!previewModal.contains(e.target) && !e.target.closest('.file-item') && !e.target.closest('.menu-item')) {
-                // If it's an epub, close it (or image/text if we had them)
                 epubPlayer.close();
-                // To be safe, also clear any simple previews
                 previewModal.classList.add('hidden');
-                const pContent = document.getElementById('preview-content');
+                const pContent = document.getElementById('preview-content');    
                 if (pContent) pContent.innerHTML = '';
+            }
+        }
+
+        const videoModal = document.getElementById('video-modal');
+        if (videoModal && !videoModal.classList.contains('hidden')) {
+            if (!videoModal.contains(e.target) && !e.target.closest('.file-item') && !e.target.closest('.menu-item')) {
+                import('./videoPlayer.js').then(({videoPlayer}) => videoPlayer.close());
             }
         }
     });

@@ -17,6 +17,7 @@
         <ul>
             <li id="tab-epub" class="active">EPUB Converter</li>
             <li id="tab-mp3">MP3 Converter</li>
+            <li id="tab-alist-video">AList Video</li>
             <li id="tab-alist">AList to STRM</li>
         </ul>
     </div>
@@ -84,6 +85,17 @@
             <button id="close-preview" class="btn btn-close">Close ✖</button>
         </div>
         <div id="preview-content"></div>
+    </div>
+
+    <!-- Video Player Modal -->
+    <div id="video-modal" class="hidden" style="position: fixed; top: 5%; left: 5%; right: 5%; bottom: 5%; background: var(--modal-bg); border: 1px solid var(--border-color); box-shadow: 0 12px 24px rgba(0,0,0,0.15); z-index: 2000; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden;">
+        <div id="video-header" style="padding: 10px 15px; background: var(--modal-header-bg); display:flex; justify-content:space-between; align-items: center; border-bottom: 1px solid var(--border-color);">
+            <div style="font-weight: bold;" id="video-title">Video Player</div>
+            <button id="close-video" class="btn btn-close">Close ✖</button>
+        </div>
+        <div id="video-content" style="flex: 1; background: #000; display: flex; justify-content: center; align-items: center;">
+            <video id="video-player" controls style="max-width: 100%; max-height: 100%; width: 100%;"></video>
+        </div>
     </div>
 
     <!-- MP3 Player Modal -->
