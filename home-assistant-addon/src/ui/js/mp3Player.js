@@ -130,13 +130,14 @@ export const mp3Player = {
                 textContent = textContent.substring(1).trim();
             }
             
-            if (matches.length > 0 && textContent) {
+            // Note: we evaluate `!== undefined` so empty lyrics "" (instrumentals) are still kept in the array
+            if (matches.length > 0 && textContent !== undefined) {
                 matches.forEach(match => {
                     const m = parseInt(match[1], 10);
                     const s = parseInt(match[2], 10);
                     const ms = match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3], 10);
                     const time = (m * 60) + s + (ms / 1000);
-                    parsed.push({ time, text: textContent });
+                    parsed.push({ time, text: textContent === '' ? '🎵' : textContent });
                 });
             }
         });

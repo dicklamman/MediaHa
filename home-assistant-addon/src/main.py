@@ -382,15 +382,18 @@ def lyrics_ruby():
 
         kks = pykakasi.kakasi()
         result = []
-        for item in kks.convert(text):
-            orig = item['orig']
-            hira = item['hira']
-            # If the original string contains Kanji (simplistic check: it's not all hiragana/katakana/alpha)
-            if orig != hira and re.search(r'[\u4E00-\u9FAF]', orig):
-                result.append(f"<ruby>{orig}<rt>{hira}</rt></ruby>")
-            else:
-                result.append(orig)
-        return jsonify({'result': "".join(result)})
+        # Process line by line to prevent multi-line strings breaking pykakasi tokenization
+        for line in text.split('\n'):
+            line_res = []
+            for item in kks.convert(line):
+                orig = item['orig']
+                hira = item['hira']
+                if orig != hira and re.search(r'[\u4E00-\u9FAF]', orig):
+                    line_res.append(f"<ruby>{orig}<rt>{hira}</rt></ruby>")
+                else:
+                    line_res.append(orig)
+            result.append("".join(line_res))
+        return jsonify({'result': "\n".join(result)})
     except ImportError:
         return jsonify({'result': text}) # Fallback if module fails
 
