@@ -34,22 +34,45 @@ export const mp3Player = {
                 e.preventDefault();
                 const field = btn.getAttribute('data-field');
                 if (!this.originalMetadata) return;
+                
+                const isReverting = btn.textContent === 'Revert to Existing';
 
-                if (field === 'cover') {
-                    this.pendingCover = null;
-                    const mp3Cover = document.getElementById('mp3-cover');
-                    if (this.originalMetadata.cover) {
-                        mp3Cover.src = this.originalMetadata.cover;
-                        mp3Cover.style.display = 'block';
+                if (isReverting) {
+                    // Revert to original
+                    if (field === 'cover') {
+                        this.pendingCover = null;
+                        const mp3Cover = document.getElementById('mp3-cover');
+                        if (this.originalMetadata.cover) {
+                            mp3Cover.src = this.originalMetadata.cover;
+                            mp3Cover.style.display = 'block';
+                        } else {
+                            if (mp3Cover) mp3Cover.style.display = 'none';
+                        }
+                    } else if (field === 'lyrics') {
+                        document.getElementById('meta-input-lyrics').value = this.originalMetadata.lyrics || '';
                     } else {
-                        if (mp3Cover) mp3Cover.style.display = 'none';
+                        document.getElementById('meta-input-' + field).value = this.originalMetadata[field] || '';
                     }
-                } else if (field === 'lyrics') {
-                    document.getElementById('meta-input-lyrics').value = this.originalMetadata.lyrics || '';
+                    btn.textContent = 'Restore Enhanced Version';
+                    btn.style.background = '#28a745'; // green to match enhance
                 } else {
-                    document.getElementById('meta-input-' + field).value = this.originalMetadata[field] || '';
+                    // Restore enhanced
+                    if (!this.enhancedMetadata) return;
+                    if (field === 'cover') {
+                        this.pendingCover = this.enhancedMetadata.cover;
+                        const mp3Cover = document.getElementById('mp3-cover');
+                        if (this.enhancedMetadata.cover) {
+                            mp3Cover.src = this.enhancedMetadata.cover;
+                            mp3Cover.style.display = 'block';
+                        }
+                    } else if (field === 'lyrics') {
+                        document.getElementById('meta-input-lyrics').value = this.enhancedMetadata.lyrics || '';
+                    } else {
+                        document.getElementById('meta-input-' + field).value = this.enhancedMetadata[field] || '';
+                    }
+                    btn.textContent = 'Revert to Existing';
+                    btn.style.background = '#6c757d'; // grey for revert
                 }
-                btn.style.display = 'none';
             });
         });
     },
@@ -213,29 +236,30 @@ export const mp3Player = {
 
         try {
             const data = await this.api.enhanceMp3(this.currentFile.path);
+            this.enhancedMetadata = data;
             
             // Populate form with fetched data
             if (data.title) {
                 document.getElementById('meta-input-title').value = data.title;
-                document.querySelector('.revert-btn[data-field="title"]').style.display = "inline-block";
+                const b = document.querySelector('.revert-btn[data-field="title"]'); b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d";
             }
             if (data.artist) {
                 document.getElementById('meta-input-artist').value = data.artist;
-                document.querySelector('.revert-btn[data-field="artist"]').style.display = "inline-block";
+                const b = document.querySelector('.revert-btn[data-field="artist"]'); b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d";
             }
             if (data.album) {
                 document.getElementById('meta-input-album').value = data.album;
-                document.querySelector('.revert-btn[data-field="album"]').style.display = "inline-block";
+                const b = document.querySelector('.revert-btn[data-field="album"]'); b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d";
             }
             if (data.lyrics) {
                 document.getElementById('meta-input-lyrics').value = data.lyrics;
-                document.querySelector('.revert-btn[data-field="lyrics"]').style.display = "inline-block";
+                const b = document.querySelector('.revert-btn[data-field="lyrics"]'); b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d";
             }
             
             // Preview image
             if (data.cover) {
                 this.pendingCover = data.cover;
-                document.querySelector('.revert-btn[data-field="cover"]').style.display = "inline-block";
+                const b = document.querySelector('.revert-btn[data-field="cover"]'); b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d";
                 const mp3Cover = document.getElementById('mp3-cover');
                 if (mp3Cover) {
                     mp3Cover.src = data.cover;
@@ -245,7 +269,7 @@ export const mp3Player = {
 
             // Enter edit mode so user reviews and saves
             this.toggleEditMode(true);
-            alert("Preview loaded! Please review the details and click 'Save' to apply, or 'Cancel' to revert.");
+            
 
         } catch(err) {
             alert('Failed to find enhancement data.');
