@@ -1,6 +1,7 @@
 export const mp3Player = {
     currentFile: null,
     api: null,
+    pendingCover: null,
 
     init() {
         const closeMp3Btn = document.getElementById('close-mp3');
@@ -8,15 +9,24 @@ export const mp3Player = {
 
         const editBtn = document.getElementById('edit-metadata-btn');
         const saveBtn = document.getElementById('save-metadata-btn');
+        const cancelBtn = document.getElementById('cancel-metadata-btn');
+        const autoEnhanceBtn = document.getElementById('auto-enhance-btn');
 
         if (editBtn) editBtn.addEventListener('click', () => this.toggleEditMode(true));
         if (saveBtn) saveBtn.addEventListener('click', () => this.saveMetadata());
+        if (cancelBtn) cancelBtn.addEventListener('click', () => {
+            this.pendingCover = null;
+            this.toggleEditMode(false);
+            this.loadMetadata(); // revert inputs to current saved metadata
+        });
+        if (autoEnhanceBtn) autoEnhanceBtn.addEventListener('click', () => this.autoEnhance());
     },
 
     async open(file, apiInstance) {
         if (!file || file.type === 'folder') return;
         this.currentFile = file;
-        this.api = apiInstance || window.api; // fallback if passed globally
+        this.api = apiInstance || window.api; 
+        this.pendingCover = null;
 
         const mp3Modal = document.getElementById('mp3-modal');
         const mp3Title = document.getElementById('mp3-title');
@@ -37,7 +47,7 @@ export const mp3Player = {
                 mp3Cover.style.display = 'none';
             }
             if (mp3Lyrics) mp3Lyrics.textContent = 'Loading metadata...';
-            
+
             document.getElementById('meta-disp-title').textContent = 'Loading...';
             document.getElementById('meta-disp-artist').textContent = 'Loading...';
             document.getElementById('meta-disp-album').textContent = 'Loading...';
@@ -54,11 +64,13 @@ export const mp3Player = {
     async loadMetadata() {
         try {
             const metadata = await this.api.getMetadata(this.currentFile.path);
-            
+
+            // Populate Display
             document.getElementById('meta-disp-title').textContent = metadata.title || 'Unknown Title';
             document.getElementById('meta-disp-artist').textContent = metadata.artist || 'Unknown Artist';
             document.getElementById('meta-disp-album').textContent = metadata.album || 'Unknown Album';
 
+            // Populate Inputs for editing
             document.getElementById('meta-input-title').value = metadata.title || '';
             document.getElementById('meta-input-artist').value = metadata.artist || '';
             document.getElementById('meta-input-album').value = metadata.album || '';
@@ -74,7 +86,7 @@ export const mp3Player = {
             } else {
                 if (mp3Cover) mp3Cover.style.display = 'none';
             }
-            
+
             const mp3Title = document.getElementById('mp3-title');
             if (metadata.title) mp3Title.textContent = metadata.title + (metadata.artist ? ' - ' + metadata.artist : '');
 
@@ -84,24 +96,69 @@ export const mp3Player = {
         }
     },
 
+    async autoEnhance() {
+        if (!this.api || !this.currentFile) return;
+        const autoBtn = document.getElementById('auto-enhance-btn');
+        const originalText = autoBtn.textContent;
+        autoBtn.textContent = 'Searching...';
+        autoBtn.disabled = true;
+
+        try {
+            const data = await this.api.enhanceMp3(this.currentFile.path);
+            
+            // Populate form with fetched data
+            if (data.title) document.getElementById('meta-input-title').value = data.title;
+            if (data.artist) document.getElementById('meta-input-artist').value = data.artist;
+            if (data.album) document.getElementById('meta-input-album').value = data.album;
+            if (data.lyrics) document.getElementById('meta-input-lyrics').value = data.lyrics;
+            
+            // Preview image
+            if (data.cover) {
+                this.pendingCover = data.cover;
+                const mp3Cover = document.getElementById('mp3-cover');
+                if (mp3Cover) {
+                    mp3Cover.src = data.cover;
+                    mp3Cover.style.display = 'block';
+                }
+            }
+
+            // Enter edit mode so user reviews and saves
+            this.toggleEditMode(true);
+            alert("Preview loaded! Please review the details and click 'Save' to apply, or 'Cancel' to revert.");
+
+        } catch(err) {
+            alert('Failed to find enhancement data.');
+            console.error(err);
+        } finally {
+            autoBtn.textContent = originalText;
+            autoBtn.disabled = false;
+        }
+    },
+
     toggleEditMode(isEdit) {
         const displayDiv = document.getElementById('metadata-display');
         const editorDiv = document.getElementById('metadata-editor');
         const editBtn = document.getElementById('edit-metadata-btn');
         const saveBtn = document.getElementById('save-metadata-btn');
+        const cancelBtn = document.getElementById('cancel-metadata-btn');
+        const autoBtn = document.getElementById('auto-enhance-btn');
         const lyricsDiv = document.getElementById('mp3-lyrics');
 
         if (isEdit) {
             displayDiv.classList.add('hidden');
             editorDiv.classList.remove('hidden');
             editBtn.classList.add('hidden');
+            if (autoBtn) autoBtn.classList.add('hidden');
             saveBtn.classList.remove('hidden');
+            if (cancelBtn) cancelBtn.classList.remove('hidden');
             lyricsDiv.classList.add('hidden');
         } else {
             displayDiv.classList.remove('hidden');
             editorDiv.classList.add('hidden');
             editBtn.classList.remove('hidden');
+            if (autoBtn) autoBtn.classList.remove('hidden');
             saveBtn.classList.add('hidden');
+            if (cancelBtn) cancelBtn.classList.add('hidden');
             lyricsDiv.classList.remove('hidden');
         }
     },
@@ -119,8 +176,13 @@ export const mp3Player = {
             lyrics: document.getElementById('meta-input-lyrics').value
         };
 
+        if (this.pendingCover) {
+            data.cover = this.pendingCover;
+        }
+
         try {
             await this.api.updateMetadata(this.currentFile.path, data);
+            this.pendingCover = null;
             await this.loadMetadata();
             this.toggleEditMode(false);
         } catch (err) {
