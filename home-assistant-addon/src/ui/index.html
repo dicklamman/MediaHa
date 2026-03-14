@@ -13,7 +13,7 @@
     <button id="theme-toggle" aria-label="Toggle Dark Mode">🌙</button>
     
     <div class="sidebar">
-        <h2>Media Converter</h2>
+        <h2 style="font-weight: 800; letter-spacing: -0.5px; opacity: 0.9;">Media Converter</h2>
         <ul>
             <li id="tab-epub" class="active">EPUB Converter</li>
             <li id="tab-mp3">MP3 Converter</li>
@@ -22,7 +22,7 @@
     </div>
 
     <div class="container main-content" id="view-file-browser">
-        <h1 id="page-title">EPUB Converter</h1>
+        <h1 id="page-title" style="margin-bottom: 20px; font-weight: 800; letter-spacing: -0.5px;">EPUB Converter</h1>
         <div id="breadcrumb-container"><span class="crumb" id="root-crumb" style="cursor:pointer; font-weight:bold; color:#0056b3;">/media/eBook</span><span id="dynamic-crumbs"></span></div>
         <div id="file-browser">
             <!-- Items populated here -->
@@ -31,7 +31,7 @@
     </div>
 
     <div class="container main-content hidden" id="view-alist">
-        <h1>AList to STRM</h1>
+        <h1 style="margin-bottom: 20px; font-weight: 800; letter-spacing: -0.5px;">AList to STRM</h1>
         <div class="modern-form" style="margin-top:20px;">
             <div class="form-group-modern">
                 <label class="form-label-modern">AList URL</label>
@@ -101,11 +101,11 @@
             <audio id="mp3-audio" controls style="width: 100%; margin-top:10px;"></audio>
 
             <!-- Metadata Reader / Editor -->
-            <div style="margin-top: 15px; border: 1px solid var(--border-color); padding: 15px; border-radius: 8px;">
+            <div style="margin-top: 20px; border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; background: var(--hover-bg); box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <h3 style="margin: 0;">Metadata</h3>
                     <div>
-                        <button id="auto-enhance-btn" class="btn" style="background:#28a745; margin-right:5px;">Auto Enhance</button>
+                        <button id="auto-enhance-btn" class="btn" style="background:#28a745; margin-right:8px; box-shadow: 0 2px 4px rgba(40,167,69,0.2);">Auto Enhance</button>
                         <button id="edit-metadata-btn" class="btn">Edit</button>
                         <button id="cancel-metadata-btn" class="btn rename-cancel hidden" style="margin-right:5px;">Cancel</button>
                         <button id="save-metadata-btn" class="btn rename-confirm hidden">Save</button>
@@ -120,23 +120,23 @@
 
                 <div id="metadata-editor" class="hidden">
                     <div style="margin-bottom: 10px;">
-                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Title <button class="btn btn-small revert-btn" data-field="title" style="display:none; padding:2px 8px; font-size: 0.8em; background:#6c757d;">Revert to Existing</button></label>
+                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Title <button class="btn btn-small revert-btn" data-field="title" style="display:none; padding:4px 10px; font-size: 0.85em; background:var(--info-bg, #6c757d); color:var(--text-color, #fff); border-radius: 4px;">Revert to Existing</button></label>
                         <input type="text" id="meta-input-title" class="rename-input" style="width: 100%; box-sizing: border-box;">
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Artist <button class="btn btn-small revert-btn" data-field="artist" style="display:none; padding:2px 8px; font-size: 0.8em; background:#6c757d;">Revert to Existing</button></label>
+                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Artist <button class="btn btn-small revert-btn" data-field="artist" style="display:none; padding:4px 10px; font-size: 0.85em; background:var(--info-bg, #6c757d); color:var(--text-color, #fff); border-radius: 4px;">Revert to Existing</button></label>
                         <input type="text" id="meta-input-artist" class="rename-input" style="width: 100%; box-sizing: border-box;">
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Album <button class="btn btn-small revert-btn" data-field="album" style="display:none; padding:2px 8px; font-size: 0.8em; background:#6c757d;">Revert to Existing</button></label>
+                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Album <button class="btn btn-small revert-btn" data-field="album" style="display:none; padding:4px 10px; font-size: 0.85em; background:var(--info-bg, #6c757d); color:var(--text-color, #fff); border-radius: 4px;">Revert to Existing</button></label>
                         <input type="text" id="meta-input-album" class="rename-input" style="width: 100%; box-sizing: border-box;">
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Lyrics (.lrc) <button class="btn btn-small revert-btn" data-field="lyrics" style="display:none; padding:2px 8px; font-size: 0.8em; background:#6c757d;">Revert to Existing</button></label>
+                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Lyrics (.lrc) <button class="btn btn-small revert-btn" data-field="lyrics" style="display:none; padding:4px 10px; font-size: 0.85em; background:var(--info-bg, #6c757d); color:var(--text-color, #fff); border-radius: 4px;">Revert to Existing</button></label>
                         <textarea id="meta-input-lyrics" class="rename-input" style="width: 100%; box-sizing: border-box; height: 100px; resize: vertical;"></textarea>
                     </div>
                     <div style="margin-bottom: 10px; display:flex; justify-content:space-between; font-weight:bold;">
-                        Cover Image <button class="btn btn-small revert-btn" data-field="cover" style="display:none; padding:2px 8px; font-size: 0.8em; background:#6c757d;">Revert to Existing</button>
+                        Cover Image <button class="btn btn-small revert-btn" data-field="cover" style="display:none; padding:4px 10px; font-size: 0.85em; background:var(--info-bg, #6c757d); color:var(--text-color, #fff); border-radius: 4px;">Revert to Existing</button>
                     </div>
                 </div>
             </div>
