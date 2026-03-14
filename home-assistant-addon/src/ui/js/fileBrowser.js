@@ -132,8 +132,15 @@ export const fileBrowser = {
                 } else {
                     if(menuConvert) menuConvert.textContent = 'Convert to Traditional';
                     if (menuPreview) {
-                        menuPreview.style.display = 'block';
-                        menuPreview.textContent = item.name.toLowerCase().endsWith('.mp3') ? 'Play MP3' : 'Preview Book';
+                        if (item.name.toLowerCase().endsWith('.mp3')) {
+                            menuPreview.style.display = 'block';
+                            menuPreview.textContent = 'Play MP3';
+                        } else if (item.name.toLowerCase().endsWith('.epub')) {
+                            menuPreview.style.display = 'block';
+                            menuPreview.textContent = 'Preview Book';
+                        } else {
+                            menuPreview.style.display = 'none';
+                        }
                     }
                 }
                 ui.showContextMenu(e.pageX, e.pageY);
