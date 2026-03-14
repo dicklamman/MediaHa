@@ -56,9 +56,13 @@
             <button id="close-mp3" class="btn btn-close">Close ✖</button>
         </div>
         <div id="mp3-content">
-            <img id="mp3-cover" src="" alt="Album Art" style="max-width:300px; display:block; margin:auto;" />
-            <audio id="mp3-audio" controls style="width: 100%; margin-top:10px;"></audio>
+            <div id="mp3-top-layout">
+                <img id="mp3-cover" src="" alt="Album Art" />
+                <div id="mp3-lyrics"></div>
+            </div>
             
+            <audio id="mp3-audio" controls style="width: 100%; margin-top:10px;"></audio>
+
             <!-- Metadata Reader / Editor -->
             <div style="margin-top: 15px; border: 1px solid var(--border-color); padding: 15px; border-radius: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -97,7 +101,7 @@
                 </div>
             </div>
 
-            <div id="mp3-lyrics" style="max-height: 200px; overflow-y:auto; margin-top:10px; padding:10px; background:var(--info-bg); white-space:pre-wrap; border-radius: 4px;"></div>
+            
         </div>
     </div>
 
