@@ -2,14 +2,24 @@ import { api } from './api.js';
 import { ui } from './ui.js';
 
 export const fileBrowser = {
-    currentPath: '',
+    currentPath: 'eBook',
+    basePath: 'eBook',
     selectedFile: null,
 
     init() {
         const rootCrumb = document.getElementById('root-crumb');
         if (rootCrumb) {
-            rootCrumb.addEventListener('click', () => this.loadFiles(''));
+            rootCrumb.addEventListener('click', () => this.loadFiles(this.basePath));
         }
+    },
+
+    setBasePath(path) {
+        this.basePath = path;
+        const rootCrumb = document.getElementById('root-crumb');
+        if (rootCrumb) {
+            rootCrumb.textContent = `/media/${path}`;
+        }
+        this.loadFiles(path);
     },
 
     updateBreadcrumb() {
