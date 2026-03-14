@@ -63,8 +63,12 @@
             <div style="margin-top: 15px; border: 1px solid var(--border-color); padding: 15px; border-radius: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <h3 style="margin: 0;">Metadata</h3>
-                    <button id="edit-metadata-btn" class="btn">Edit</button>
-                    <button id="save-metadata-btn" class="btn rename-confirm hidden">Save</button>
+                    <div>
+                        <button id="auto-enhance-btn" class="btn" style="background:#28a745; margin-right:5px;">Auto Enhance</button>
+                        <button id="edit-metadata-btn" class="btn">Edit</button>
+                        <button id="cancel-metadata-btn" class="btn rename-cancel hidden" style="margin-right:5px;">Cancel</button>
+                        <button id="save-metadata-btn" class="btn rename-confirm hidden">Save</button>
+                    </div>
                 </div>
                 
                 <div id="metadata-display">
