@@ -231,7 +231,7 @@ export const mp3Player = {
         if (!this.api || !this.currentFile) return;
         const autoBtn = document.getElementById('auto-enhance-btn');
         const originalText = autoBtn.textContent;
-        autoBtn.textContent = 'Searching...';
+        autoBtn.innerHTML = '<span class="spinner"></span>Searching...';
         autoBtn.disabled = true;
 
         try {
@@ -311,7 +311,7 @@ export const mp3Player = {
     async saveMetadata() {
         const saveBtn = document.getElementById('save-metadata-btn');
         const originalText = saveBtn.textContent;
-        saveBtn.textContent = 'Saving...';
+        saveBtn.innerHTML = '<span class="spinner"></span>Saving...';
         saveBtn.disabled = true;
 
         const data = {
