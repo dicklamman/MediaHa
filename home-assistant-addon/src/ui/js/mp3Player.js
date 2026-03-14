@@ -27,6 +27,31 @@ export const mp3Player = {
         if (mp3Audio) {
             mp3Audio.addEventListener('timeupdate', () => this.updateSyncedLyrics(mp3Audio.currentTime));
         }
+
+        // Revert buttons logic
+        document.querySelectorAll('.revert-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const field = btn.getAttribute('data-field');
+                if (!this.originalMetadata) return;
+
+                if (field === 'cover') {
+                    this.pendingCover = null;
+                    const mp3Cover = document.getElementById('mp3-cover');
+                    if (this.originalMetadata.cover) {
+                        mp3Cover.src = this.originalMetadata.cover;
+                        mp3Cover.style.display = 'block';
+                    } else {
+                        if (mp3Cover) mp3Cover.style.display = 'none';
+                    }
+                } else if (field === 'lyrics') {
+                    document.getElementById('meta-input-lyrics').value = this.originalMetadata.lyrics || '';
+                } else {
+                    document.getElementById('meta-input-' + field).value = this.originalMetadata[field] || '';
+                }
+                btn.style.display = 'none';
+            });
+        });
     },
 
     async open(file, apiInstance) {
@@ -145,6 +170,8 @@ export const mp3Player = {
     async loadMetadata() {
         try {
             const metadata = await this.api.getMetadata(this.currentFile.path);
+            this.originalMetadata = metadata; // Keep original
+            document.querySelectorAll(".revert-btn").forEach(btn => btn.style.display = "none");
 
             // Populate Display
             document.getElementById('meta-disp-title').textContent = metadata.title || 'Unknown Title';
@@ -188,14 +215,27 @@ export const mp3Player = {
             const data = await this.api.enhanceMp3(this.currentFile.path);
             
             // Populate form with fetched data
-            if (data.title) document.getElementById('meta-input-title').value = data.title;
-            if (data.artist) document.getElementById('meta-input-artist').value = data.artist;
-            if (data.album) document.getElementById('meta-input-album').value = data.album;
-            if (data.lyrics) document.getElementById('meta-input-lyrics').value = data.lyrics;
+            if (data.title) {
+                document.getElementById('meta-input-title').value = data.title;
+                document.querySelector('.revert-btn[data-field="title"]').style.display = "inline-block";
+            }
+            if (data.artist) {
+                document.getElementById('meta-input-artist').value = data.artist;
+                document.querySelector('.revert-btn[data-field="artist"]').style.display = "inline-block";
+            }
+            if (data.album) {
+                document.getElementById('meta-input-album').value = data.album;
+                document.querySelector('.revert-btn[data-field="album"]').style.display = "inline-block";
+            }
+            if (data.lyrics) {
+                document.getElementById('meta-input-lyrics').value = data.lyrics;
+                document.querySelector('.revert-btn[data-field="lyrics"]').style.display = "inline-block";
+            }
             
             // Preview image
             if (data.cover) {
                 this.pendingCover = data.cover;
+                document.querySelector('.revert-btn[data-field="cover"]').style.display = "inline-block";
                 const mp3Cover = document.getElementById('mp3-cover');
                 if (mp3Cover) {
                     mp3Cover.src = data.cover;
