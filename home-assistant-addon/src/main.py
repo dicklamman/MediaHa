@@ -368,4 +368,6 @@ def run_dropbox_sync():
     return Response(run_sync(target, app_key, app_secret, refresh_token), mimetype='text/plain')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    from waitress import serve
+    print("Starting production WSGI server on port 5000...")
+    serve(app, host='0.0.0.0', port=5000)
