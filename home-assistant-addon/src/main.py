@@ -201,6 +201,13 @@ def update_metadata():
                 )
             except Exception:
                 pass
+        
+        # Save ID3 tags to the MP3 file
+        audio.save()
+        
+        # Handle lyrics
+        lrc_path = os.path.splitext(file_path)[0] + '.lrc'
+        if 'lyrics' in data:
             if data['lyrics'].strip():
                 with open(lrc_path, 'w', encoding='utf-8') as f:
                     f.write(data['lyrics'])
