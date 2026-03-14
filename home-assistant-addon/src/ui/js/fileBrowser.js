@@ -129,6 +129,11 @@ export const fileBrowser = {
                     const { epubPlayer } = await import('./epubPlayer.js');
                     epubPlayer.open(item);
                 });
+            } else if (item.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|lrc|txt)$/)) {
+                div.addEventListener('click', async () => {
+                    const { mediaPreview } = await import('./mediaPreview.js');
+                    mediaPreview.open(item);
+                });
             }
 
             div.addEventListener('contextmenu', (e) => {
@@ -163,6 +168,9 @@ export const fileBrowser = {
                         } else if (item.name.toLowerCase().endsWith('.epub')) {
                             menuPreview.style.display = 'block';
                             menuPreview.textContent = 'Preview Book';
+                        } else if (item.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|lrc|txt)$/)) {
+                            menuPreview.style.display = 'block';
+                            menuPreview.textContent = 'Preview File';
                         } else {
                             menuPreview.style.display = 'none';
                         }

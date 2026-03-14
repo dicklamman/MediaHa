@@ -16,11 +16,16 @@ export const epubPlayer = {
 
     open(file) {
         if (!file || file.type === 'folder') return;
-        
+
         const previewModal = document.getElementById('preview-modal');
         const previewContent = document.getElementById('preview-content');
         const previewTitle = document.getElementById('preview-title');
-        
+
+        const prevPageBtn = document.getElementById('prev-page');
+        const nextPageBtn = document.getElementById('next-page');
+        if (prevPageBtn) prevPageBtn.style.display = 'inline-block';
+        if (nextPageBtn) nextPageBtn.style.display = 'inline-block';
+
         previewTitle.textContent = file.name;
         previewModal.classList.remove('hidden');
         previewContent.innerHTML = '<div style="padding:20px;text-align:center;">Loading preview...</div>';

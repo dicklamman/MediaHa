@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuConvert = document.getElementById('menu-convert');
 
     if (menuPreview) {
-        menuPreview.addEventListener('click', () => {
+        menuPreview.addEventListener('click', async () => {
             ui.hideContextMenu();
             const selectedFile = fileBrowser.selectedFile;
             if (selectedFile && selectedFile.type !== 'folder') {
@@ -52,6 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     mp3Player.open(selectedFile, api);
                 } else if (selectedFile.name.toLowerCase().endsWith('.epub')) {
                     epubPlayer.open(selectedFile);
+                } else if (selectedFile.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|lrc|txt)$/)) {
+                    const { mediaPreview } = await import('./mediaPreview.js');
+                    mediaPreview.open(selectedFile);
                 } else {
                     window.open('/api/download?file_name=' + encodeURIComponent(selectedFile.path), '_blank');
                 }
