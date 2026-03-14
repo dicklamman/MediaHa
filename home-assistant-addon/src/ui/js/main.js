@@ -15,8 +15,28 @@ document.addEventListener('DOMContentLoaded', () => {
     mp3Player.init();
 
     // Global Event Listeners
-    document.addEventListener('click', () => {
+    document.addEventListener('click', (e) => {
         ui.hideContextMenu();
+
+        // Close modals if clicking outside of them
+        const mp3Modal = document.getElementById('mp3-modal');
+        if (mp3Modal && !mp3Modal.classList.contains('hidden')) {
+            if (!mp3Modal.contains(e.target) && !e.target.closest('.file-item') && !e.target.closest('.menu-item')) {
+                mp3Player.close();
+            }
+        }
+
+        const previewModal = document.getElementById('preview-modal');
+        if (previewModal && !previewModal.classList.contains('hidden')) {
+            if (!previewModal.contains(e.target) && !e.target.closest('.file-item') && !e.target.closest('.menu-item')) {
+                // If it's an epub, close it (or image/text if we had them)
+                epubPlayer.close();
+                // To be safe, also clear any simple previews
+                previewModal.classList.add('hidden');
+                const pContent = document.getElementById('preview-content');
+                if (pContent) pContent.innerHTML = '';
+            }
+        }
     });
 
     const menuPreview = document.getElementById('menu-preview');
