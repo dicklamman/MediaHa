@@ -12,6 +12,6 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     dos2unix /app/run.sh && \
     chmod a+x /app/run.sh && \
-    pip3 install --no-cache-dir Flask ebooklib beautifulsoup4 opencc mutagen musicbrainzngs requests
+    pip3 install --no-cache-dir Flask ebooklib beautifulsoup4 opencc mutagen musicbrainzngs requests dropbox
 
 CMD [ "/app/run.sh" ]
