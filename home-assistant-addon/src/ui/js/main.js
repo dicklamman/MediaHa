@@ -3,6 +3,7 @@ import { fileBrowser } from './fileBrowser.js';
 import { epubPlayer } from './epubPlayer.js';
 import { mp3Player } from './mp3Player.js';
 import { alist } from './alist.js';
+import { videoPlayer } from './videoPlayer.js';
 import { api } from './api.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     epubPlayer.init();
     mp3Player.init();
     alist.init();
+    videoPlayer.init();
 
     // Global Event Listeners
     document.addEventListener('click', (e) => {

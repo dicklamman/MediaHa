@@ -19,15 +19,20 @@ export const videoPlayer = {
         this.modal.classList.remove('hidden');
 
         try {
-            // Re-fetch the strm file content directly from the server
-            const res = await fetch(`/api/download?file_name=${encodeURIComponent(file.path)}`);
-            if (res.ok) {
-                const streamUrl = await res.text();
-                // streamUrl should contain the remote raw URL to the alist video
-                this.player.src = streamUrl.trim();
-                this.player.play().catch(e => console.log('Autoplay blocked', e));
+            if (file.name.toLowerCase().endsWith('.strm')) {
+                // Re-fetch the strm file content directly from the server
+                const res = await fetch(`/api/download?file_name=${encodeURIComponent(file.path)}`);
+                if (res.ok) {
+                    const streamUrl = await res.text();
+                    this.player.src = streamUrl.trim();
+                    this.player.play().catch(e => console.log('Autoplay blocked', e));
+                } else {
+                    alert('Failed to load stream URL');
+                }
             } else {
-                alert('Failed to load stream URL');
+                // If it's pure MP4, play it directly from backend route
+                this.player.src = `/api/download?file_name=${encodeURIComponent(file.path)}`;
+                this.player.play().catch(e => console.log('Autoplay blocked', e));
             }
         } catch (e) {
             console.error('Error opening video', e);
