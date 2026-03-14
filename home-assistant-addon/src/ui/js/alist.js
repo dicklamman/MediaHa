@@ -17,11 +17,11 @@ export const alist = {
             const res = await fetch('/api/alist/settings');
             if (res.ok) {
                 const data = await res.json();
-                document.getElementById('alist-url').value = data.alist_url || 'http://192.168.0.142:5244';
-                document.getElementById('alist-domain').value = data.public_domain || 'https://alist.lamleunghome.freeddns.org';
-                document.getElementById('alist-remote').value = data.remote_path || '/OneDriveShare';
-                document.getElementById('alist-local').value = data.local_dir || '/media/alist';
-                document.getElementById('alist-user').value = data.username || 'admin';
+                document.getElementById('alist-url').value = data.alist_url || '';
+                document.getElementById('alist-domain').value = data.public_domain || '';
+                document.getElementById('alist-remote').value = data.remote_path || '';
+                document.getElementById('alist-local').value = data.local_dir || '';
+                document.getElementById('alist-user').value = data.username || '';
                 document.getElementById('alist-pass').value = data.password || '';
             }
         } catch (e) {
