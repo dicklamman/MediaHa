@@ -124,7 +124,12 @@ export const mp3Player = {
         
         lines.forEach(line => {
             const matches = [...line.matchAll(timeRegex)];
-            const textContent = line.replace(timeRegex, '').trim();
+            let textContent = line.replace(timeRegex, '').trim();
+            // Remove lingering closing brackets that might occur if formatting is weird
+            if (textContent.startsWith(']')) {
+                textContent = textContent.substring(1).trim();
+            }
+            
             if (matches.length > 0 && textContent) {
                 matches.forEach(match => {
                     const m = parseInt(match[1], 10);
