@@ -2,6 +2,8 @@ export const mp3Player = {
     currentFile: null,
     api: null,
     pendingCover: null,
+    lrcData: [],
+    activeIndex: -1,
 
     init() {
         const closeMp3Btn = document.getElementById('close-mp3');
@@ -20,6 +22,11 @@ export const mp3Player = {
             this.loadMetadata(); // revert inputs to current saved metadata
         });
         if (autoEnhanceBtn) autoEnhanceBtn.addEventListener('click', () => this.autoEnhance());
+
+        const mp3Audio = document.getElementById('mp3-audio');
+        if (mp3Audio) {
+            mp3Audio.addEventListener('timeupdate', () => this.updateSyncedLyrics(mp3Audio.currentTime));
+        }
     },
 
     async open(file, apiInstance) {
@@ -61,6 +68,80 @@ export const mp3Player = {
         }
     },
 
+    parseLRC(text) {
+        if (!text) return [];
+        const lines = text.split('\n');
+        const parsed = [];
+        const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/g;
+        
+        lines.forEach(line => {
+            const matches = [...line.matchAll(timeRegex)];
+            const textContent = line.replace(timeRegex, '').trim();
+            if (matches.length > 0 && textContent) {
+                matches.forEach(match => {
+                    const m = parseInt(match[1], 10);
+                    const s = parseInt(match[2], 10);
+                    const ms = match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3], 10);
+                    const time = (m * 60) + s + (ms / 1000);
+                    parsed.push({ time, text: textContent });
+                });
+            }
+        });
+        return parsed.sort((a, b) => a.time - b.time);
+    },
+
+    renderLyrics(text) {
+        const lyricsDiv = document.getElementById('mp3-lyrics');
+        if (!lyricsDiv) return;
+
+        this.lrcData = this.parseLRC(text);
+        this.activeIndex = -1;
+
+        if (this.lrcData.length > 0) {
+            lyricsDiv.classList.add('synced');
+            lyricsDiv.innerHTML = '';
+            this.lrcData.forEach((line, index) => {
+                const p = document.createElement('p');
+                p.textContent = line.text;
+                p.id = 'lrc-line-' + index;
+                lyricsDiv.appendChild(p);
+            });
+        } else {
+            lyricsDiv.classList.remove('synced');
+            lyricsDiv.textContent = text || 'No lyrics found for this item.';
+        }
+    },
+
+    updateSyncedLyrics(currentTime) {
+        if (!this.lrcData || this.lrcData.length === 0) return;
+        
+        let newIndex = -1;
+        for (let i = 0; i < this.lrcData.length; i++) {
+            if (currentTime >= this.lrcData[i].time) {
+                newIndex = i;
+            } else {
+                break;
+            }
+        }
+
+        if (newIndex !== this.activeIndex && newIndex !== -1) {
+            if (this.activeIndex !== -1) {
+                const oldEl = document.getElementById('lrc-line-' + this.activeIndex);
+                if (oldEl) oldEl.classList.remove('active');
+            }
+            
+            this.activeIndex = newIndex;
+            const newEl = document.getElementById('lrc-line-' + this.activeIndex);
+            if (newEl) {
+                newEl.classList.add('active');
+                
+                const container = document.getElementById('mp3-lyrics');
+                const scrollPos = newEl.offsetTop - container.offsetTop - (container.clientHeight / 2) + (newEl.clientHeight / 2);
+                container.scrollTo({ top: scrollPos, behavior: 'smooth' });
+            }
+        }
+    },
+
     async loadMetadata() {
         try {
             const metadata = await this.api.getMetadata(this.currentFile.path);
@@ -77,7 +158,7 @@ export const mp3Player = {
             document.getElementById('meta-input-lyrics').value = metadata.lyrics || '';
 
             const mp3Lyrics = document.getElementById('mp3-lyrics');
-            if (mp3Lyrics) mp3Lyrics.textContent = metadata.lyrics || 'No lyrics found for this item.';
+            this.renderLyrics(metadata.lyrics);
 
             const mp3Cover = document.getElementById('mp3-cover');
             if (metadata.cover) {
