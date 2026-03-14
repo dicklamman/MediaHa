@@ -2,6 +2,7 @@ import { ui } from './ui.js';
 import { fileBrowser } from './fileBrowser.js';
 import { epubPlayer } from './epubPlayer.js';
 import { mp3Player } from './mp3Player.js';
+import { api } from './api.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize UI components
@@ -28,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectedFile = fileBrowser.selectedFile;
             if (selectedFile && selectedFile.type !== 'folder') {
                 if (selectedFile.name.toLowerCase().endsWith('.mp3')) {
-                    mp3Player.open(selectedFile);
+                    mp3Player.open(selectedFile, api);
                 } else if (selectedFile.name.toLowerCase().endsWith('.epub')) {
                     epubPlayer.open(selectedFile);
                 } else {

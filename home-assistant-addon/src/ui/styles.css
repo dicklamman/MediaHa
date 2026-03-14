@@ -305,6 +305,7 @@ body {
     overflow: hidden;
 }
 #mp3-modal.hidden { display: none; }
+.hidden { display: none !important; }
 #mp3-header {
     padding: 10px 15px; background: var(--modal-header-bg);
     display:flex; justify-content:space-between; align-items: center;

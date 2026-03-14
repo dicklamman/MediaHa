@@ -58,7 +58,42 @@
         <div id="mp3-content">
             <img id="mp3-cover" src="" alt="Album Art" style="max-width:300px; display:block; margin:auto;" />
             <audio id="mp3-audio" controls style="width: 100%; margin-top:10px;"></audio>
-            <div id="mp3-lyrics" style="max-height: 200px; overflow-y:auto; margin-top:10px; padding:10px; background:#f4f4f4; white-space:pre-wrap;"></div>
+            
+            <!-- Metadata Reader / Editor -->
+            <div style="margin-top: 15px; border: 1px solid var(--border-color); padding: 15px; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0;">Metadata</h3>
+                    <button id="edit-metadata-btn" class="btn">Edit</button>
+                    <button id="save-metadata-btn" class="btn rename-confirm hidden">Save</button>
+                </div>
+                
+                <div id="metadata-display">
+                    <p style="margin:5px 0;"><strong>Title:</strong> <span id="meta-disp-title">-</span></p>
+                    <p style="margin:5px 0;"><strong>Artist:</strong> <span id="meta-disp-artist">-</span></p>
+                    <p style="margin:5px 0;"><strong>Album:</strong> <span id="meta-disp-album">-</span></p>
+                </div>
+
+                <div id="metadata-editor" class="hidden">
+                    <div style="margin-bottom: 10px;">
+                        <label style="display:block; font-weight:bold; margin-bottom: 5px;">Title</label>
+                        <input type="text" id="meta-input-title" class="rename-input" style="width: 100%; box-sizing: border-box;">
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label style="display:block; font-weight:bold; margin-bottom: 5px;">Artist</label>
+                        <input type="text" id="meta-input-artist" class="rename-input" style="width: 100%; box-sizing: border-box;">
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label style="display:block; font-weight:bold; margin-bottom: 5px;">Album</label>
+                        <input type="text" id="meta-input-album" class="rename-input" style="width: 100%; box-sizing: border-box;">
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label style="display:block; font-weight:bold; margin-bottom: 5px;">Lyrics (.lrc file)</label>
+                        <textarea id="meta-input-lyrics" class="rename-input" style="width: 100%; box-sizing: border-box; height: 100px; resize: vertical;"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div id="mp3-lyrics" style="max-height: 200px; overflow-y:auto; margin-top:10px; padding:10px; background:var(--info-bg); white-space:pre-wrap; border-radius: 4px;"></div>
         </div>
     </div>
 

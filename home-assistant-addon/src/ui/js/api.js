@@ -16,6 +16,20 @@ export const api = {
         }
         return await response.json();
     },
+    async getMetadata(path) {
+        const response = await fetch('/api/metadata?file_name=' + encodeURIComponent(path));
+        if (!response.ok) throw new Error('Failed to load metadata');
+        return await response.json();
+    },
+    async updateMetadata(path, data) {
+        const response = await fetch('/api/metadata', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_name: path, ...data })
+        });
+        if (!response.ok) throw new Error('Failed to update metadata');
+        return await response.json();
+    },
     async convertFile(path) {
         const response = await fetch('/convert', {
             method: 'POST',

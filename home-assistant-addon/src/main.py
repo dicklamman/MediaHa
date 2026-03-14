@@ -99,5 +99,107 @@ def convert():
     output_path = convert_to_hk_traditional_chinese(input_path)
     return jsonify({'message': 'Conversion successful', 'output_file': output_path})
 
+from mutagen.mp3 import MP3
+from mutagen.id3 import ID3, TIT2, TPE1, TALB
+
+import base64
+
+@app.route('/api/metadata', methods=['GET'])
+def get_metadata():
+    file_name = request.args.get('file_name')
+    if not file_name:
+        return jsonify({'error': 'No file name provided'}), 400
+
+    file_path = os.path.abspath(os.path.join(MEDIA_DIR, file_name))
+    if not file_path.startswith(os.path.abspath(MEDIA_DIR)):
+        return jsonify({'error': 'Access denied'}), 403
+
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'File not found'}), 404
+
+    # Read Lyrics
+    lrc_path = os.path.splitext(file_path)[0] + '.lrc'
+    lyrics = ""
+    if os.path.exists(lrc_path):
+        try:
+            with open(lrc_path, 'r', encoding='utf-8') as f:
+                lyrics = f.read()
+        except Exception:
+            pass
+
+    # Read ID3 tags
+    title = os.path.splitext(os.path.basename(file_path))[0]
+    artist = ""
+    album = ""
+    cover_b64 = None
+    mime_type = "image/jpeg"
+
+    try:
+        audio = MP3(file_path, ID3=ID3)
+        if audio.tags:
+            if 'TIT2' in audio.tags:
+                title = audio.tags['TIT2'].text[0]
+            if 'TPE1' in audio.tags:
+                artist = audio.tags['TPE1'].text[0]
+            if 'TALB' in audio.tags:
+                album = audio.tags['TALB'].text[0]
+            for tag in audio.tags.values():
+                if tag.FrameID == 'APIC':
+                    cover_b64 = base64.b64encode(tag.data).decode('utf-8')
+                    mime_type = tag.mime
+                    break
+    except Exception:
+        pass
+
+    return jsonify({
+        'title': title,
+        'artist': artist,
+        'album': album,
+        'lyrics': lyrics,
+        'cover': f"data:{mime_type};base64,{cover_b64}" if cover_b64 else None
+    })
+
+@app.route('/api/metadata', methods=['POST'])
+def update_metadata():
+    data = request.json
+    file_name = data.get('file_name')
+    if not file_name:
+        return jsonify({'error': 'No file name provided'}), 400
+
+    file_path = os.path.abspath(os.path.join(MEDIA_DIR, file_name))
+    if not file_path.startswith(os.path.abspath(MEDIA_DIR)):
+        return jsonify({'error': 'Access denied'}), 403
+
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'File not found'}), 404
+
+    try:
+        audio = MP3(file_path, ID3=ID3)
+        if audio.tags is None:
+            audio.add_tags()
+        
+        if 'title' in data:
+            audio.tags.add(TIT2(encoding=3, text=data['title']))
+        if 'artist' in data:
+            audio.tags.add(TPE1(encoding=3, text=data['artist']))
+        if 'album' in data:
+            audio.tags.add(TALB(encoding=3, text=data['album']))
+        
+        audio.save()
+
+        # Save lyrics
+        if 'lyrics' in data:
+            lrc_path = os.path.splitext(file_path)[0] + '.lrc'
+            if data['lyrics'].strip():
+                with open(lrc_path, 'w', encoding='utf-8') as f:
+                    f.write(data['lyrics'])
+            else:
+                if os.path.exists(lrc_path):
+                    os.remove(lrc_path)
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
