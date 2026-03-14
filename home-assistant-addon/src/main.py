@@ -255,11 +255,16 @@ def enhance_metadata():
 
         search_term = f"{title} {artist}".strip()
 
-        # Search iTunes for cover/album/artist/title
+        # Search iTunes for cover/album/artist/title (try JP store first for Japanese metadata)
         cover_b64 = None
         mime_type = "image/jpeg"
         try:
-            itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': 1})
+            # Try JP store first to get original Japanese text instead of romaji/english
+            itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': 1, 'country': 'jp', 'lang': 'ja_jp'})
+            if not (itunes_res.status_code == 200 and itunes_res.json().get('results')):
+                # Fallback to general search if not found in JP store
+                itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': 1})
+                
             if itunes_res.status_code == 200 and itunes_res.json().get('results'):
                 track = itunes_res.json()['results'][0]
                 
