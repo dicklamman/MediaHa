@@ -19,6 +19,7 @@
             <li id="tab-mp3">MP3 Converter</li>
             <li id="tab-alist-video">AList Video</li>
             <li id="tab-alist">AList to STRM</li>
+            <li id="tab-dropbox">Dropbox Sync</li>
         </ul>
     </div>
 
@@ -169,7 +170,36 @@
         </div>
     </div>
 
+    <!-- Dropbox Sync Section -->
+    <div class="container main-content" id="view-dropbox" style="display: none;">
+        <h1 style="margin-bottom: 20px; font-weight: 800;">Dropbox Sync</h1>
+        <div class="card" style="padding: 24px;">
+            <div style="margin-bottom: 15px;">
+                <label for="dropbox-app-key" style="font-weight: 600; display: block; margin-bottom: 8px;">Dropbox App Key</label>
+                <input type="text" id="dropbox-app-key" class="rename-input" style="width: 100%; box-sizing: border-box;" placeholder="e.g. dbqe0tw...">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label for="dropbox-app-secret" style="font-weight: 600; display: block; margin-bottom: 8px;">Dropbox App Secret</label>
+                <input type="password" id="dropbox-app-secret" class="rename-input" style="width: 100%; box-sizing: border-box;" placeholder="e.g. nt1if1...">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label for="dropbox-refresh-token" style="font-weight: 600; display: block; margin-bottom: 8px;">Refresh Token</label>
+                <input type="password" id="dropbox-refresh-token" class="rename-input" style="width: 100%; box-sizing: border-box;" placeholder="Enter your long refresh token">
+            </div>
+            <button id="save-dropbox-settings" class="btn btn-primary" style="margin-bottom: 30px; font-weight: 600;">Save Settings</button>
+
+            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                <button id="sync-ebook-btn" class="btn btn-primary" style="flex: 1; font-weight: 600; font-size: 1.1em; padding: 12px;">Sync eBook</button>
+                <button id="sync-music-btn" class="btn btn-primary" style="flex: 1; font-weight: 600; font-size: 1.1em; padding: 12px; background: #ab47bc;">Sync Music</button>
+            </div>
+            
+            <h3 style="margin-bottom: 10px;">Sync Logs</h3>
+            <pre id="dropbox-log-output" style="background: #1e1e1e; padding: 15px; border-radius: 8px; color: #00ff00; min-height: 200px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 13px;"></pre>
+        </div>
+    </div>
+
     <!-- Link the main module script -->
     <script type="module" src="js/main.js"></script>
+    <script src="js/dropbox.js"></script>
 </body>
 </html>

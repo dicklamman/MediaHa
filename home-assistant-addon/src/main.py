@@ -333,5 +333,39 @@ def run_alist():
     from utils.alist_strm import generate_strm_generator
     return Response(generate_strm_generator(config), mimetype='text/plain')
 
+DROPBOX_CONFIG_PATH = '/data/dropbox_options.json' if os.path.exists('/data') else os.path.join(os.path.dirname(__file__), '../config/dropbox_options.json')
+
+@app.route('/api/dropbox/settings', methods=['GET'])
+def get_dropbox_settings():
+    if os.path.exists(DROPBOX_CONFIG_PATH):
+        with open(DROPBOX_CONFIG_PATH, 'r') as f:
+            return jsonify(json.load(f))
+    return jsonify({})
+
+@app.route('/api/dropbox/settings', methods=['POST'])
+def save_dropbox_settings():
+    data = request.json
+    os.makedirs(os.path.dirname(DROPBOX_CONFIG_PATH), exist_ok=True)
+    with open(DROPBOX_CONFIG_PATH, 'w') as f:
+        json.dump(data, f)
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/dropbox/run', methods=['POST'])
+def run_dropbox_sync():
+    data = request.json
+    target = data.get('target', '')
+    
+    config = {}
+    if os.path.exists(DROPBOX_CONFIG_PATH):
+        with open(DROPBOX_CONFIG_PATH, 'r') as f:
+            config = json.load(f)
+            
+    app_key = config.get('app_key', '')
+    app_secret = config.get('app_secret', '')
+    refresh_token = config.get('refresh_token', '')
+
+    from utils.dropbox_sync import run_sync
+    return Response(run_sync(target, app_key, app_secret, refresh_token), mimetype='text/plain')
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
