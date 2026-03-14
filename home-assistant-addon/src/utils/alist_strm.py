@@ -40,13 +40,12 @@ def get_file_sign(base_url, path, token):
         return ""
 
 def generate_strm_generator(gist_config):
-    api_url = gist_config.get('alist_url', 'http://192.168.0.142:5244')
-    public_domain = gist_config.get('public_domain', 'https://alist.lamleunghome.freeddns.org')
+    api_url = gist_config.get('alist_url', 'http://192.168.1.100:5244')
+    public_domain = gist_config.get('public_domain', 'https://alist.example.com')
     remote_root = gist_config.get('remote_path', '/OneDriveShare').rstrip('/')
     local_root = os.path.abspath(gist_config.get('local_dir', '/media/alist'))
     username = gist_config.get('username', 'admin')
-    password = gist_config.get('password', 'nopassword')
-
+    password = gist_config.get('password', '')
     try:
         yield f"Logging into AList URL: {api_url}...\n"
         token = get_alist_token(api_url, username, password)
