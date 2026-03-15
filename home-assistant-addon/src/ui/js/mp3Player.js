@@ -79,6 +79,16 @@ export const mp3Player = {
         this.currentFile = file;
         this.api = apiInstance || window.api;
         this.pendingCover = null;
+        this.enhancedMetadata = null;
+
+        // Reset enhance status
+        const enhanceStatus = document.getElementById('enhance-status');
+        if (enhanceStatus) {
+            enhanceStatus.textContent = '';
+            enhanceStatus.classList.add('hidden');
+        }
+        const autoBtn = document.getElementById('auto-enhance-btn');
+        if (autoBtn) autoBtn.textContent = 'Auto Enhance';
 
         const mp3Modal = document.getElementById('mp3-modal');
         const mp3Title = document.getElementById('mp3-title');
@@ -303,6 +313,9 @@ export const mp3Player = {
             const data = await this.api.enhanceMp3(this.currentFile.path);
             this.enhancedMetadata = data;
 
+            // Track what was enhanced
+            const enhancedFields = [];
+
             // Find o3ics value from data (handles key name issues)
             let o3icsValue = data.o3ics || '';
             if (!o3icsValue) {
@@ -323,45 +336,56 @@ export const mp3Player = {
                 }
             }
 
+            // Update display section with enhanced data
             if (data.title) {
+                document.getElementById('meta-disp-title').textContent = data.title;
                 document.getElementById('meta-input-title').value = data.title;
-                const b = document.querySelector('.revert-btn[data-field="title"]');
-                if (b) { b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d"; }
+                enhancedFields.push('title');
             }
             if (data.artist) {
+                document.getElementById('meta-disp-artist').textContent = data.artist;
                 document.getElementById('meta-input-artist').value = data.artist;
-                const b = document.querySelector('.revert-btn[data-field="artist"]');
-                if (b) { b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d"; }
+                enhancedFields.push('artist');
             }
             if (data.album) {
+                document.getElementById('meta-disp-album').textContent = data.album;
                 document.getElementById('meta-input-album').value = data.album;
-                const b = document.querySelector('.revert-btn[data-field="album"]');
-                if (b) { b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d"; }
+                enhancedFields.push('album');
             }
             if (o3icsValue) {
                 document.getElementById('meta-input-o3ics').value = o3icsValue;
-                const b = document.querySelector('.revert-btn[data-field="o3ics"]');
-                if (b) { b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d"; }
+                enhancedFields.push('lyrics');
             }
 
             if (data.cover) {
                 this.pendingCover = data.cover;
-                const b = document.querySelector('.revert-btn[data-field="cover"]');
-                if (b) { b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d"; }
                 const mp3Cover = document.getElementById('mp3-cover');
                 if (mp3Cover) {
                     mp3Cover.src = data.cover;
                     mp3Cover.style.display = 'block';
                 }
+                enhancedFields.push('cover');
             }
 
-            this.toggleEditMode(true);
+            // Show what was enhanced
+            if (enhancedFields.length > 0) {
+                const enhanceStatus = document.getElementById('enhance-status');
+                if (enhanceStatus) {
+                    enhanceStatus.textContent = `Enhanced: ${enhancedFields.join(', ')}`;
+                    enhanceStatus.classList.remove('hidden');
+                }
+                autoBtn.textContent = 'Re-Enhance';
+            } else {
+                alert('No enhancement data found. Try editing manually.');
+            }
+
+            // Stay in display mode, not edit mode
+            this.toggleEditMode(false);
 
         } catch (err) {
             alert('Failed to find enhancement data.');
             console.error(err);
         } finally {
-            autoBtn.textContent = originalText;
             autoBtn.disabled = false;
         }
     },
@@ -379,7 +403,6 @@ export const mp3Player = {
             if (displayDiv) displayDiv.classList.add('hidden');
             if (editorDiv) editorDiv.classList.remove('hidden');
             if (editBtn) editBtn.classList.add('hidden');
-            if (autoBtn) autoBtn.classList.add('hidden');
             if (saveBtn) saveBtn.classList.remove('hidden');
             if (cancelBtn) cancelBtn.classList.remove('hidden');
             if (o3icsDiv) o3icsDiv.classList.add('hidden');
@@ -387,7 +410,6 @@ export const mp3Player = {
             if (displayDiv) displayDiv.classList.remove('hidden');
             if (editorDiv) editorDiv.classList.add('hidden');
             if (editBtn) editBtn.classList.remove('hidden');
-            if (autoBtn) autoBtn.classList.remove('hidden');
             if (saveBtn) saveBtn.classList.add('hidden');
             if (cancelBtn) cancelBtn.classList.add('hidden');
             if (o3icsDiv) o3icsDiv.classList.remove('hidden');
@@ -415,8 +437,18 @@ export const mp3Player = {
         try {
             await this.api.updateMetadata(this.currentFile.path, data);
             this.pendingCover = null;
+            this.enhancedMetadata = null;
             await this.loadMetadata();
             this.toggleEditMode(false);
+
+            // Reset enhance status after saving
+            const enhanceStatus = document.getElementById('enhance-status');
+            if (enhanceStatus) {
+                enhanceStatus.textContent = '';
+                enhanceStatus.classList.add('hidden');
+            }
+            const autoBtn = document.getElementById('auto-enhance-btn');
+            if (autoBtn) autoBtn.textContent = 'Auto Enhance';
         } catch (err) {
             alert("Failed to save metadata.");
             console.error(err);
