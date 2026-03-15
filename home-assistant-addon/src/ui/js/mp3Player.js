@@ -146,6 +146,12 @@ export const mp3Player = {
         const o3icsDiv = document.getElementById('mp3-o3ics');
         if (!o3icsDiv) return;
 
+        if (!text) {
+            o3icsDiv.classList.remove('synced');
+            o3icsDiv.innerHTML = '<p style="color: #888;">No lyrics available</p>';
+            return;
+        }
+
         try {
             const res = await fetch('/api/o3ics/ruby', {
                 method: 'POST',
