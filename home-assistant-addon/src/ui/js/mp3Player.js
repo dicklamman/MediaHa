@@ -332,7 +332,6 @@ export const mp3Player = {
         const autoBtn = document.getElementById('auto-enhance-btn');
         if (!autoBtn) return;
         const originalText = autoBtn.textContent;
-        const originalText = autoBtn.textContent;
         autoBtn.innerHTML = '<span class="spinner"></span>Searching...';
         autoBtn.disabled = true;
 
