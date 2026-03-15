@@ -680,17 +680,23 @@ export const mp3Player = {
             return;
         }
         
-        // Show in a modal or alert with the full content
+        // Show in a modal - add a class for identification
         const modal = document.createElement('div');
+        modal.className = 'o3ics-full-modal';
         modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;';
         modal.innerHTML = `
             <div style="background:var(--bg-primary);padding:20px;border-radius:8px;max-width:80%;max-height:80%;overflow:auto;">
                 <h3 style="margin:0 0 10px 0;">${type === 'orig' ? 'Original' : 'Enhanced'} o3ics</h3>
                 <pre style="white-space:pre-wrap;word-break:break-all;background:var(--bg-secondary);padding:10px;border-radius:4px;max-height:400px;overflow:auto;">${content}</pre>
-                <button onclick="this.closest('[style*=\\"position:fixed\\"]').remove()" style="margin-top:10px;padding:8px 16px;cursor:pointer;">Close</button>
+                <button class="o3ics-modal-close" style="margin-top:10px;padding:8px 16px;cursor:pointer;">Close</button>
             </div>
         `;
         document.body.appendChild(modal);
+        
+        // Add click handler for close button
+        modal.querySelector('.o3ics-modal-close').addEventListener('click', () => {
+            modal.remove();
+        });
     }
 };
 

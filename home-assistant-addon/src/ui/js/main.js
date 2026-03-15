@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Close modals if clicking outside of them
         const mp3Modal = document.getElementById('mp3-modal');
         if (mp3Modal && !mp3Modal.classList.contains('hidden')) {
+            // Don't close if clicking on o3ics full modal or inside mp3-modal
+            if (e.target.closest('.o3ics-full-modal') || e.target.closest('#mp3-modal')) return;
             if (!mp3Modal.contains(e.target) && !e.target.closest('.file-item') && !e.target.closest('.menu-item')) {
                 mp3Player.close();
             }
