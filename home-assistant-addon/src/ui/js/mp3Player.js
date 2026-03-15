@@ -217,6 +217,7 @@ export const mp3Player = {
     async loadMetadata() {
         try {
             const metadata = await this.api.getMetadata(this.currentFile.path);
+            console.log('Metadata response:', metadata);
             this.originalMetadata = metadata;
             document.querySelectorAll(".revert-btn").forEach(btn => btn.style.display = "none");
 
