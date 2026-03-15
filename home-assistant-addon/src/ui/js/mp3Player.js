@@ -75,7 +75,6 @@ export const mp3Player = {
     },
 
     async open(file, apiInstance) {
-        console.log('[open] Starting, file:', file ? file.name : 'none');
         if (!file || file.type === 'folder') return;
         this.currentFile = file;
         this.api = apiInstance || window.api;
@@ -87,7 +86,6 @@ export const mp3Player = {
         const mp3Cover = document.getElementById('mp3-cover');
         const mp3Lyrics = document.getElementById('mp3-o3ics');
 
-        console.log('[open] About to call toggleEditMode(false)');
         this.toggleEditMode(false);
 
         if (mp3Modal && mp3Title && mp3Audio) {
@@ -101,6 +99,7 @@ export const mp3Player = {
                 mp3Cover.style.display = 'none';
             }
             if (mp3Lyrics) mp3Lyrics.textContent = 'Loading metadata...';
+            if (mp3Lyrics) mp3Lyrics.classList.remove('synced');
 
             const titleEl = document.getElementById('meta-disp-title');
             const artistEl = document.getElementById('meta-disp-artist');
@@ -145,24 +144,15 @@ export const mp3Player = {
     },
 
     async renderLyrics(text) {
-        console.log('[' + new Date().toISOString() + '] renderLyrics called with:', text, 'type:', typeof text);
-        console.trace('Stack trace');
         const o3icsDiv = document.getElementById('mp3-o3ics');
-        if (!o3icsDiv) {
-            console.log('ERROR: mp3-o3ics div not found!');
-            return;
-        }
+        if (!o3icsDiv) return;
 
-        // Handle empty/undefined - but show content if we have it
-        // If text is falsy but we have content passed somehow, still show it
+        // Handle empty/undefined
         if (!text || (typeof text === 'string' && text.trim() === '')) {
             o3icsDiv.classList.remove('synced');
             o3icsDiv.innerHTML = '<p style="color: #888;">No o3ics available</p>';
-            console.log('Set "No o3ics available"');
             return;
         }
-
-        console.log('Processing o3ics content, length:', text.length);
 
         // Save original text in case ruby API fails
         let textToUse = text;
@@ -173,28 +163,19 @@ export const mp3Player = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: text })
             });
-            console.log('Ruby API response status:', res.status);
             if (res.ok) {
                 const data = await res.json();
-                console.log('Ruby API result:', data.result);
                 // Use result if it's not empty, otherwise keep original
                 if (data.result && data.result.trim()) {
                     textToUse = data.result;
-                } else {
-                    console.log('Ruby API returned empty, using original text');
-                    textToUse = text;
                 }
-            } else {
-                console.log('Ruby API failed, using original text');
             }
         } catch (e) {
             console.error("Ruby parsing failed:", e);
             // Keep original text on error
         }
 
-        console.log('Final textToUse:', textToUse);
-
-        // Parse the lyrics
+        // Parse the o3ics
         this.lrcData = this.parseLRC(textToUse);
         this.activeIndex = -1;
 
@@ -208,7 +189,7 @@ export const mp3Player = {
                 o3icsDiv.appendChild(p);
             });
         } else {
-            // If no synced lyrics but we have plain text, show it
+            // If no synced o3ics but we have plain text, show it
             o3icsDiv.classList.remove('synced');
             o3icsDiv.innerHTML = textToUse;
         }
@@ -247,9 +228,6 @@ export const mp3Player = {
     async loadMetadata() {
         try {
             const metadata = await this.api.getMetadata(this.currentFile.path);
-            console.log('Metadata response:', metadata);
-            console.log('o3ics field:', metadata.o3ics);
-            console.log('typeof o3ics:', typeof metadata.o3ics);
             this.originalMetadata = metadata;
             document.querySelectorAll(".revert-btn").forEach(btn => btn.style.display = "none");
 
@@ -269,10 +247,17 @@ export const mp3Player = {
             if (albumInput) albumInput.value = metadata.album || '';
             if (o3icsInput) o3icsInput.value = metadata.o3ics || '';
 
-            console.log('About to call renderLyrics with:', metadata.o3ics);
-            console.log('o3ics type:', typeof metadata.o3ics);
-            console.log('o3ics length:', metadata.o3ics ? metadata.o3ics.length : 'N/A');
-            this.renderLyrics(metadata.o3ics);
+            // DEBUG: Log the metadata and o3ics
+            console.log('=== DEBUG loadMetadata ===');
+            console.log('Full metadata:', metadata);
+            console.log('metadata.o3ics exists:', 'o3ics' in metadata);
+            console.log('metadata.o3ics value:', JSON.stringify(metadata.o3ics));
+            
+            // Force o3ics to string to avoid any issues
+            const o3icsToPass = (metadata.o3ics !== undefined) ? String(metadata.o3ics) : '';
+            console.log('o3icsToPass:', o3icsToPass.substring(0, 100) + '...');
+            
+            this.renderLyrics(o3icsToPass);
 
             const mp3Cover = document.getElementById('mp3-cover');
             if (metadata.cover && mp3Cover) {
