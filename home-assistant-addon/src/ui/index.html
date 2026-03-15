@@ -332,8 +332,8 @@
                                 </div>
                             </div>
                             <div class="enhance-actions">
-                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="title">Use Enhanced</button>
                                 <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="title">Keep Original</button>
+                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="title">Use Enhanced</button>
                             </div>
                         </div>
 
@@ -354,8 +354,8 @@
                                 </div>
                             </div>
                             <div class="enhance-actions">
-                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="artist">Use Enhanced</button>
                                 <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="artist">Keep Original</button>
+                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="artist">Use Enhanced</button>
                             </div>
                         </div>
 
@@ -376,8 +376,8 @@
                                 </div>
                             </div>
                             <div class="enhance-actions">
-                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="album">Use Enhanced</button>
                                 <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="album">Keep Original</button>
+                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="album">Use Enhanced</button>
                             </div>
                         </div>
 
@@ -389,16 +389,18 @@
                             <div class="enhance-compare enhance-compare-cover">
                                 <div class="enhance-original">
                                     <span class="enhance-label">Original</span>
-                                    <img id="enhance-orig-cover" class="enhance-cover-preview" src="" alt="Original">
+                                    <img id="enhance-orig-cover" class="enhance-cover-preview" src="" alt="No Original">
+                                    <div id="enhance-orig-cover-placeholder" class="enhance-cover-placeholder">🎵</div>
                                 </div>
                                 <div class="enhance-new">
                                     <span class="enhance-label">Enhanced</span>
-                                    <img id="enhance-new-cover" class="enhance-cover-preview" src="" alt="Enhanced">
+                                    <img id="enhance-new-cover" class="enhance-cover-preview" src="" alt="No Enhanced">
+                                    <div id="enhance-new-cover-placeholder" class="enhance-cover-placeholder">🎵</div>
                                 </div>
                             </div>
                             <div class="enhance-actions">
-                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="cover">Use Enhanced</button>
                                 <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="cover">Keep Original</button>
+                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="cover">Use Enhanced</button>
                             </div>
                         </div>
 
@@ -410,16 +412,16 @@
                             <div class="enhance-compare">
                                 <div class="enhance-original">
                                     <span class="enhance-label">Original</span>
-                                    <div id="enhance-orig-o3ics" class="enhance-lrc-preview">-</div>
+                                    <div id="enhance-orig-o3ics" class="enhance-lrc-preview" style="cursor: pointer;" onclick="showFullO3ics('orig')">-</div>
                                 </div>
                                 <div class="enhance-new">
                                     <span class="enhance-label">Enhanced</span>
-                                    <div id="enhance-new-o3ics" class="enhance-lrc-preview">-</div>
+                                    <div id="enhance-new-o3ics" class="enhance-lrc-preview" style="cursor: pointer;" onclick="showFullO3ics('new')">-</div>
                                 </div>
                             </div>
                             <div class="enhance-actions">
-                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="o3ics">Use Enhanced</button>
                                 <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="o3ics">Keep Original</button>
+                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="o3ics">Use Enhanced</button>
                             </div>
                         </div>
                     </div>

@@ -4,6 +4,7 @@ export const mp3Player = {
     pendingCover: null,
     lrcData: [],
     activeIndex: -1,
+    savedOriginalDisplay: null,
 
     init() {
         const closeMp3Btn = document.getElementById('close-mp3');
@@ -405,8 +406,59 @@ export const mp3Player = {
                 document.getElementById('enhance-new-artist').textContent = data.artist || '-';
                 document.getElementById('enhance-orig-album').textContent = this.savedOriginalDisplay.album || '-';
                 document.getElementById('enhance-new-album').textContent = data.album || '-';
-                document.getElementById('enhance-orig-o3ics').textContent = this.savedOriginalDisplay.o3ics ? '(Has lyrics)' : '-';
-                document.getElementById('enhance-new-o3ics').textContent = o3icsValue ? '(Has lyrics)' : '-';
+                
+                // Show actual lyrics content (first 3 lines as preview)
+                const origO3icsText = this.savedOriginalDisplay.o3ics || '';
+                const newO3icsText = o3icsValue || '';
+                const origPreview = origO3icsText.split('\n').slice(0, 3).join('\n') || '(No lyrics)';
+                const newPreview = newO3icsText.split('\n').slice(0, 3).join('\n') || '(No lyrics)';
+                document.getElementById('enhance-orig-o3ics').textContent = origPreview;
+                document.getElementById('enhance-new-o3ics').textContent = newPreview;
+
+                // Populate cover previews - use saved original cover
+                const origCover = document.getElementById('enhance-orig-cover');
+                const newCover = document.getElementById('enhance-new-cover');
+                const origPlaceholder = document.getElementById('enhance-orig-cover-placeholder');
+                const newPlaceholder = document.getElementById('enhance-new-cover-placeholder');
+                
+                // Use the cover from originalMetadata (loaded when file opened)
+                const origCoverUrl = this.originalMetadata && this.originalMetadata.cover ? this.originalMetadata.cover : '';
+                const newCoverUrl = data.cover ? data.cover : '';
+                
+                // Update the main cover display
+                if (newCoverUrl) {
+                    const mp3Cover = document.getElementById('mp3-cover');
+                    if (mp3Cover) {
+                        mp3Cover.src = newCoverUrl;
+                        mp3Cover.style.display = 'block';
+                    }
+                }
+                
+                // Handle original cover display
+                if (origCover && origPlaceholder) {
+                    if (origCoverUrl) {
+                        origCover.src = origCoverUrl;
+                        origCover.classList.add('has-image');
+                        origPlaceholder.classList.remove('show');
+                    } else {
+                        origCover.src = '';
+                        origCover.classList.remove('has-image');
+                        origPlaceholder.classList.add('show');
+                    }
+                }
+                
+                // Handle new cover display
+                if (newCover && newPlaceholder) {
+                    if (newCoverUrl) {
+                        newCover.src = newCoverUrl;
+                        newCover.classList.add('has-image');
+                        newPlaceholder.classList.remove('show');
+                    } else {
+                        newCover.src = '';
+                        newCover.classList.remove('has-image');
+                        newPlaceholder.classList.add('show');
+                    }
+                }
 
                 // Set default: keep original (false for all fields)
                 this.useEnhanced = {
@@ -564,39 +616,28 @@ export const mp3Player = {
 
     async saveMetadata() {
         const saveBtn = document.getElementById('save-metadata-btn');
-        if (!saveBtn) return;
         const originalText = saveBtn.textContent;
         saveBtn.innerHTML = '<span class="spinner"></span>Saving...';
         saveBtn.disabled = true;
 
-        const data = {
-            title: document.getElementById('meta-input-title')?.value || '',
-            artist: document.getElementById('meta-input-artist')?.value || '',
-            album: document.getElementById('meta-input-album')?.value || '',
-            o3ics: document.getElementById('meta-input-o3ics')?.value || ''
-        };
-
-        if (this.pendingCover) {
-            data.cover = this.pendingCover;
-        }
-
         try {
+            const title = document.getElementById('meta-input-title').value;
+            const artist = document.getElementById('meta-input-artist').value;
+            const album = document.getElementById('meta-input-album').value;
+            const o3ics = document.getElementById('meta-input-o3ics').value;
+
+            const data = { title, artist, album, o3ics };
+            if (this.pendingCover) {
+                data.cover = this.pendingCover;
+            }
+
             await this.api.updateMetadata(this.currentFile.path, data);
+
             this.pendingCover = null;
-            this.enhancedMetadata = null;
             await this.loadMetadata();
             this.toggleEditMode(false);
-
-            // Reset enhance status after saving
-            const enhanceStatus = document.getElementById('enhance-status');
-            if (enhanceStatus) {
-                enhanceStatus.textContent = '';
-                enhanceStatus.classList.add('hidden');
-            }
-            const autoBtn = document.getElementById('auto-enhance-btn');
-            if (autoBtn) autoBtn.textContent = 'Auto Enhance';
         } catch (err) {
-            alert("Failed to save metadata.");
+            alert('Failed to save metadata: ' + err.message);
             console.error(err);
         } finally {
             saveBtn.textContent = originalText;
@@ -609,13 +650,51 @@ export const mp3Player = {
         const mp3Audio = document.getElementById('mp3-audio');
         if (mp3Audio) {
             mp3Audio.pause();
-            mp3Audio.src = '';
+            mp3Audio.currentTime = 0;
         }
-        if (mp3Modal) {
-            mp3Modal.classList.add('hidden');
+        if (mp3Modal) mp3Modal.classList.add('hidden');
+
+        // Reset enhance state
+        this.cancelEnhance();
+    },
+
+    showFullO3ics(type) {
+        let content = '';
+        if (type === 'orig') {
+            content = this.savedOriginalDisplay?.o3ics || this.originalMetadata?.o3ics || '';
+        } else {
+            content = this.enhancedMetadata?.o3ics || '';
+            if (!content) {
+                // Try to find o3ics in enhanced metadata
+                for (const key of Object.keys(this.enhancedMetadata || {})) {
+                    if (key.toLowerCase().includes('o3ics') || key.toLowerCase().includes('o3ic')) {
+                        content = this.enhancedMetadata[key] || '';
+                        break;
+                    }
+                }
+            }
         }
+        
+        if (!content) {
+            alert('No o3ics content available');
+            return;
+        }
+        
+        // Show in a modal or alert with the full content
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = `
+            <div style="background:var(--bg-primary);padding:20px;border-radius:8px;max-width:80%;max-height:80%;overflow:auto;">
+                <h3 style="margin:0 0 10px 0;">${type === 'orig' ? 'Original' : 'Enhanced'} o3ics</h3>
+                <pre style="white-space:pre-wrap;word-break:break-all;background:var(--bg-secondary);padding:10px;border-radius:4px;max-height:400px;overflow:auto;">${content}</pre>
+                <button onclick="this.closest('[style*=\\"position:fixed\\"]').remove()" style="margin-top:10px;padding:8px 16px;cursor:pointer;">Close</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
     }
 };
 
-
-
+// Make showFullO3ics available globally for onclick handlers
+window.showFullO3ics = function(type) {
+    mp3Player.showFullO3ics(type);
+};

@@ -946,7 +946,32 @@ body {
     object-fit: cover;
     border-radius: var(--radius-sm);
     margin: 0 auto;
+    display: none;
+    background: var(--bg-primary);
+    border: 2px dashed var(--border-color);
+}
+
+.enhance-cover-preview.has-image {
     display: block;
+    border: none;
+}
+
+.enhance-cover-placeholder {
+    width: 80px;
+    height: 80px;
+    border-radius: var(--radius-sm);
+    margin: 0 auto;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-secondary);
+    border: 2px dashed var(--border-color);
+    color: var(--text-muted);
+    font-size: 24px;
+}
+
+.enhance-cover-placeholder.show {
+    display: flex;
 }
 
 .enhance-lrc-preview {
