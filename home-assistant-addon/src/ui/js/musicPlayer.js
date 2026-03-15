@@ -172,7 +172,7 @@ const MusicPlayer = {
         for (const ext of coverExtensions) {
             const coverPath = `${folder}/${baseName}${ext}`;
             try {
-                const coverResponse = await fetch('/api/download?file_name=' + encodeURIComponent(coverPath));
+                const coverResponse = await fetch('/api/download?file_name=' + encodeURIComponent(coverPath), { method: 'HEAD' });
                 if (coverResponse.ok) {
                     coverUrl = '/api/download?file_name=' + encodeURIComponent(coverPath);
                     break;
