@@ -103,6 +103,7 @@ export const mp3Player = {
         this.api = apiInstance || window.api;
         this.pendingCover = null;
         this.enhancedMetadata = null;
+        this.savedOriginalDisplay = null;
 
         // Reset enhance status
         const enhanceStatus = document.getElementById('enhance-status');
@@ -361,6 +362,14 @@ export const mp3Player = {
             }
 
             // Update display section with enhanced data
+            // Save original display values BEFORE overwriting for preview and restoration on cancel
+            this.savedOriginalDisplay = {
+                title: document.getElementById('meta-disp-title').textContent,
+                artist: document.getElementById('meta-disp-artist').textContent,
+                album: document.getElementById('meta-disp-album').textContent,
+                o3ics: document.getElementById('meta-input-o3ics').value
+            };
+
             if (data.title) {
                 document.getElementById('meta-disp-title').textContent = data.title;
                 document.getElementById('meta-input-title').value = data.title;
@@ -389,6 +398,26 @@ export const mp3Player = {
 
             // If any data found, show preview and confirm/cancel buttons
             if (data.title || data.artist || data.album || data.cover || o3icsValue) {
+                // Populate enhance-preview section with original vs new values
+                document.getElementById('enhance-orig-title').textContent = this.savedOriginalDisplay.title || '-';
+                document.getElementById('enhance-new-title').textContent = data.title || '-';
+                document.getElementById('enhance-orig-artist').textContent = this.savedOriginalDisplay.artist || '-';
+                document.getElementById('enhance-new-artist').textContent = data.artist || '-';
+                document.getElementById('enhance-orig-album').textContent = this.savedOriginalDisplay.album || '-';
+                document.getElementById('enhance-new-album').textContent = data.album || '-';
+                document.getElementById('enhance-orig-o3ics').textContent = this.savedOriginalDisplay.o3ics ? '(Has lyrics)' : '-';
+                document.getElementById('enhance-new-o3ics').textContent = o3icsValue ? '(Has lyrics)' : '-';
+
+                // Set default: keep original (false for all fields)
+                this.useEnhanced = {
+                    title: false,
+                    artist: false,
+                    album: false,
+                    cover: false,
+                    o3ics: false
+                };
+                this.updateEnhanceButtons();
+
                 document.getElementById('metadata-display').classList.add('hidden');
                 document.getElementById('enhance-preview').classList.remove('hidden');
                 document.getElementById('auto-enhance-btn').classList.add('hidden');
@@ -466,6 +495,29 @@ export const mp3Player = {
     },
 
     cancelEnhance() {
+        // Restore original display values if we have them saved
+        if (this.savedOriginalDisplay) {
+            document.getElementById('meta-disp-title').textContent = this.savedOriginalDisplay.title;
+            document.getElementById('meta-disp-artist').textContent = this.savedOriginalDisplay.artist;
+            document.getElementById('meta-disp-album').textContent = this.savedOriginalDisplay.album;
+            document.getElementById('meta-input-o3ics').value = this.savedOriginalDisplay.o3ics;
+            this.savedOriginalDisplay = null;
+        }
+
+        // Restore original cover if we have it
+        if (this.originalMetadata && this.originalMetadata.cover) {
+            const mp3Cover = document.getElementById('mp3-cover');
+            if (mp3Cover) {
+                mp3Cover.src = this.originalMetadata.cover;
+                mp3Cover.style.display = 'block';
+            }
+        } else {
+            const mp3Cover = document.getElementById('mp3-cover');
+            if (mp3Cover) {
+                mp3Cover.style.display = 'none';
+            }
+        }
+
         // Hide preview, show display
         document.getElementById('enhance-preview').classList.add('hidden');
         document.getElementById('metadata-display').classList.remove('hidden');
@@ -564,5 +616,6 @@ export const mp3Player = {
         }
     }
 };
+
 
 
