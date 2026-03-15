@@ -92,7 +92,7 @@ const MusicPlayer = {
 
             console.log('Items found:', items);
 
-            // Build playlist
+            // Build playlist with metadata loading
             this.playlist = [];
             for (const item of items) {
                 if (!item) continue;
@@ -100,15 +100,10 @@ const MusicPlayer = {
                 // Handle string items (just filenames)
                 if (typeof item === 'string') {
                     if (/\.(mp3|wav|flac|ogg|m4a|aac)$/i.test(item)) {
-                        this.playlist.push({
-                            name: item,
-                            path: `/media/music/${item}`,
-                            title: item.replace(/\.[^.]+$/, ''),
-                            artist: 'Unknown Artist'
-                        });
+                        const track = await this.createTrackFromFile(item, `/media/music/${item}`);
+                        if (track) this.playlist.push(track);
                     }
                 } else if (typeof item === 'object') {
-                    // Handle object items
                     const name = item.name || item.filename || '';
                     if (!name || typeof name !== 'string') continue;
 
@@ -117,12 +112,8 @@ const MusicPlayer = {
                         if (!fullPath || typeof fullPath !== 'string') {
                             fullPath = `/media/music/${name}`;
                         }
-                        this.playlist.push({
-                            name: name,
-                            path: fullPath,
-                            title: name.replace(/\.[^.]+$/, ''),
-                            artist: 'Unknown Artist'
-                        });
+                        const track = await this.createTrackFromFile(name, fullPath);
+                        if (track) this.playlist.push(track);
                     }
                 }
             }
@@ -143,6 +134,56 @@ const MusicPlayer = {
                 playlistEl.innerHTML = '<div style="padding:20px;color:red;text-align:center">Error loading playlist: ' + err.message + '</div>';
             }
         }
+    },
+
+    async createTrackFromFile(name, path) {
+        // Extract title from filename (remove extension)
+        let title = name.replace(/\.[^.]+$/, '');
+        let artist = 'Unknown Artist';
+        let album = 'Unknown Album';
+        let coverUrl = '';
+
+        // Try to get metadata from the file
+        try {
+            const metaResponse = await fetch('/api/metadata?file_name=' + encodeURIComponent(path));
+            if (metaResponse.ok) {
+                const metadata = await metaResponse.json();
+                if (metadata) {
+                    if (metadata.title) title = metadata.title;
+                    if (metadata.artist) artist = metadata.artist;
+                    if (metadata.album) album = metadata.album;
+                }
+            }
+        } catch (err) {
+            console.log('No metadata for:', name);
+        }
+
+        // Try to find cover image in same folder
+        const folder = path.substring(0, path.lastIndexOf('/'));
+        const baseName = name.replace(/\.[^.]+$/, '');
+        const coverExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+
+        for (const ext of coverExtensions) {
+            const coverPath = `${folder}/${baseName}${ext}`;
+            try {
+                const coverResponse = await fetch('/api/download?file_name=' + encodeURIComponent(coverPath));
+                if (coverResponse.ok) {
+                    coverUrl = '/api/download?file_name=' + encodeURIComponent(coverPath);
+                    break;
+                }
+            } catch (e) {
+                // Try next extension
+            }
+        }
+
+        return {
+            name: name,
+            path: path,
+            title: title,
+            artist: artist,
+            album: album,
+            coverUrl: coverUrl
+        };
     },
 
     renderPlaylist() {
@@ -187,9 +228,39 @@ const MusicPlayer = {
         });
 
         this.updateUI();
+        this.updateCover();
         this.renderPlaylist();
         this.loadLyrics(track.path);
         this.showMiniPlayer();
+    },
+
+    updateCover() {
+        const track = this.playlist[this.currentIndex];
+        if (!track) return;
+
+        // Main player cover
+        const coverEl = document.getElementById('music-cover');
+        if (coverEl) {
+            if (track.coverUrl) {
+                coverEl.src = track.coverUrl;
+                coverEl.style.display = 'block';
+            } else {
+                coverEl.src = '';
+                coverEl.style.display = 'none';
+            }
+        }
+
+        // Mini player cover
+        const miniCoverEl = document.getElementById('mini-cover');
+        if (miniCoverEl) {
+            if (track.coverUrl) {
+                miniCoverEl.src = track.coverUrl;
+                miniCoverEl.style.display = 'block';
+            } else {
+                miniCoverEl.src = '';
+                miniCoverEl.style.display = 'none';
+            }
+        }
     },
 
     async loadLyrics(trackPath) {
@@ -216,11 +287,10 @@ const MusicPlayer = {
 
         container.innerHTML = '';
 
-        // Ensure lrcText is a string
         const text = String(lrcText || '');
 
         if (!text) {
-            container.innerHTML = '<p class="no-o3ics">No o3ics available</p>';
+            container.innerHTML = '<p class="no-o3ics">No lyrics available</p>';
             return;
         }
 
@@ -235,9 +305,9 @@ const MusicPlayer = {
                 const seconds = parseInt(match[2]);
                 const ms = parseInt(match[3].padEnd(3, '0'));
                 const time = minutes * 60 + seconds + ms / 1000;
-                const lyricText = match[4].trim();
-                if (lyricText) {
-                    o3ics.push({ time, text: lyricText });
+                const o3icText = match[4].trim();
+                if (o3icText) {
+                    o3ics.push({ time, text: o3icText });
                 }
             }
         }
@@ -251,7 +321,7 @@ const MusicPlayer = {
         if (!container) return;
 
         if (!this.o3ics || this.o3ics.length === 0) {
-            container.innerHTML = '<p class="no-o3ics">No o3ics available</p>';
+            container.innerHTML = '<p class="no-o3ics">No lyrics available</p>';
             return;
         }
 
@@ -299,7 +369,10 @@ const MusicPlayer = {
 
         let nextIndex;
         if (this.shuffle) {
-            nextIndex = Math.floor(Math.random() * this.playlist.length);
+            // Random track, not the same as current
+            do {
+                nextIndex = Math.floor(Math.random() * this.playlist.length);
+            } while (nextIndex === this.currentIndex && this.playlist.length > 1);
         } else {
             nextIndex = (this.currentIndex + 1) % this.playlist.length;
         }
@@ -318,7 +391,10 @@ const MusicPlayer = {
 
         let prevIndex;
         if (this.shuffle) {
-            prevIndex = Math.floor(Math.random() * this.playlist.length);
+            // Random track, not the same as current
+            do {
+                prevIndex = Math.floor(Math.random() * this.playlist.length);
+            } while (prevIndex === this.currentIndex && this.playlist.length > 1);
         } else {
             prevIndex = (this.currentIndex - 1 + this.playlist.length) % this.playlist.length;
         }
@@ -329,7 +405,13 @@ const MusicPlayer = {
     toggleShuffle() {
         this.shuffle = !this.shuffle;
         const shuffleBtn = document.getElementById('music-shuffle');
-        if (shuffleBtn) shuffleBtn.classList.toggle('active', this.shuffle);
+        if (shuffleBtn) {
+            if (this.shuffle) {
+                shuffleBtn.classList.add('active');
+            } else {
+                shuffleBtn.classList.remove('active');
+            }
+        }
         this.saveState();
     },
 
@@ -422,9 +504,18 @@ const MusicPlayer = {
     },
 
     showMiniPlayer() {
+        // Check if we're on the music player page
         const viewMusicPlayer = document.getElementById('view-music-player');
         const miniPlayer = document.getElementById('mini-player');
-        if (viewMusicPlayer && miniPlayer && viewMusicPlayer.classList.contains('hidden')) {
+
+        if (!viewMusicPlayer || !miniPlayer) return;
+
+        // Show mini player only if NOT on music player page
+        if (!viewMusicPlayer.classList.contains('hidden')) {
+            // We're on music player page - hide mini player
+            miniPlayer.classList.add('hidden');
+        } else {
+            // We're on another page - show mini player
             miniPlayer.classList.remove('hidden');
         }
     },
@@ -463,7 +554,9 @@ const MusicPlayer = {
                 const repeatEl = document.getElementById('music-repeat');
 
                 if (volumeEl) volumeEl.value = this.volume * 100;
-                if (shuffleEl) shuffleEl.classList.toggle('active', this.shuffle);
+                if (shuffleEl) {
+                    shuffleEl.classList.toggle('active', this.shuffle);
+                }
 
                 if (repeatEl) {
                     if (this.repeat === 'all') repeatEl.classList.add('active');
@@ -516,6 +609,7 @@ const MusicPlayer = {
             }
 
             this.updateUI();
+            this.updateCover();
             this.renderPlaylist();
             this.loadLyrics(track.path);
         }
