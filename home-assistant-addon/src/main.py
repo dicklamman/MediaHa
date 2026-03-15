@@ -120,7 +120,7 @@ def get_metadata():
     lyrics = ""
     if os.path.exists(lrc_path):
         try:
-            with open(lrc_path, 'r', encoding='utf-8') as f:
+            with open(lrc_path, 'r', encoding='utf-8-sig') as f:
                 lyrics = f.read()
         except Exception:
             pass
