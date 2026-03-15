@@ -143,14 +143,19 @@ export const mp3Player = {
     },
 
     async renderLyrics(text) {
+        console.log('renderLyrics called with:', text, 'type:', typeof text);
         const o3icsDiv = document.getElementById('mp3-o3ics');
         if (!o3icsDiv) return;
 
-        if (!text) {
+        // Only show "No o3ics available" if text is undefined or null
+        if (text === undefined || text === null) {
             o3icsDiv.classList.remove('synced');
-            o3icsDiv.innerHTML = '<p style="color: #888;">No lyrics available</p>';
+            o3icsDiv.innerHTML = '<p style="color: #888;">No o3ics available</p>';
             return;
         }
+
+        // Save original text in case ruby API fails
+        let textToUse = text;
 
         try {
             const res = await fetch('/api/o3ics/ruby', {
@@ -158,15 +163,29 @@ export const mp3Player = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: text })
             });
+            console.log('Ruby API response status:', res.status);
             if (res.ok) {
                 const data = await res.json();
-                text = data.result;
+                console.log('Ruby API result:', data.result);
+                // Use result if it's not empty, otherwise keep original
+                if (data.result && data.result.trim()) {
+                    textToUse = data.result;
+                } else {
+                    console.log('Ruby API returned empty, using original text');
+                    textToUse = text;
+                }
+            } else {
+                console.log('Ruby API failed, using original text');
             }
         } catch (e) {
             console.error("Ruby parsing failed:", e);
+            // Keep original text on error
         }
 
-        this.lrcData = this.parseLRC(text);
+        console.log('Final textToUse:', textToUse);
+
+        // Parse the lyrics
+        this.lrcData = this.parseLRC(textToUse);
         this.activeIndex = -1;
 
         if (this.lrcData.length > 0) {
@@ -179,8 +198,9 @@ export const mp3Player = {
                 o3icsDiv.appendChild(p);
             });
         } else {
+            // If no synced lyrics but we have plain text, show it
             o3icsDiv.classList.remove('synced');
-            o3icsDiv.innerHTML = text;
+            o3icsDiv.innerHTML = textToUse;
         }
     },
 
