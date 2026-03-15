@@ -281,30 +281,52 @@ const MusicPlayer = {
         const text = String(lrcText || '');
 
         if (!text) {
-            container.innerHTML = '<p class="no-o3ics">No lyrics available</p>';
+            container.innerHTML = '<p class="no-o3ics">No o3ics available</p>';
             return;
         }
 
-        // Parse LRC format
-        const lines = text.split('\n');
-        const o3ics = [];
+        // Call ruby API to add furigana for Japanese o3ics
+        this.processRuby(text).then(textWithRuby => {
+            // Parse LRC format
+            const lines = textWithRuby.split('\n');
+            const o3ics = [];
 
-        for (const line of lines) {
-            const match = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/);
-            if (match) {
-                const minutes = parseInt(match[1]);
-                const seconds = parseInt(match[2]);
-                const ms = parseInt(match[3].padEnd(3, '0'));
-                const time = minutes * 60 + seconds + ms / 1000;
-                const o3icText = match[4].trim();
-                if (o3icText) {
-                    o3ics.push({ time, text: o3icText });
+            for (const line of lines) {
+                const match = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/);
+                if (match) {
+                    const minutes = parseInt(match[1]);
+                    const seconds = parseInt(match[2]);
+                    const ms = parseInt(match[3].padEnd(3, '0'));
+                    const time = minutes * 60 + seconds + ms / 1000;
+                    const o3icText = match[4].trim();
+                    if (o3icText) {
+                        o3ics.push({ time, text: o3icText });
+                    }
                 }
             }
-        }
 
-        this.o3ics = o3ics;
-        this.renderLyricsDisplay();
+            this.o3ics = o3ics;
+            this.renderLyricsDisplay();
+        });
+    },
+
+    async processRuby(text) {
+        try {
+            const res = await fetch('/api/o3ics/ruby', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.result && data.result.trim()) {
+                    return data.result;
+                }
+            }
+        } catch (e) {
+            console.error("Ruby parsing failed:", e);
+        }
+        return text;
     },
 
     renderLyricsDisplay() {
