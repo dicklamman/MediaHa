@@ -52,33 +52,48 @@ const MusicPlayer = {
 
     bindEvents() {
         // Main controls
-        document.getElementById('music-play-pause').addEventListener('click', () => this.togglePlay());
-        document.getElementById('music-prev').addEventListener('click', () => this.playPrev());
-        document.getElementById('music-next').addEventListener('click', () => this.playNext());
-        document.getElementById('music-shuffle').addEventListener('click', () => this.toggleShuffle());
-        document.getElementById('music-repeat').addEventListener('click', () => this.toggleRepeat());
+        const playPauseBtn = document.getElementById('music-play-pause');
+        const prevBtn = document.getElementById('music-prev');
+        const nextBtn = document.getElementById('music-next');
+        const shuffleBtn = document.getElementById('music-shuffle');
+        const repeatBtn = document.getElementById('music-repeat');
+
+        if (playPauseBtn) playPauseBtn.addEventListener('click', () => this.togglePlay());
+        if (prevBtn) prevBtn.addEventListener('click', () => this.playPrev());
+        if (nextBtn) nextBtn.addEventListener('click', () => this.playNext());
+        if (shuffleBtn) shuffleBtn.addEventListener('click', () => this.toggleShuffle());
+        if (repeatBtn) repeatBtn.addEventListener('click', () => this.toggleRepeat());
 
         // Progress bar
         const progress = document.getElementById('music-progress');
-        progress.addEventListener('input', (e) => this.seekTo(e.target.value));
-        progress.addEventListener('change', () => this.saveState());
+        if (progress) {
+            progress.addEventListener('input', (e) => this.seekTo(e.target.value));
+            progress.addEventListener('change', () => this.saveState());
+        }
 
         // Volume
         const volume = document.getElementById('music-volume');
-        volume.addEventListener('input', (e) => this.setVolume(e.target.value / 100));
+        if (volume) {
+            volume.addEventListener('input', (e) => this.setVolume(e.target.value / 100));
+        }
 
         // Mini player controls
-        document.getElementById('mini-play-pause').addEventListener('click', () => this.togglePlay());
-        document.getElementById('mini-prev').addEventListener('click', () => this.playPrev());
-        document.getElementById('mini-next').addEventListener('click', () => this.playNext());
-
+        const miniPlayPauseBtn = document.getElementById('mini-play-pause');
+        const miniPrevBtn = document.getElementById('mini-prev');
+        const miniNextBtn = document.getElementById('mini-next');
         const miniProgress = document.getElementById('mini-progress');
-        miniProgress.addEventListener('input', (e) => this.seekTo(e.target.value));
+        const miniCloseBtn = document.getElementById('mini-close');
 
-        document.getElementById('mini-close').addEventListener('click', () => {
-            this.audio.pause();
-            this.updateUI();
-        });
+        if (miniPlayPauseBtn) miniPlayPauseBtn.addEventListener('click', () => this.togglePlay());
+        if (miniPrevBtn) miniPrevBtn.addEventListener('click', () => this.playPrev());
+        if (miniNextBtn) miniNextBtn.addEventListener('click', () => this.playNext());
+        if (miniProgress) miniProgress.addEventListener('input', (e) => this.seekTo(e.target.value));
+        if (miniCloseBtn) {
+            miniCloseBtn.addEventListener('click', () => {
+                this.audio.pause();
+                this.updateUI();
+            });
+        }
 
         // Audio events
         this.audio.addEventListener('timeupdate', () => this.onTimeUpdate());
@@ -93,33 +108,79 @@ const MusicPlayer = {
             const response = await fetch('/api/files?dir=' + encodeURIComponent('/media/music'));
             const data = await response.json();
 
-            if (data) {
-                // Handle both array and object response formats
-                const items = Array.isArray(data) ? data : (data.files || data.items || []);
+            console.log('API response for /media/music:', data);
 
-                this.playlist = items
-                    .filter(item => item.name && /\.(mp3|wav|flac|ogg|m4a|aac)$/i.test(item.name))
-                    .map(item => ({
-                        name: item.name,
-                        path: item.path,
-                        title: item.name.replace(/\.[^.]+$/, ''),
-                        artist: 'Unknown Artist'
-                    }));
-
-                this.renderPlaylist();
-                document.getElementById('playlist-count').textContent = this.playlist.length;
-
-                // Restore last playing track
-                this.restoreLastTrack();
+            // Handle different API response formats
+            let items = [];
+            if (Array.isArray(data)) {
+                items = data;
+            } else if (data && typeof data === 'object') {
+                items = data.files || data.items || data || [];
             }
+
+            console.log('Items found:', items);
+
+            // Build playlist - handle various item formats
+            this.playlist = [];
+            for (const item of items) {
+                // Handle string items (just filenames)
+                if (typeof item === 'string') {
+                    if (/\.(mp3|wav|flac|ogg|m4a|aac)$/i.test(item)) {
+                        this.playlist.push({
+                            name: item,
+                            path: `/media/music/${item}`,
+                            title: item.replace(/\.[^.]+$/, ''),
+                            artist: 'Unknown Artist'
+                        });
+                    }
+                } else if (item && typeof item === 'object') {
+                    // Handle object items
+                    const name = item.name || item.filename || '';
+                    if (/\.(mp3|wav|flac|ogg|m4a|aac)$/i.test(name)) {
+                        // Use the path if available, otherwise construct it
+                        let fullPath = item.path;
+                        if (!fullPath || fullPath === name) {
+                            // If path is just the filename or missing, prepend /media/music/
+                            fullPath = `/media/music/${name}`;
+                        }
+                        this.playlist.push({
+                            name: name,
+                            path: fullPath,
+                            title: name.replace(/\.[^.]+$/, ''),
+                            artist: 'Unknown Artist'
+                        });
+                    }
+                }
+            }
+
+            console.log('Music playlist loaded:', this.playlist);
+
+            // Show message if no tracks found
+            if (this.playlist.length === 0) {
+                document.getElementById('playlist').innerHTML = '<div style="padding:20px;color:#888;text-align:center">No audio files found in /media/music</div>';
+            }
+
+            this.renderPlaylist();
+            document.getElementById('playlist-count').textContent = this.playlist.length;
+
+            // Restore last playing track
+            this.restoreLastTrack();
         } catch (err) {
             console.error('Failed to load playlist:', err);
+            document.getElementById('playlist').innerHTML = '<div style="padding:20px;color:red;text-align:center">Error loading playlist: ' + err.message + '</div>';
         }
     },
 
     renderPlaylist() {
         const container = document.getElementById('playlist');
+        if (!container) return;
+
         container.innerHTML = '';
+
+        if (this.playlist.length === 0) {
+            container.innerHTML = '<div style="padding:20px;color:#888;text-align:center">No audio files found</div>';
+            return;
+        }
 
         this.playlist.forEach((track, index) => {
             const div = document.createElement('div');
@@ -139,10 +200,17 @@ const MusicPlayer = {
 
         this.currentIndex = index;
         const track = this.playlist[index];
+
+        console.log('Playing track:', track);
+
         const fileUrl = '/api/download?file_name=' + encodeURIComponent(track.path);
+        console.log('Audio src URL:', fileUrl);
 
         this.audio.src = fileUrl;
-        this.audio.play();
+
+        this.audio.play().catch(err => {
+            console.error('Error playing audio:', err);
+        });
 
         this.updateUI();
         this.renderPlaylist();
@@ -402,13 +470,18 @@ const MusicPlayer = {
                 this.shuffle = state.shuffle || false;
                 this.repeat = state.repeat || 'none';
 
-                // Restore UI state
-                document.getElementById('music-volume').value = this.volume * 100;
-                document.getElementById('music-shuffle').classList.toggle('active', this.shuffle);
+                // Restore UI state - check elements exist first
+                const volumeEl = document.getElementById('music-volume');
+                const shuffleEl = document.getElementById('music-shuffle');
+                const repeatEl = document.getElementById('music-repeat');
 
-                const repeatBtn = document.getElementById('music-repeat');
-                if (this.repeat === 'all') repeatBtn.classList.add('active');
-                if (this.repeat === 'one') repeatBtn.classList.add('active-one');
+                if (volumeEl) volumeEl.value = this.volume * 100;
+                if (shuffleEl) shuffleEl.classList.toggle('active', this.shuffle);
+
+                if (repeatEl) {
+                    if (this.repeat === 'all') repeatEl.classList.add('active');
+                    if (this.repeat === 'one') repeatEl.classList.add('active-one');
+                }
 
                 this.audio.volume = this.volume;
                 this.savedState = state;
@@ -419,11 +492,17 @@ const MusicPlayer = {
     },
 
     restoreLastTrack() {
-        if (!this.savedState || !this.savedState.playlist) return;
+        if (!this.savedState || !this.savedState.playlist || this.playlist.length === 0) return;
 
         // Find saved track index by path
         const savedPath = this.savedState.playlist[0];
-        const index = this.playlist.findIndex(t => t.path === savedPath);
+        let index = this.playlist.findIndex(t => t.path === savedPath);
+
+        // If not found by exact path, try to find by filename
+        if (index === -1) {
+            const savedFilename = savedPath.split('/').pop();
+            index = this.playlist.findIndex(t => t.path.endsWith(savedFilename) || t.name === savedFilename);
+        }
 
         if (index >= 0) {
             this.currentIndex = index;
