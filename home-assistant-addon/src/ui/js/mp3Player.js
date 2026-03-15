@@ -1,4 +1,4 @@
-export const mp3Player = {
+﻿export const mp3Player = {
     currentFile: null,
     api: null,
     pendingCover: null,
@@ -338,10 +338,9 @@ export const mp3Player = {
         try {
             const data = await this.api.enhanceMp3(this.currentFile.path);
             this.enhancedMetadata = data;
-                this.originalMetadata = this.originalMetadata || {};
+            this.originalMetadata = this.originalMetadata || {};
 
-            // If any data found, show preview
-            if (data.title || data.artist || data.album || data.cover || o3icsValue) {
+            // Check if any data found
             let o3icsValue = data.o3ics || '';
             if (!o3icsValue) {
                 for (const key of Object.keys(data)) {
@@ -365,21 +364,17 @@ export const mp3Player = {
             if (data.title) {
                 document.getElementById('meta-disp-title').textContent = data.title;
                 document.getElementById('meta-input-title').value = data.title;
-                enhancedFields.push('title');
             }
             if (data.artist) {
                 document.getElementById('meta-disp-artist').textContent = data.artist;
                 document.getElementById('meta-input-artist').value = data.artist;
-                enhancedFields.push('artist');
             }
             if (data.album) {
                 document.getElementById('meta-disp-album').textContent = data.album;
                 document.getElementById('meta-input-album').value = data.album;
-                enhancedFields.push('album');
             }
             if (o3icsValue) {
                 document.getElementById('meta-input-o3ics').value = o3icsValue;
-                enhancedFields.push('lyrics');
             }
 
             if (data.cover) {
@@ -389,7 +384,7 @@ export const mp3Player = {
                     mp3Cover.src = data.cover;
                     mp3Cover.style.display = 'block';
                 }
-                enhancedFields.push('cover');
+                
             }
 
             // If any data found, show preview
@@ -564,3 +559,5 @@ export const mp3Player = {
         }
     }
 };
+
+
