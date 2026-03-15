@@ -406,26 +406,39 @@ def lyrics_ruby():
         import re
         
         # Check if contains any Japanese characters (indicating Japanese lyrics)
-        if not re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]', text):
+        if not re.search(r'[\u3040-\u309F\u30A0-\u30FF]', text):
              return jsonify({'result': text})
 
         kks = pykakasi.kakasi()
+        # Set to hiragana mode for furigana reading
+        kks.setMode('H', 'H')  # Hiragana to Hiragana
+        kks.setMode('K', 'H')  # Katakana to Hiragana
+        kks.setMode('J', 'H')  # Kanji to Hiragana
+        kks = kks.get()  # Finalize configuration
         result = []
         # Process line by line to prevent multi-line strings breaking pykakasi tokenization
         for line in text.split('\n'):
             line_res = []
-            for item in kks.convert(line):
-                orig = item['orig']
-                hira = item['hira']
-                # Add ruby for ALL kanji that have a hiragana reading (for Japanese)
-                if hira and orig != hira:
-                    line_res.append(f"<ruby>{orig}<rt>{hira}</rt></ruby>")
-                else:
-                    line_res.append(orig)
+            try:
+                for item in kks.convert(line):
+                    orig = item['orig']
+                    hira = item['hira']
+                    # Add ruby for ALL kanji that have a hiragana reading (for Japanese)
+                    if hira and orig != hira:
+                        line_res.append(f"<ruby>{orig}<rt>{hira}</rt></ruby>")
+                    else:
+                        line_res.append(orig)
+            except Exception as e:
+                # If conversion fails for a line, use original line
+                print(f"pykakasi conversion error for line: {line}, error: {e}")
+                line_res.append(line)
             result.append("".join(line_res))
         return jsonify({'result': "\n".join(result)})
     except ImportError:
         return jsonify({'result': text}) # Fallback if module fails
+    except Exception as e:
+        print(f"o3ics_ruby error: {e}")
+        return jsonify({'result': text}) # Fallback on any error
 
 if __name__ == '__main__':
     from waitress import serve

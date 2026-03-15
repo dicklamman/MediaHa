@@ -200,10 +200,16 @@ export const mp3Player = {
             });
             if (res.ok) {
                 const data = await res.json();
+                console.log("Ruby API response:", data);
                 // Use result if it's not empty, otherwise keep original
                 if (data.result && data.result.trim()) {
                     textToUse = data.result;
+                    console.log("Using ruby-enhanced lyrics");
+                } else {
+                    console.log("Ruby API returned empty result, using original");
                 }
+            } else {
+                console.error("Ruby API error:", res.status);
             }
         } catch (e) {
             console.error("Ruby parsing failed:", e);
