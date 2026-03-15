@@ -1,4 +1,4 @@
-﻿export const mp3Player = {
+export const mp3Player = {
     currentFile: null,
     api: null,
     pendingCover: null,
@@ -387,9 +387,14 @@
                 
             }
 
-            // If any data found, show preview
+            // If any data found, show preview and confirm/cancel buttons
             if (data.title || data.artist || data.album || data.cover || o3icsValue) {
-                // (Preview is shown below)
+                document.getElementById('metadata-display').classList.add('hidden');
+                document.getElementById('enhance-preview').classList.remove('hidden');
+                document.getElementById('auto-enhance-btn').classList.add('hidden');
+                document.getElementById('confirm-enhance-btn').classList.remove('hidden');
+                document.getElementById('cancel-enhance-btn').classList.remove('hidden');
+                document.getElementById('edit-metadata-btn').classList.add('hidden');
             } else {
                 alert('No enhancement data found. Try editing manually.');
             }
