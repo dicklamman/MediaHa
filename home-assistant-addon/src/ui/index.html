@@ -297,17 +297,132 @@
                     <h3 class="metadata-title">Metadata</h3>
                     <div class="metadata-actions">
                         <button id="auto-enhance-btn" class="btn btn-success">Auto Enhance</button>
-                        <span id="enhance-status" class="enhance-status hidden"></span>
+                        <button id="confirm-enhance-btn" class="btn btn-primary hidden">Confirm</button>
+                        <button id="cancel-enhance-btn" class="btn btn-secondary hidden">Cancel</button>
                         <button id="edit-metadata-btn" class="btn btn-secondary">Edit</button>
                         <button id="cancel-metadata-btn" class="btn btn-secondary hidden">Cancel</button>
                         <button id="save-metadata-btn" class="btn btn-primary hidden">Save</button>
                     </div>
                 </div>
 
+                <!-- Normal Display -->
                 <div id="metadata-display">
                     <p><strong>Title:</strong> <span id="meta-disp-title">-</span></p>
                     <p><strong>Artist:</strong> <span id="meta-disp-artist">-</span></p>
                     <p><strong>Album:</strong> <span id="meta-disp-album">-</span></p>
+                </div>
+
+                <!-- Enhance Preview -->
+                <div id="enhance-preview" class="hidden">
+                    <div class="enhance-preview-grid">
+                        <!-- Title -->
+                        <div class="enhance-item">
+                            <div class="enhance-item-header">
+                                <span class="enhance-item-label">Title</span>
+                            </div>
+                            <div class="enhance-compare">
+                                <div class="enhance-original">
+                                    <span class="enhance-label">Original</span>
+                                    <span id="enhance-orig-title" class="enhance-value">-</span>
+                                </div>
+                                <div class="enhance-arrow">→</div>
+                                <div class="enhance-new">
+                                    <span class="enhance-label">Enhanced</span>
+                                    <span id="enhance-new-title" class="enhance-value">-</span>
+                                </div>
+                            </div>
+                            <div class="enhance-actions">
+                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="title">Use Enhanced</button>
+                                <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="title">Keep Original</button>
+                            </div>
+                        </div>
+
+                        <!-- Artist -->
+                        <div class="enhance-item">
+                            <div class="enhance-item-header">
+                                <span class="enhance-item-label">Artist</span>
+                            </div>
+                            <div class="enhance-compare">
+                                <div class="enhance-original">
+                                    <span class="enhance-label">Original</span>
+                                    <span id="enhance-orig-artist" class="enhance-value">-</span>
+                                </div>
+                                <div class="enhance-arrow">→</div>
+                                <div class="enhance-new">
+                                    <span class="enhance-label">Enhanced</span>
+                                    <span id="enhance-new-artist" class="enhance-value">-</span>
+                                </div>
+                            </div>
+                            <div class="enhance-actions">
+                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="artist">Use Enhanced</button>
+                                <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="artist">Keep Original</button>
+                            </div>
+                        </div>
+
+                        <!-- Album -->
+                        <div class="enhance-item">
+                            <div class="enhance-item-header">
+                                <span class="enhance-item-label">Album</span>
+                            </div>
+                            <div class="enhance-compare">
+                                <div class="enhance-original">
+                                    <span class="enhance-label">Original</span>
+                                    <span id="enhance-orig-album" class="enhance-value">-</span>
+                                </div>
+                                <div class="enhance-arrow">→</div>
+                                <div class="enhance-new">
+                                    <span class="enhance-label">Enhanced</span>
+                                    <span id="enhance-new-album" class="enhance-value">-</span>
+                                </div>
+                            </div>
+                            <div class="enhance-actions">
+                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="album">Use Enhanced</button>
+                                <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="album">Keep Original</button>
+                            </div>
+                        </div>
+
+                        <!-- Cover Image -->
+                        <div class="enhance-item">
+                            <div class="enhance-item-header">
+                                <span class="enhance-item-label">Cover Image</span>
+                            </div>
+                            <div class="enhance-compare enhance-compare-cover">
+                                <div class="enhance-original">
+                                    <span class="enhance-label">Original</span>
+                                    <img id="enhance-orig-cover" class="enhance-cover-preview" src="" alt="Original">
+                                </div>
+                                <div class="enhance-new">
+                                    <span class="enhance-label">Enhanced</span>
+                                    <img id="enhance-new-cover" class="enhance-cover-preview" src="" alt="Enhanced">
+                                </div>
+                            </div>
+                            <div class="enhance-actions">
+                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="cover">Use Enhanced</button>
+                                <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="cover">Keep Original</button>
+                            </div>
+                        </div>
+
+                        <!-- Lyrics -->
+                        <div class="enhance-item">
+                            <div class="enhance-item-header">
+                                <span class="enhance-item-label">Lyrics (.lrc)</span>
+                            </div>
+                            <div class="enhance-compare">
+                                <div class="enhance-original">
+                                    <span class="enhance-label">Original</span>
+                                    <div id="enhance-orig-o3ics" class="enhance-lrc-preview">-</div>
+                                </div>
+                                <div class="enhance-new">
+                                    <span class="enhance-label">Enhanced</span>
+                                    <div id="enhance-new-o3ics" class="enhance-lrc-preview">-</div>
+                                </div>
+                            </div>
+                            <div class="enhance-actions">
+                                <button class="btn btn-sm btn-outline use-enhance-btn" data-field="o3ics">Use Enhanced</button>
+                                <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="o3ics">Keep Original</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="metadata-editor" class="hidden">

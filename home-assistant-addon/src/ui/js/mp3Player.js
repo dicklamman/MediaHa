@@ -23,6 +23,29 @@ export const mp3Player = {
         });
         if (autoEnhanceBtn) autoEnhanceBtn.addEventListener('click', () => this.autoEnhance());
 
+        const confirmEnhanceBtn = document.getElementById('confirm-enhance-btn');
+        if (confirmEnhanceBtn) confirmEnhanceBtn.addEventListener('click', () => this.confirmEnhance());
+
+        const cancelEnhanceBtn = document.getElementById('cancel-enhance-btn');
+        if (cancelEnhanceBtn) cancelEnhanceBtn.addEventListener('click', () => this.cancelEnhance());
+
+        // Handle enhance preview button clicks
+        document.querySelectorAll('.use-enhance-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const field = btn.getAttribute('data-field');
+                this.useEnhanced[field] = true;
+                this.updateEnhanceButtons();
+            });
+        });
+
+        document.querySelectorAll('.revert-enhance-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const field = btn.getAttribute('data-field');
+                this.useEnhanced[field] = false;
+                this.updateEnhanceButtons();
+            });
+        });
+
         const mp3Audio = document.getElementById('mp3-audio');
         if (mp3Audio) {
             mp3Audio.addEventListener('timeupdate', () => this.updateSyncedLyrics(mp3Audio.currentTime));
@@ -239,6 +262,7 @@ export const mp3Player = {
         try {
             const metadata = await this.api.getMetadata(this.currentFile.path);
             this.originalMetadata = metadata;
+            this.useEnhanced = {};
             document.querySelectorAll(".revert-btn").forEach(btn => btn.style.display = "none");
 
             const titleEl = document.getElementById('meta-disp-title');
@@ -278,6 +302,7 @@ export const mp3Player = {
 
             // Set the input value with correctly found o3ics
             if (o3icsInput) o3icsInput.value = o3icsValue || '';
+            this.originalMetadata.o3ics = o3icsValue || '';
 
             this.renderLyrics(o3icsValue);
 
@@ -285,6 +310,7 @@ export const mp3Player = {
             if (metadata.cover && mp3Cover) {
                 mp3Cover.src = metadata.cover;
                 mp3Cover.style.display = 'block';
+                this.originalMetadata.cover = metadata.cover;
             } else if (mp3Cover) {
                 mp3Cover.style.display = 'none';
             }
@@ -306,17 +332,17 @@ export const mp3Player = {
         const autoBtn = document.getElementById('auto-enhance-btn');
         if (!autoBtn) return;
         const originalText = autoBtn.textContent;
+        const originalText = autoBtn.textContent;
         autoBtn.innerHTML = '<span class="spinner"></span>Searching...';
         autoBtn.disabled = true;
 
         try {
             const data = await this.api.enhanceMp3(this.currentFile.path);
             this.enhancedMetadata = data;
+                this.originalMetadata = this.originalMetadata || {};
 
-            // Track what was enhanced
-            const enhancedFields = [];
-
-            // Find o3ics value from data (handles key name issues)
+            // If any data found, show preview
+            if (data.title || data.artist || data.album || data.cover || o3icsValue) {
             let o3icsValue = data.o3ics || '';
             if (!o3icsValue) {
                 for (const key of Object.keys(data)) {
@@ -367,27 +393,93 @@ export const mp3Player = {
                 enhancedFields.push('cover');
             }
 
-            // Show what was enhanced
-            if (enhancedFields.length > 0) {
-                const enhanceStatus = document.getElementById('enhance-status');
-                if (enhanceStatus) {
-                    enhanceStatus.textContent = `Enhanced: ${enhancedFields.join(', ')}`;
-                    enhanceStatus.classList.remove('hidden');
-                }
-                autoBtn.textContent = 'Re-Enhance';
+            // If any data found, show preview
+            if (data.title || data.artist || data.album || data.cover || o3icsValue) {
+                // (Preview is shown below)
             } else {
                 alert('No enhancement data found. Try editing manually.');
             }
 
-            // Stay in display mode, not edit mode
-            this.toggleEditMode(false);
-
         } catch (err) {
-            alert('Failed to find enhancement data.');
+            alert('Failed to find enhancement data: ' + err.message);
             console.error(err);
         } finally {
+            autoBtn.textContent = originalText;
             autoBtn.disabled = false;
         }
+    },
+
+    updateEnhanceButtons() {
+        // Update button styles based on selection
+        ['title', 'artist', 'album', 'cover', 'o3ics'].forEach(field => {
+            const useBtn = document.querySelector(`.use-enhance-btn[data-field="${field}"]`);
+            const revertBtn = document.querySelector(`.revert-enhance-btn[data-field="${field}"]`);
+            if (!useBtn || !revertBtn) return;
+
+            if (this.useEnhanced[field]) {
+                useBtn.classList.add('btn-primary');
+                useBtn.classList.remove('btn-outline');
+                revertBtn.classList.remove('btn-primary');
+                revertBtn.classList.add('btn-outline');
+            } else {
+                revertBtn.classList.add('btn-primary');
+                revertBtn.classList.remove('btn-outline');
+                useBtn.classList.remove('btn-primary');
+                useBtn.classList.add('btn-outline');
+            }
+        });
+    },
+
+    async confirmEnhance() {
+        const confirmBtn = document.getElementById('confirm-enhance-btn');
+        const originalText = confirmBtn.textContent;
+        confirmBtn.innerHTML = '<span class="spinner"></span>Saving...';
+        confirmBtn.disabled = true;
+
+        try {
+            // Prepare metadata with selected values
+            const data = {
+                title: this.useEnhanced.title && this.enhancedMetadata.title ? this.enhancedMetadata.title : this.originalMetadata.title,
+                artist: this.useEnhanced.artist && this.enhancedMetadata.artist ? this.enhancedMetadata.artist : this.originalMetadata.artist,
+                album: this.useEnhanced.album && this.enhancedMetadata.album ? this.enhancedMetadata.album : this.originalMetadata.album,
+                o3ics: this.useEnhanced.o3ics ? (this.enhancedMetadata.o3ics || Object.values(this.enhancedMetadata).find(v => typeof v === 'string' && v.includes('[ti:')) || '') : (this.originalMetadata.o3ics || '')
+            };
+
+            if (this.useEnhanced.cover && this.enhancedMetadata.cover) {
+                data.cover = this.enhancedMetadata.cover;
+            }
+
+            await this.api.updateMetadata(this.currentFile.path, data);
+
+            // Reload metadata
+            await this.loadMetadata();
+
+            // Reset enhance mode
+            this.cancelEnhance();
+
+        } catch (err) {
+            alert('Failed to save enhanced metadata.');
+            console.error(err);
+        } finally {
+            confirmBtn.textContent = originalText;
+            confirmBtn.disabled = false;
+        }
+    },
+
+    cancelEnhance() {
+        // Hide preview, show display
+        document.getElementById('enhance-preview').classList.add('hidden');
+        document.getElementById('metadata-display').classList.remove('hidden');
+
+        // Show/hide buttons
+        document.getElementById('auto-enhance-btn').classList.remove('hidden');
+        document.getElementById('confirm-enhance-btn').classList.add('hidden');
+        document.getElementById('cancel-enhance-btn').classList.add('hidden');
+        document.getElementById('edit-metadata-btn').classList.remove('hidden');
+
+        // Clear enhanced data
+        this.enhancedMetadata = null;
+        this.useEnhanced = {};
     },
 
     toggleEditMode(isEdit) {
@@ -396,8 +488,11 @@ export const mp3Player = {
         const editBtn = document.getElementById('edit-metadata-btn');
         const saveBtn = document.getElementById('save-metadata-btn');
         const cancelBtn = document.getElementById('cancel-metadata-btn');
-        const autoBtn = document.getElementById('auto-enhance-btn');
         const o3icsDiv = document.getElementById('mp3-o3ics');
+        const enhancePreview = document.getElementById('enhance-preview');
+
+        // Hide enhance preview when entering edit mode
+        if (enhancePreview) enhancePreview.classList.add('hidden');
 
         if (isEdit) {
             if (displayDiv) displayDiv.classList.add('hidden');
