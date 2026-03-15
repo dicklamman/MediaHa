@@ -245,7 +245,6 @@ export const mp3Player = {
             if (titleInput) titleInput.value = metadata.title || '';
             if (artistInput) artistInput.value = metadata.artist || '';
             if (albumInput) albumInput.value = metadata.album || '';
-            if (o3icsInput) o3icsInput.value = metadata.o3ics || '';
 
             // Find o3ics value from metadata (handles key name issues)
             let o3icsValue = metadata.o3ics || '';
@@ -266,6 +265,9 @@ export const mp3Player = {
                     }
                 }
             }
+
+            // Set the input value with correctly found o3ics
+            if (o3icsInput) o3icsInput.value = o3icsValue || '';
 
             this.renderLyrics(o3icsValue);
 
@@ -301,6 +303,26 @@ export const mp3Player = {
             const data = await this.api.enhanceMp3(this.currentFile.path);
             this.enhancedMetadata = data;
 
+            // Find o3ics value from data (handles key name issues)
+            let o3icsValue = data.o3ics || '';
+            if (!o3icsValue) {
+                for (const key of Object.keys(data)) {
+                    if (key.toLowerCase().includes('o3ics') || key.toLowerCase().includes('o3ic')) {
+                        o3icsValue = data[key] || '';
+                        break;
+                    }
+                }
+            }
+            if (!o3icsValue) {
+                const values = Object.values(data);
+                for (const v of values) {
+                    if (typeof v === 'string' && v.includes('[ti:')) {
+                        o3icsValue = v;
+                        break;
+                    }
+                }
+            }
+
             if (data.title) {
                 document.getElementById('meta-input-title').value = data.title;
                 const b = document.querySelector('.revert-btn[data-field="title"]');
@@ -316,8 +338,8 @@ export const mp3Player = {
                 const b = document.querySelector('.revert-btn[data-field="album"]');
                 if (b) { b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d"; }
             }
-            if (data.o3ics) {
-                document.getElementById('meta-input-o3ics').value = data.o3ics;
+            if (o3icsValue) {
+                document.getElementById('meta-input-o3ics').value = o3icsValue;
                 const b = document.querySelector('.revert-btn[data-field="o3ics"]');
                 if (b) { b.style.display = "inline-block"; b.textContent = "Revert to Existing"; b.style.background = "#6c757d"; }
             }
