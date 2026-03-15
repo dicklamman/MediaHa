@@ -510,13 +510,18 @@ const MusicPlayer = {
 
         if (!viewMusicPlayer || !miniPlayer) return;
 
-        // Show mini player only if NOT on music player page
+        // Respect user's toggle preference
+        const userEnabled = localStorage.getItem('mediaha_mini_player_visible') === 'true';
+
+        // Show mini player only if NOT on music player page AND user enabled it
         if (!viewMusicPlayer.classList.contains('hidden')) {
             // We're on music player page - hide mini player
             miniPlayer.classList.add('hidden');
-        } else {
-            // We're on another page - show mini player
+        } else if (userEnabled) {
+            // User has enabled mini player and we're on another page
             miniPlayer.classList.remove('hidden');
+        } else {
+            miniPlayer.classList.add('hidden');
         }
     },
 

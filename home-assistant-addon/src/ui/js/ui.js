@@ -127,6 +127,35 @@ export const ui = {
             if (pageTitle) pageTitle.textContent = title || '';
         };
 
+        // Mini player - default hidden, toggle to show/hide
+        const miniPlayerInit = document.getElementById('mini-player');
+        if (miniPlayerInit) {
+            // Only show if user explicitly enabled it
+            const userEnabled = localStorage.getItem('mediaha_mini_player_visible') === 'true';
+            if (!userEnabled) {
+                miniPlayerInit.classList.add('hidden');
+            }
+        }
+
+        // Mini player toggle
+        const tabMiniPlayerToggle = document.getElementById('tab-mini-player-toggle');
+        if (tabMiniPlayerToggle) {
+            tabMiniPlayerToggle.addEventListener('click', () => {
+                const miniPlayer = document.getElementById('mini-player');
+                if (miniPlayer) {
+                    miniPlayer.classList.toggle('hidden');
+                    // Save preference
+                    localStorage.setItem('mediaha_mini_player_visible', !miniPlayer.classList.contains('hidden'));
+                }
+            });
+            // Restore preference on load
+            const savedVisible = localStorage.getItem('mediaha_mini_player_visible') === 'true';
+            if (savedVisible) {
+                const miniPlayer = document.getElementById('mini-player');
+                if (miniPlayer) miniPlayer.classList.remove('hidden');
+            }
+        }
+
         if (tabEpub && tabMp3 && tabAlistVideo && tabAlist) {
             tabEpub.addEventListener('click', async () => {
                 setActiveTab(tabEpub, 'EPUB Converter');
@@ -138,9 +167,9 @@ export const ui = {
                     viewDropbox.classList.add('hidden');
                     viewDropbox.style.display = 'none';
                 }
-                // Show mini player if there's a track loaded
+                // Show mini player if user enabled it
                 const miniPlayer = document.getElementById('mini-player');
-                if (miniPlayer && window.MusicPlayer && window.MusicPlayer.currentIndex >= 0) {
+                if (miniPlayer && localStorage.getItem('mediaha_mini_player_visible') === 'true') {
                     miniPlayer.classList.remove('hidden');
                 }
                 const { fileBrowser } = await import('./fileBrowser.js');
