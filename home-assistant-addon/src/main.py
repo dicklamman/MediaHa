@@ -26,21 +26,49 @@ def list_files():
     if not os.path.exists(target_dir):
         return jsonify([])
 
-    items = []
-    for item in os.listdir(target_dir):
-        full_path = os.path.join(target_dir, item)
-        rel_path = os.path.relpath(full_path, MEDIA_DIR)
+    # For music directory, recursively get all audio files
+    if 'music' in sub_dir.lower() or sub_dir == '':
+        items = get_all_audio_files(target_dir, MEDIA_DIR)
+    else:
+        items = []
+        for item in os.listdir(target_dir):
+            full_path = os.path.join(target_dir, item)
+            rel_path = os.path.relpath(full_path, MEDIA_DIR)
 
-        # Windows compatibility for rel_path
-        rel_path = rel_path.replace('\\\\', '/')
+            # Windows compatibility for rel_path
+            rel_path = rel_path.replace('\\\\', '/')
 
-        if os.path.isdir(full_path):
-            items.append({'name': item, 'type': 'folder', 'path': rel_path})
-        elif item.lower().endswith(('.epub', '.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac', '.lrc', '.jpg', '.jpeg', '.png', '.strm', '.mp4')):
-            items.append({'name': item, 'type': 'file', 'path': rel_path})
+            if os.path.isdir(full_path):
+                items.append({'name': item, 'type': 'folder', 'path': rel_path})
+            elif item.lower().endswith(('.epub', '.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac', '.lrc', '.jpg', '.jpeg', '.png', '.strm', '.mp4')):
+                items.append({'name': item, 'type': 'file', 'path': rel_path})
+
     # Sort folders first, then files
-    items.sort(key=lambda x: (0 if x['type'] == 'folder' else 1, x['name'].lower()))
+    items.sort(key=lambda x: (0 if x.get('type') == 'folder' else 1, x.get('name', '').lower()))
     return jsonify(items)
+
+def get_all_audio_files(directory, base_dir):
+    """Recursively get all audio files from directory and subdirectories"""
+    items = []
+    audio_extensions = ('.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac', '.lrc')
+    dir_extensions = ('.epub', '.jpg', '.jpeg', '.png', '.strm', '.mp4')
+
+    for root, dirs, files in os.walk(directory):
+        rel_root = os.path.relpath(root, base_dir).replace('\\\\', '/')
+
+        # Add subdirectories as folders (only at the first level)
+        if root == directory:
+            for d in dirs:
+                items.append({'name': d, 'type': 'folder', 'path': os.path.join(rel_root, d).replace('\\\\', '/')})
+
+        # Add audio files from all subdirectories
+        for f in files:
+            if f.lower().endswith(audio_extensions) or f.lower().endswith(dir_extensions):
+                full_path = os.path.join(root, f)
+                rel_path = os.path.relpath(full_path, base_dir).replace('\\\\', '/')
+                items.append({'name': f, 'type': 'file', 'path': rel_path})
+
+    return items
 
 @app.route('/api/download', methods=['GET'])
 def download_file():
