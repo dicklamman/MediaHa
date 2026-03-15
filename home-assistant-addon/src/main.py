@@ -405,8 +405,8 @@ def lyrics_ruby():
         import pykakasi
         import re
         
-        # Check if contains Hiragana or Katakana (indicating Japanese lyrics)
-        if not re.search(r'[\u3040-\u309F\u30A0-\u30FF]', text):
+        # Check if contains any Japanese characters (indicating Japanese lyrics)
+        if not re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]', text):
              return jsonify({'result': text})
 
         kks = pykakasi.kakasi()
