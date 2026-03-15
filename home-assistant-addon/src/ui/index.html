@@ -3,202 +3,257 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Converter</title>
+    <title>MediaHa - Media Converter</title>
     <link rel="stylesheet" href="styles.css">
     <!-- EPUB.js for preview -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <button id="theme-toggle" aria-label="Toggle Dark Mode">🌙</button>
-    
-    <div class="sidebar">
-        <h2 style="font-weight: 800; letter-spacing: -0.5px; opacity: 0.9;">Media Converter</h2>
-        <ul>
-            <li id="tab-epub" class="active">EPUB Converter</li>
-            <li id="tab-mp3">MP3 Converter</li>
-            <li id="tab-alist-video">AList Video</li>
-            <li id="tab-alist">AList to STRM</li>
-            <li id="tab-dropbox">Dropbox Sync</li>
-        </ul>
+    <div id="app">
+        <!-- Sidebar Overlay (for mobile) -->
+        <div class="sidebar-overlay"></div>
+
+        <!-- Mobile Navigation Toggle -->
+        <button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-label="Toggle Navigation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </button>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode"></button>
+
+            <div class="sidebar-header">
+                <h1 class="sidebar-title">MediaHa</h1>
+                <p class="sidebar-subtitle">Media Converter</p>
+            </div>
+
+            <nav class="sidebar-nav">
+                <ul>
+                    <li id="tab-epub" class="active">
+                        <span class="nav-icon">📚</span>
+                        EPUB Converter
+                    </li>
+                    <li id="tab-mp3">
+                        <span class="nav-icon">🎵</span>
+                        MP3 Converter
+                    </li>
+                    <li id="tab-alist-video">
+                        <span class="nav-icon">🎬</span>
+                        AList Video
+                    </li>
+                    <li id="tab-alist">
+                        <span class="nav-icon">🔗</span>
+                        AList to STRM
+                    </li>
+                    <li id="tab-dropbox">
+                        <span class="nav-icon">☁️</span>
+                        Dropbox Sync
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-wrapper">
+            <!-- File Browser View -->
+            <div id="view-file-browser">
+                <header class="page-header">
+                    <h2 id="page-title" class="page-title">EPUB Converter</h2>
+                </header>
+
+                <div class="breadcrumb" id="breadcrumb-container">
+                    <span class="crumb" id="root-crumb">/media/eBook</span>
+                    <span id="dynamic-crumbs"></span>
+                </div>
+
+                <div class="file-browser" id="file-browser">
+                    <!-- Items populated here -->
+                </div>
+
+                <div id="result"></div>
+            </div>
+
+            <!-- AList to STRM View -->
+            <div id="view-alist" class="hidden">
+                <header class="page-header">
+                    <h2 class="page-title">AList to STRM</h2>
+                </header>
+
+                <div class="modern-form">
+                    <div class="form-group-modern">
+                        <label class="form-label-modern">AList URL</label>
+                        <input type="text" id="alist-url" class="form-control-modern" placeholder="http://192.168.1.100:5244">
+                    </div>
+                    <div class="form-group-modern">
+                        <label class="form-label-modern">Public Domain</label>
+                        <input type="text" id="alist-domain" class="form-control-modern" placeholder="https://alist.example.com">
+                    </div>
+                    <div class="form-group-modern">
+                        <label class="form-label-modern">Remote Path</label>
+                        <input type="text" id="alist-remote" class="form-control-modern" placeholder="/OneDriveShare">
+                    </div>
+                    <div class="form-group-modern">
+                        <label class="form-label-modern">Local Path</label>
+                        <input type="text" id="alist-local" class="form-control-modern" placeholder="/media/alist">
+                    </div>
+                    <div class="form-group-modern">
+                        <label class="form-label-modern">Username</label>
+                        <input type="text" id="alist-user" class="form-control-modern" placeholder="admin">
+                    </div>
+                    <div class="form-group-modern">
+                        <label class="form-label-modern">Password</label>
+                        <input type="password" id="alist-pass" class="form-control-modern" placeholder="password">
+                    </div>
+                    <div class="form-actions-modern">
+                        <button id="save-alist" class="btn-save-modern">Save Settings</button>
+                        <button id="run-alist" class="btn-run-modern">Run Generator</button>
+                    </div>
+                    <div id="alist-status"></div>
+                </div>
+
+                <div id="alist-log" class="log-output"></div>
+            </div>
+
+            <!-- Dropbox Sync View -->
+            <div id="view-dropbox" class="hidden">
+                <header class="page-header">
+                    <h2 class="page-title">Dropbox Sync</h2>
+                </header>
+
+                <div class="card">
+                    <div class="form-group">
+                        <label for="dropbox-app-key" class="form-label">Dropbox App Key</label>
+                        <input type="text" id="dropbox-app-key" class="form-input" placeholder="e.g. dbqe0tw...">
+                    </div>
+                    <div class="form-group">
+                        <label for="dropbox-app-secret" class="form-label">Dropbox App Secret</label>
+                        <input type="password" id="dropbox-app-secret" class="form-input" placeholder="e.g. nt1if1...">
+                    </div>
+                    <div class="form-group mb-md">
+                        <label for="dropbox-refresh-token" class="form-label">Refresh Token</label>
+                        <input type="password" id="dropbox-refresh-token" class="form-input" placeholder="Enter your long refresh token">
+                    </div>
+                    <button id="save-dropbox-settings" class="btn btn-primary">Save Settings</button>
+
+                    <div class="mt-md" style="display: flex; gap: var(--space-md); margin: var(--space-lg) 0;">
+                        <button id="sync-ebook-btn" class="btn btn-primary" style="flex: 1; font-weight: 600; padding: var(--space-md);">Sync eBook</button>
+                        <button id="sync-music-btn" class="btn btn-primary" style="flex: 1; font-weight: 600; padding: var(--space-md); background: #ab47bc;">Sync Music</button>
+                    </div>
+
+                    <h3 style="margin-bottom: var(--space-sm);">Sync Logs</h3>
+                    <pre id="dropbox-log-output" class="log-output"></pre>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <div class="container main-content" id="view-file-browser">
-        <h1 id="page-title" style="margin-bottom: 20px; font-weight: 800; letter-spacing: -0.5px;">EPUB Converter</h1>
-        <div id="breadcrumb-container"><span class="crumb" id="root-crumb" style="cursor:pointer; font-weight:bold; color:#0056b3;">/media/eBook</span><span id="dynamic-crumbs"></span></div>
-        <div id="file-browser">
-            <!-- Items populated here -->
-        </div>
-        <div id="result"></div>
-    </div>
-
-    <div class="container main-content hidden" id="view-alist">
-        <h1 style="margin-bottom: 20px; font-weight: 800; letter-spacing: -0.5px;">AList to STRM</h1>
-        <div class="modern-form" style="margin-top:20px;">
-            <div class="form-group-modern">
-                <label class="form-label-modern">AList URL</label>
-                <input type="text" id="alist-url" class="form-control-modern" placeholder="http://192.168.1.100:5244">
-            </div>
-            <div class="form-group-modern">
-                <label class="form-label-modern">Public Domain</label>
-                <input type="text" id="alist-domain" class="form-control-modern" placeholder="https://alist.example.com">
-            </div>
-            <div class="form-group-modern">
-                <label class="form-label-modern">Remote Path</label>
-                <input type="text" id="alist-remote" class="form-control-modern" placeholder="/OneDriveShare">
-            </div>
-            <div class="form-group-modern">
-                <label class="form-label-modern">Local Path</label>
-                <input type="text" id="alist-local" class="form-control-modern" placeholder="/media/alist">
-            </div>
-            <div class="form-group-modern">
-                <label class="form-label-modern">Username</label>
-                <input type="text" id="alist-user" class="form-control-modern" placeholder="admin">
-            </div>
-            <div class="form-group-modern">
-                <label class="form-label-modern">Password</label>
-                <input type="password" id="alist-pass" class="form-control-modern" placeholder="password">
-            </div>
-            <div class="form-actions-modern">
-                <button id="save-alist" class="btn-save-modern">Save Settings</button>
-                <button id="run-alist" class="btn-run-modern">Run Generator</button>
-            </div>
-            <div id="alist-status" style="margin-top:10px; font-weight:bold;"></div>
-        </div>
-        <div id="alist-log" style="white-space: pre-wrap; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; font-family: monospace; padding: 10px; margin-top: 20px; height: 300px; overflow-y: auto;"></div>
-    </div>
-
-    <!-- Right-click context menu -->
+    <!-- Right-click Context Menu -->
     <div id="context-menu" class="hidden">
-        <div class="menu-item" id="menu-preview">Preview Book</div>
-        <div class="menu-item" id="menu-rename">Rename</div>
-        <div class="menu-item" id="menu-convert">Convert to 繁體 (Traditional)</div>
+        <button class="menu-item" id="menu-preview">Preview Book</button>
+        <button class="menu-item" id="menu-rename">Rename</button>
+        <button class="menu-item" id="menu-convert">Convert to 繁體 (Traditional)</button>
     </div>
 
     <!-- Preview Modal -->
     <div id="preview-modal" class="hidden">
         <div id="preview-header">
-            <div>
-                <button id="prev-page" class="btn">← Prev</button>
-                <button id="next-page" class="btn">Next →</button>
+            <div style="display: flex; gap: var(--space-sm);">
+                <button id="prev-page" class="btn btn-secondary">← Prev</button>
+                <button id="next-page" class="btn btn-secondary">Next →</button>
             </div>
-            <div style="font-weight: bold;" id="preview-title">Preview</div>
-            <button id="close-preview" class="btn btn-close">Close ✖</button>
+            <div style="font-weight: 600;" id="preview-title">Preview</div>
+            <button id="close-preview" class="modal-close">✕</button>
         </div>
         <div id="preview-content"></div>
     </div>
 
     <!-- Video Player Modal -->
-    <div id="video-modal" class="hidden" style="position: fixed; top: 5%; left: 5%; right: 5%; bottom: 5%; background: var(--modal-bg); border: 1px solid var(--border-color); box-shadow: 0 12px 24px rgba(0,0,0,0.15); z-index: 2000; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden;">
-        <div id="video-header" style="padding: 10px 15px; background: var(--modal-header-bg); display:flex; justify-content:space-between; align-items: center; border-bottom: 1px solid var(--border-color);">
-            <div style="font-weight: bold;" id="video-title">Video Player</div>
-            <button id="close-video" class="btn btn-close">Close ✖</button>
+    <div id="video-modal" class="hidden">
+        <div id="video-header">
+            <div style="font-weight: 600;" id="video-title">Video Player</div>
+            <button id="close-video" class="modal-close">✕</button>
         </div>
-        <div id="video-content" style="flex: 1; background: #000; display: flex; justify-content: center; align-items: center; position: relative;">
-            <video id="video-player" controls style="max-width: 100%; max-height: 100%; width: 100%;"></video>
-            <div id="video-error-overlay" class="hidden" style="position: absolute; text-align: center; color: white; background: rgba(0,0,0,0.8); padding: 30px; border-radius: 12px; max-width: 80%;">
+        <div id="video-content">
+            <video id="video-player" controls></video>
+            <div id="video-error-overlay" class="hidden" style="position: absolute; text-align: center; color: white; background: rgba(0,0,0,0.8); padding: var(--space-xl); border-radius: var(--radius-lg); max-width: 80%;">
                 <h3 style="margin-top:0; color: #ffeb3b;">Video Format Not Supported</h3>
                 <p>Your browser cannot natively play this video format (e.g. MKV/AVI).</p>
                 <p>Please use the direct links below to open it in an external player.</p>
             </div>
         </div>
-        <div id="video-actions" style="padding: 10px 15px; background: var(--modal-header-bg); text-align: center; border-top: 1px solid var(--border-color); display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
-            <a id="video-link-direct" href="#" target="_blank" class="btn" style="text-decoration:none; display:inline-block; font-size: 0.9em; padding: 6px 12px;">Open Direct Link</a>
-            <button id="video-btn-copy" class="btn" style="font-size: 0.9em; padding: 6px 12px; background: #6c757d;">Copy URL</button>
-            <a id="video-link-pot" href="#" class="btn" style="text-decoration:none; display:inline-block; background:#fbc02d; color:#000; font-size: 0.9em; padding: 6px 12px;">PotPlayer</a>
-            <a id="video-link-vlc" href="#" class="btn" style="text-decoration:none; display:inline-block; background:#ff8800; font-size: 0.9em; padding: 6px 12px;">VLC</a>
-            <a id="video-link-iina" href="#" class="btn" style="text-decoration:none; display:inline-block; background:#000; font-size: 0.9em; padding: 6px 12px;">IINA</a>
+        <div id="video-actions">
+            <a id="video-link-direct" href="#" target="_blank" class="btn btn-secondary">Open Direct Link</a>
+            <button id="video-btn-copy" class="btn btn-secondary">Copy URL</button>
+            <a id="video-link-pot" href="#" class="btn" style="background:#fbc02d; color:#000;">PotPlayer</a>
+            <a id="video-link-vlc" href="#" class="btn" style="background:#ff8800;">VLC</a>
+            <a id="video-link-iina" href="#" class="btn" style="background:#000;">IINA</a>
         </div>
     </div>
 
     <!-- MP3 Player Modal -->
     <div id="mp3-modal" class="hidden">
         <div id="mp3-header">
-            <div style="font-weight: bold;" id="mp3-title">Music Player</div>
-            <button id="close-mp3" class="btn btn-close">Close ✖</button>
+            <div style="font-weight: 600;" id="mp3-title">Music Player</div>
+            <button id="close-mp3" class="modal-close">✕</button>
         </div>
         <div id="mp3-content">
             <div id="mp3-top-layout">
                 <img id="mp3-cover" src="" alt="Album Art" />
-                <div id="mp3-lyrics"></div>
+                <div id="mp3-o3ics"></div>
             </div>
-            
-            <audio id="mp3-audio" controls style="width: 100%; margin-top:10px;"></audio>
 
-            <!-- Metadata Reader / Editor -->
-            <div style="margin-top: 20px; border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; background: var(--hover-bg); box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h3 style="margin: 0;">Metadata</h3>
-                    <div>
-                        <button id="auto-enhance-btn" class="btn" style="background:#28a745; margin-right:8px; box-shadow: 0 2px 4px rgba(40,167,69,0.2);">Auto Enhance</button>
-                        <button id="edit-metadata-btn" class="btn">Edit</button>
-                        <button id="cancel-metadata-btn" class="btn rename-cancel hidden" style="margin-right:5px;">Cancel</button>
-                        <button id="save-metadata-btn" class="btn rename-confirm hidden">Save</button>
+            <audio id="mp3-audio" controls></audio>
+
+            <!-- Metadata Section -->
+            <div class="metadata-section">
+                <div class="metadata-header">
+                    <h3 class="metadata-title">Metadata</h3>
+                    <div class="metadata-actions">
+                        <button id="auto-enhance-btn" class="btn btn-success">Auto Enhance</button>
+                        <button id="edit-metadata-btn" class="btn btn-secondary">Edit</button>
+                        <button id="cancel-metadata-btn" class="btn btn-secondary hidden">Cancel</button>
+                        <button id="save-metadata-btn" class="btn btn-primary hidden">Save</button>
                     </div>
                 </div>
-                
+
                 <div id="metadata-display">
-                    <p style="margin:5px 0;"><strong>Title:</strong> <span id="meta-disp-title">-</span></p>
-                    <p style="margin:5px 0;"><strong>Artist:</strong> <span id="meta-disp-artist">-</span></p>
-                    <p style="margin:5px 0;"><strong>Album:</strong> <span id="meta-disp-album">-</span></p>
+                    <p><strong>Title:</strong> <span id="meta-disp-title">-</span></p>
+                    <p><strong>Artist:</strong> <span id="meta-disp-artist">-</span></p>
+                    <p><strong>Album:</strong> <span id="meta-disp-album">-</span></p>
                 </div>
 
                 <div id="metadata-editor" class="hidden">
-                    <div style="margin-bottom: 10px;">
-                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Title <button class="btn btn-small revert-btn" data-field="title" style="display:none; padding:4px 10px; font-size: 0.85em; background:var(--info-bg, #6c757d); color:var(--text-color, #fff); border-radius: 4px;">Revert to Existing</button></label>
-                        <input type="text" id="meta-input-title" class="rename-input" style="width: 100%; box-sizing: border-box;">
+                    <div class="form-group">
+                        <label class="form-label">Title</label>
+                        <input type="text" id="meta-input-title" class="form-input">
                     </div>
-                    <div style="margin-bottom: 10px;">
-                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Artist <button class="btn btn-small revert-btn" data-field="artist" style="display:none; padding:4px 10px; font-size: 0.85em; background:var(--info-bg, #6c757d); color:var(--text-color, #fff); border-radius: 4px;">Revert to Existing</button></label>
-                        <input type="text" id="meta-input-artist" class="rename-input" style="width: 100%; box-sizing: border-box;">
+                    <div class="form-group">
+                        <label class="form-label">Artist</label>
+                        <input type="text" id="meta-input-artist" class="form-input">
                     </div>
-                    <div style="margin-bottom: 10px;">
-                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Album <button class="btn btn-small revert-btn" data-field="album" style="display:none; padding:4px 10px; font-size: 0.85em; background:var(--info-bg, #6c757d); color:var(--text-color, #fff); border-radius: 4px;">Revert to Existing</button></label>
-                        <input type="text" id="meta-input-album" class="rename-input" style="width: 100%; box-sizing: border-box;">
+                    <div class="form-group">
+                        <label class="form-label">Album</label>
+                        <input type="text" id="meta-input-album" class="form-input">
                     </div>
-                    <div style="margin-bottom: 10px;">
-                        <label style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 5px;">Lyrics (.lrc) <button class="btn btn-small revert-btn" data-field="lyrics" style="display:none; padding:4px 10px; font-size: 0.85em; background:var(--info-bg, #6c757d); color:var(--text-color, #fff); border-radius: 4px;">Revert to Existing</button></label>
-                        <textarea id="meta-input-lyrics" class="rename-input" style="width: 100%; box-sizing: border-box; height: 100px; resize: vertical;"></textarea>
-                    </div>
-                    <div style="margin-bottom: 10px; display:flex; justify-content:space-between; font-weight:bold;">
-                        Cover Image <button class="btn btn-small revert-btn" data-field="cover" style="display:none; padding:4px 10px; font-size: 0.85em; background:var(--info-bg, #6c757d); color:var(--text-color, #fff); border-radius: 4px;">Revert to Existing</button>
+                    <div class="form-group">
+                        <label class="form-label">Lyrics (.lrc)</label>
+                        <textarea id="meta-input-o3ics" class="form-input form-textarea"></textarea>
                     </div>
                 </div>
             </div>
-
-            
         </div>
     </div>
 
-    <!-- Dropbox Sync Section -->
-    <div class="container main-content" id="view-dropbox" style="display: none;">
-        <h1 style="margin-bottom: 20px; font-weight: 800;">Dropbox Sync</h1>
-        <div class="card" style="padding: 24px;">
-            <div style="margin-bottom: 15px;">
-                <label for="dropbox-app-key" style="font-weight: 600; display: block; margin-bottom: 8px;">Dropbox App Key</label>
-                <input type="text" id="dropbox-app-key" class="rename-input" style="width: 100%; box-sizing: border-box;" placeholder="e.g. dbqe0tw...">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label for="dropbox-app-secret" style="font-weight: 600; display: block; margin-bottom: 8px;">Dropbox App Secret</label>
-                <input type="password" id="dropbox-app-secret" class="rename-input" style="width: 100%; box-sizing: border-box;" placeholder="e.g. nt1if1...">
-            </div>
-            <div style="margin-bottom: 20px;">
-                <label for="dropbox-refresh-token" style="font-weight: 600; display: block; margin-bottom: 8px;">Refresh Token</label>
-                <input type="password" id="dropbox-refresh-token" class="rename-input" style="width: 100%; box-sizing: border-box;" placeholder="Enter your long refresh token">
-            </div>
-            <button id="save-dropbox-settings" class="btn btn-primary" style="margin-bottom: 30px; font-weight: 600;">Save Settings</button>
-
-            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
-                <button id="sync-ebook-btn" class="btn btn-primary" style="flex: 1; font-weight: 600; font-size: 1.1em; padding: 12px;">Sync eBook</button>
-                <button id="sync-music-btn" class="btn btn-primary" style="flex: 1; font-weight: 600; font-size: 1.1em; padding: 12px; background: #ab47bc;">Sync Music</button>
-            </div>
-            
-            <h3 style="margin-bottom: 10px;">Sync Logs</h3>
-            <pre id="dropbox-log-output" style="background: #1e1e1e; padding: 15px; border-radius: 8px; color: #00ff00; min-height: 200px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 13px;"></pre>
-        </div>
-    </div>
-
-    <!-- Link the main module script -->
+    <!-- Scripts -->
     <script type="module" src="js/main.js"></script>
     <script src="js/dropbox.js"></script>
 </body>

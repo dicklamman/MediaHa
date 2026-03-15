@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize UI components
     ui.initTheme();
     ui.initTabs();
+    ui.initMobileNav();
     
     // Initialize feature modules
     fileBrowser.init();
