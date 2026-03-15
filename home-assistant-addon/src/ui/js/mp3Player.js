@@ -250,14 +250,33 @@ export const mp3Player = {
             // DEBUG: Log the metadata and o3ics
             console.log('=== DEBUG loadMetadata ===');
             console.log('Full metadata:', metadata);
-            console.log('metadata.o3ics exists:', 'o3ics' in metadata);
-            console.log('metadata.o3ics value:', JSON.stringify(metadata.o3ics));
+            console.log('metadata keys:', Object.keys(metadata));
             
-            // Force o3ics to string to avoid any issues
-            const o3icsToPass = (metadata.o3ics !== undefined) ? String(metadata.o3ics) : '';
-            console.log('o3icsToPass:', o3icsToPass.substring(0, 100) + '...');
+            // Find o3ics key - there might be a hidden character issue
+            let o3icsValue = '';
+            for (const key of Object.keys(metadata)) {
+                if (key.toLowerCase().includes('o3ics') || key.toLowerCase().includes('lyric')) {
+                    console.log('Found o3ics-like key:', key, 'value:', metadata[key] ? 'has value' : 'empty');
+                    o3icsValue = metadata[key] || '';
+                    break;
+                }
+            }
             
-            this.renderLyrics(o3icsToPass);
+            // If not found by key name, try by checking all values for LRC format
+            if (!o3icsValue) {
+                const values = Object.values(metadata);
+                for (const v of values) {
+                    if (typeof v === 'string' && v.includes('[ti:')) {
+                        console.log('Found LRC content in metadata');
+                        o3icsValue = v;
+                        break;
+                    }
+                }
+            }
+            
+            console.log('Final o3icsValue:', o3icsValue ? o3icsValue.substring(0, 100) + '...' : 'EMPTY');
+            
+            this.renderLyrics(o3icsValue);
 
             const mp3Cover = document.getElementById('mp3-cover');
             if (metadata.cover && mp3Cover) {
