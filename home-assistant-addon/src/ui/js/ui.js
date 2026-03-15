@@ -131,7 +131,10 @@ export const ui = {
                 viewBrowser.classList.remove('hidden');
                 viewBrowser.style.display = '';
                 viewAlist.classList.add('hidden');
-                if (viewDropbox) viewDropbox.style.display = 'none';
+                if (viewDropbox) {
+                    viewDropbox.classList.add('hidden');
+                    viewDropbox.style.display = 'none';
+                }
                 const { fileBrowser } = await import('./fileBrowser.js');
                 fileBrowser.setBasePath('eBook');
             });
@@ -141,7 +144,10 @@ export const ui = {
                 viewBrowser.classList.remove('hidden');
                 viewBrowser.style.display = '';
                 viewAlist.classList.add('hidden');
-                if (viewDropbox) viewDropbox.style.display = 'none';
+                if (viewDropbox) {
+                    viewDropbox.classList.add('hidden');
+                    viewDropbox.style.display = 'none';
+                }
                 const { fileBrowser } = await import('./fileBrowser.js');
                 fileBrowser.setBasePath('music');
             });
@@ -151,7 +157,10 @@ export const ui = {
                 viewBrowser.classList.remove('hidden');
                 viewBrowser.style.display = '';
                 viewAlist.classList.add('hidden');
-                if (viewDropbox) viewDropbox.style.display = 'none';
+                if (viewDropbox) {
+                    viewDropbox.classList.add('hidden');
+                    viewDropbox.style.display = 'none';
+                }
                 const { fileBrowser } = await import('./fileBrowser.js');
                 fileBrowser.setBasePath('alist');
             });
@@ -159,8 +168,12 @@ export const ui = {
             tabAlist.addEventListener('click', () => {
                 setActiveTab(tabAlist, 'AList to STRM');
                 viewBrowser.classList.add('hidden');
+                viewBrowser.style.display = 'none';
                 viewAlist.classList.remove('hidden');
-                if (viewDropbox) viewDropbox.style.display = 'none';
+                if (viewDropbox) {
+                    viewDropbox.classList.add('hidden');
+                    viewDropbox.style.display = 'none';
+                }
             });
 
             if (tabDropbox) {
@@ -169,7 +182,10 @@ export const ui = {
                     viewBrowser.classList.add('hidden');
                     viewBrowser.style.display = 'none';
                     viewAlist.classList.add('hidden');
-                    if (viewDropbox) viewDropbox.style.display = 'block';
+                    if (viewDropbox) {
+                        viewDropbox.classList.remove('hidden');
+                        viewDropbox.style.display = '';
+                    }
                 });
             }
         }

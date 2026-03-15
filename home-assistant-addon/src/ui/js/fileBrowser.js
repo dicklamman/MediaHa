@@ -61,13 +61,16 @@ export const fileBrowser = {
         if(fileBrowserEl) fileBrowserEl.innerHTML = '<div style="padding:10px;">Loading...</div>';
         try {
             const items = await api.getFiles(dir);
+            console.log('Loaded files:', items);
             this.renderFiles(items);
         } catch (err) {
+            console.error('Error loading files:', err);
             if(fileBrowserEl) fileBrowserEl.innerHTML = '<div style="padding:10px;color:red">Error loading files. Ensure /media exists!</div>';
         }
     },
 
     renderFiles(items) {
+        console.log('Rendering files:', items);
         const fileBrowserEl = document.getElementById('file-browser');
         if(!fileBrowserEl) return;
         fileBrowserEl.innerHTML = '';
@@ -76,7 +79,9 @@ export const fileBrowser = {
             const upDiv = document.createElement('div');
             upDiv.className = 'file-item';
             upDiv.innerHTML = '<span class="icon">📁</span> ..';
-            upDiv.addEventListener('click', () => {
+            upDiv.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
                 const parts = this.currentPath.split('/');
                 parts.pop();
                 this.loadFiles(parts.join('/'));
@@ -115,27 +120,42 @@ export const fileBrowser = {
             item.nameSpan = nameSpan; 
             
             if (item.type === 'folder') {
-                div.addEventListener('click', () => {
+                div.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     this.loadFiles(item.path);
                 });
             } else if (item.name.toLowerCase().endsWith('.mp3')) {
-                div.addEventListener('click', async () => {
-                    const { mp3Player } = await import('./mp3Player.js');
-                    const { api } = await import('./api.js');
-                    mp3Player.open(item, api);
+                div.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    try {
+                        const { mp3Player } = await import('./mp3Player.js');
+                        const { api } = await import('./api.js');
+                        await mp3Player.open(item, api);
+                    } catch (err) {
+                        console.error('Error opening MP3:', err);
+                        alert('Error opening MP3: ' + err.message);
+                    }
                 });
             } else if (item.name.toLowerCase().endsWith('.epub')) {
-                div.addEventListener('click', async () => {
+                div.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     const { epubPlayer } = await import('./epubPlayer.js');
                     epubPlayer.open(item);
                 });
             } else if (item.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|lrc|txt)$/)) {
-                div.addEventListener('click', async () => {
+                div.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     const { mediaPreview } = await import('./mediaPreview.js');
                     mediaPreview.open(item);
                 });
             } else if (item.name.toLowerCase().endsWith('.strm') || item.name.toLowerCase().endsWith('.mp4')) {
-                div.addEventListener('click', async () => {
+                div.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     const { videoPlayer } = await import('./videoPlayer.js');
                     videoPlayer.open(item);
                 });
