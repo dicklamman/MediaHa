@@ -1,5 +1,5 @@
 // Music Player Module
-// Handles playlist, playback controls, lyrics sync, and persistent state
+// Handles playlist, playback controls, o3ics sync, and persistent state
 
 const MusicPlayer = {
     audio: null,
@@ -7,7 +7,7 @@ const MusicPlayer = {
     currentIndex: -1,
     isPlaying: false,
     shuffle: false,
-    repeat: 'none', // 'none', 'one', 'all'
+    repeat: 'none',
     volume: 0.8,
 
     // State keys for localStorage
@@ -20,34 +20,6 @@ const MusicPlayer = {
         this.bindEvents();
         this.loadState();
         this.loadPlaylist();
-    },
-
-    bindTabEvents() {
-        const tab = document.getElementById('tab-music-player');
-        const view = document.getElementById('view-music-player');
-
-        if (tab && view) {
-            tab.addEventListener('click', () => {
-                this.showView();
-            });
-        }
-    },
-
-    showView() {
-        // Hide all views
-        document.querySelectorAll('.main-wrapper > div').forEach(div => {
-            if (div.id !== 'view-music-player') {
-                div.classList.add('hidden');
-            }
-        });
-        document.getElementById('view-music-player').classList.remove('hidden');
-
-        // Update sidebar active state
-        document.querySelectorAll('.sidebar-nav li').forEach(li => li.classList.remove('active'));
-        document.getElementById('tab-music-player').classList.add('active');
-
-        // Hide mini player when in music player view
-        document.getElementById('mini-player').classList.add('hidden');
     },
 
     bindEvents() {
@@ -115,14 +87,16 @@ const MusicPlayer = {
             if (Array.isArray(data)) {
                 items = data;
             } else if (data && typeof data === 'object') {
-                items = data.files || data.items || data || [];
+                items = data.files || data.items || [];
             }
 
             console.log('Items found:', items);
 
-            // Build playlist - handle various item formats
+            // Build playlist
             this.playlist = [];
             for (const item of items) {
+                if (!item) continue;
+
                 // Handle string items (just filenames)
                 if (typeof item === 'string') {
                     if (/\.(mp3|wav|flac|ogg|m4a|aac)$/i.test(item)) {
@@ -133,14 +107,14 @@ const MusicPlayer = {
                             artist: 'Unknown Artist'
                         });
                     }
-                } else if (item && typeof item === 'object') {
+                } else if (typeof item === 'object') {
                     // Handle object items
                     const name = item.name || item.filename || '';
+                    if (!name || typeof name !== 'string') continue;
+
                     if (/\.(mp3|wav|flac|ogg|m4a|aac)$/i.test(name)) {
-                        // Use the path if available, otherwise construct it
                         let fullPath = item.path;
-                        if (!fullPath || fullPath === name) {
-                            // If path is just the filename or missing, prepend /media/music/
+                        if (!fullPath || typeof fullPath !== 'string') {
                             fullPath = `/media/music/${name}`;
                         }
                         this.playlist.push({
@@ -155,19 +129,19 @@ const MusicPlayer = {
 
             console.log('Music playlist loaded:', this.playlist);
 
-            // Show message if no tracks found
-            if (this.playlist.length === 0) {
-                document.getElementById('playlist').innerHTML = '<div style="padding:20px;color:#888;text-align:center">No audio files found in /media/music</div>';
-            }
-
             this.renderPlaylist();
-            document.getElementById('playlist-count').textContent = this.playlist.length;
+
+            const countEl = document.getElementById('playlist-count');
+            if (countEl) countEl.textContent = this.playlist.length;
 
             // Restore last playing track
             this.restoreLastTrack();
         } catch (err) {
             console.error('Failed to load playlist:', err);
-            document.getElementById('playlist').innerHTML = '<div style="padding:20px;color:red;text-align:center">Error loading playlist: ' + err.message + '</div>';
+            const playlistEl = document.getElementById('playlist');
+            if (playlistEl) {
+                playlistEl.innerHTML = '<div style="padding:20px;color:red;text-align:center">Error loading playlist: ' + err.message + '</div>';
+            }
         }
     },
 
@@ -219,6 +193,8 @@ const MusicPlayer = {
     },
 
     async loadLyrics(trackPath) {
+        if (!trackPath || typeof trackPath !== 'string') return;
+
         const lrcPath = trackPath.replace(/\.[^.]+$/, '.lrc');
 
         try {
@@ -236,16 +212,21 @@ const MusicPlayer = {
 
     renderLyrics(lrcText) {
         const container = document.getElementById('music-o3ics');
+        if (!container) return;
+
         container.innerHTML = '';
 
-        if (!lrcText) {
-            container.innerHTML = '<p class="no-lyrics">No lyrics available</p>';
+        // Ensure lrcText is a string
+        const text = String(lrcText || '');
+
+        if (!text) {
+            container.innerHTML = '<p class="no-o3ics">No o3ics available</p>';
             return;
         }
 
         // Parse LRC format
-        const lines = lrcText.split('\n');
-        const lyrics = [];
+        const lines = text.split('\n');
+        const o3ics = [];
 
         for (const line of lines) {
             const match = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/);
@@ -254,44 +235,45 @@ const MusicPlayer = {
                 const seconds = parseInt(match[2]);
                 const ms = parseInt(match[3].padEnd(3, '0'));
                 const time = minutes * 60 + seconds + ms / 1000;
-                const text = match[4].trim();
-                if (text) {
-                    lyrics.push({ time, text });
+                const lyricText = match[4].trim();
+                if (lyricText) {
+                    o3ics.push({ time, text: lyricText });
                 }
             }
         }
 
-        this.lyrics = lyrics;
+        this.o3ics = o3ics;
         this.renderLyricsDisplay();
     },
 
     renderLyricsDisplay() {
         const container = document.getElementById('music-o3ics');
+        if (!container) return;
 
-        if (!this.lyrics || this.lyrics.length === 0) {
-            container.innerHTML = '<p class="no-lyrics">No lyrics available</p>';
+        if (!this.o3ics || this.o3ics.length === 0) {
+            container.innerHTML = '<p class="no-o3ics">No o3ics available</p>';
             return;
         }
 
-        container.innerHTML = this.lyrics.map((line, i) =>
-            `<div class="lyric-line" data-index="${i}">${line.text}</div>`
+        container.innerHTML = this.o3ics.map((line, i) =>
+            `<div class="o3ic-line" data-index="${i}">${line.text}</div>`
         ).join('');
     },
 
     updateSyncedLyrics() {
-        if (!this.lyrics || this.lyrics.length === 0) return;
+        if (!this.o3ics || this.o3ics.length === 0) return;
 
         const currentTime = this.audio.currentTime;
         let activeIndex = -1;
 
-        for (let i = this.lyrics.length - 1; i >= 0; i--) {
-            if (currentTime >= this.lyrics[i].time) {
+        for (let i = this.o3ics.length - 1; i >= 0; i--) {
+            if (currentTime >= this.o3ics[i].time) {
                 activeIndex = i;
                 break;
             }
         }
 
-        document.querySelectorAll('.lyric-line').forEach((el, i) => {
+        document.querySelectorAll('.o3ic-line').forEach((el, i) => {
             el.classList.toggle('active', i === activeIndex);
 
             if (i === activeIndex) {
@@ -346,7 +328,8 @@ const MusicPlayer = {
 
     toggleShuffle() {
         this.shuffle = !this.shuffle;
-        document.getElementById('music-shuffle').classList.toggle('active', this.shuffle);
+        const shuffleBtn = document.getElementById('music-shuffle');
+        if (shuffleBtn) shuffleBtn.classList.toggle('active', this.shuffle);
         this.saveState();
     },
 
@@ -356,9 +339,11 @@ const MusicPlayer = {
         this.repeat = modes[(currentModeIndex + 1) % modes.length];
 
         const btn = document.getElementById('music-repeat');
-        btn.classList.remove('active', 'active-one');
-        if (this.repeat === 'all') btn.classList.add('active');
-        if (this.repeat === 'one') btn.classList.add('active-one');
+        if (btn) {
+            btn.classList.remove('active', 'active-one');
+            if (this.repeat === 'all') btn.classList.add('active');
+            if (this.repeat === 'one') btn.classList.add('active-one');
+        }
 
         this.saveState();
     },
@@ -382,18 +367,19 @@ const MusicPlayer = {
 
         if (this.audio.duration) {
             const percent = (this.audio.currentTime / this.audio.duration) * 100;
-            progress.value = percent;
-            miniProgress.value = percent;
+            if (progress) progress.value = percent;
+            if (miniProgress) miniProgress.value = percent;
         }
 
-        currentTimeEl.textContent = this.formatTime(this.audio.currentTime);
-        durationEl.textContent = this.formatTime(this.audio.duration || 0);
+        if (currentTimeEl) currentTimeEl.textContent = this.formatTime(this.audio.currentTime);
+        if (durationEl) durationEl.textContent = this.formatTime(this.audio.duration || 0);
 
         this.updateSyncedLyrics();
     },
 
     onLoadedMetadata() {
-        document.getElementById('music-duration').textContent = this.formatTime(this.audio.duration);
+        const durationEl = document.getElementById('music-duration');
+        if (durationEl) durationEl.textContent = this.formatTime(this.audio.duration);
     },
 
     onEnded() {
@@ -417,27 +403,29 @@ const MusicPlayer = {
         const miniPlayPauseBtn = document.getElementById('mini-play-pause');
         const icon = this.audio.paused ? '▶️' : '⏸️';
 
-        playPauseBtn.textContent = icon;
-        miniPlayPauseBtn.textContent = icon;
+        if (playPauseBtn) playPauseBtn.textContent = icon;
+        if (miniPlayPauseBtn) miniPlayPauseBtn.textContent = icon;
 
         if (this.currentIndex >= 0 && this.currentIndex < this.playlist.length) {
             const track = this.playlist[this.currentIndex];
 
-            // Main player
-            document.getElementById('music-title').textContent = track.title;
-            document.getElementById('music-artist').textContent = track.artist;
+            const titleEl = document.getElementById('music-title');
+            const artistEl = document.getElementById('music-artist');
+            const miniTitleEl = document.getElementById('mini-title');
+            const miniArtistEl = document.getElementById('mini-artist');
 
-            // Mini player
-            document.getElementById('mini-title').textContent = track.title;
-            document.getElementById('mini-artist').textContent = track.artist;
+            if (titleEl) titleEl.textContent = track.title;
+            if (artistEl) artistEl.textContent = track.artist;
+            if (miniTitleEl) miniTitleEl.textContent = track.title;
+            if (miniArtistEl) miniArtistEl.textContent = track.artist;
         }
     },
 
     showMiniPlayer() {
-        // Only show mini player if not on music player page
         const viewMusicPlayer = document.getElementById('view-music-player');
-        if (viewMusicPlayer.classList.contains('hidden')) {
-            document.getElementById('mini-player').classList.remove('hidden');
+        const miniPlayer = document.getElementById('mini-player');
+        if (viewMusicPlayer && miniPlayer && viewMusicPlayer.classList.contains('hidden')) {
+            miniPlayer.classList.remove('hidden');
         }
     },
 
@@ -470,7 +458,6 @@ const MusicPlayer = {
                 this.shuffle = state.shuffle || false;
                 this.repeat = state.repeat || 'none';
 
-                // Restore UI state - check elements exist first
                 const volumeEl = document.getElementById('music-volume');
                 const shuffleEl = document.getElementById('music-shuffle');
                 const repeatEl = document.getElementById('music-repeat');
@@ -492,27 +479,38 @@ const MusicPlayer = {
     },
 
     restoreLastTrack() {
-        if (!this.savedState || !this.savedState.playlist || this.playlist.length === 0) return;
+        // Validate saved state
+        if (!this.savedState ||
+            !this.savedState.playlist ||
+            !Array.isArray(this.savedState.playlist) ||
+            this.savedState.playlist.length === 0 ||
+            this.playlist.length === 0) {
+            return;
+        }
 
-        // Find saved track index by path
+        // Find saved track
         const savedPath = this.savedState.playlist[0];
+        if (!savedPath || typeof savedPath !== 'string') return;
+
         let index = this.playlist.findIndex(t => t.path === savedPath);
 
-        // If not found by exact path, try to find by filename
-        if (index === -1) {
+        // Try by filename if not found
+        if (index === -1 && savedPath.includes('/')) {
             const savedFilename = savedPath.split('/').pop();
-            index = this.playlist.findIndex(t => t.path.endsWith(savedFilename) || t.name === savedFilename);
+            if (savedFilename) {
+                index = this.playlist.findIndex(t =>
+                    t.path.endsWith(savedFilename) || t.name === savedFilename
+                );
+            }
         }
 
         if (index >= 0) {
             this.currentIndex = index;
             const track = this.playlist[index];
 
-            // Set up audio but don't auto-play
             const fileUrl = '/api/download?file_name=' + encodeURIComponent(track.path);
             this.audio.src = fileUrl;
 
-            // Restore position
             if (this.savedState.currentTime) {
                 this.audio.currentTime = this.savedState.currentTime;
             }
