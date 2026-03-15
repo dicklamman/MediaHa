@@ -164,23 +164,8 @@ const MusicPlayer = {
             console.log('No metadata for:', name);
         }
 
-        // Try to find cover image in same folder
-        const folder = path.substring(0, path.lastIndexOf('/'));
-        const baseName = name.replace(/\.[^.]+$/, '');
-        const coverExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-
-        for (const ext of coverExtensions) {
-            const coverPath = `${folder}/${baseName}${ext}`;
-            try {
-                const coverResponse = await fetch('/api/download?file_name=' + encodeURIComponent(coverPath), { method: 'HEAD' });
-                if (coverResponse.ok) {
-                    coverUrl = '/api/download?file_name=' + encodeURIComponent(coverPath);
-                    break;
-                }
-            } catch (e) {
-                // Try next extension
-            }
-        }
+        // Cover will be loaded from embedded MP3 metadata when playing
+        // Skip external cover file detection to avoid console errors
 
         return {
             name: name,
