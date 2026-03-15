@@ -649,12 +649,6 @@ body {
     text-align: center;
 }
 
-.sidebar-nav li.mini-player-toggle {
-    border-top: 1px solid var(--border-color);
-    margin-top: var(--space-sm);
-    padding-top: var(--space-md);
-}
-
 /* Theme Toggle */
 .theme-toggle {
     position: absolute;

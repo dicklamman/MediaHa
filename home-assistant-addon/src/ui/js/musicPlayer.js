@@ -125,6 +125,12 @@ const MusicPlayer = {
             const countEl = document.getElementById('playlist-count');
             if (countEl) countEl.textContent = this.playlist.length;
 
+            // Show mini player toggle button when playlist is loaded
+            const toggleBtn = document.getElementById('mini-player-toggle-btn');
+            if (toggleBtn && this.playlist.length > 0) {
+                toggleBtn.classList.remove('hidden');
+            }
+
             // Restore last playing track
             this.restoreLastTrack();
         } catch (err) {

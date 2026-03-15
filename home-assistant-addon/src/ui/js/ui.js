@@ -127,33 +127,26 @@ export const ui = {
             if (pageTitle) pageTitle.textContent = title || '';
         };
 
-        // Mini player - default hidden, toggle to show/hide
-        const miniPlayerInit = document.getElementById('mini-player');
-        if (miniPlayerInit) {
-            // Only show if user explicitly enabled it
-            const userEnabled = localStorage.getItem('mediaha_mini_player_visible') === 'true';
-            if (!userEnabled) {
-                miniPlayerInit.classList.add('hidden');
+        // Mini player toggle (floating button)
+        const miniPlayerToggleBtn = document.getElementById('mini-player-toggle-btn');
+        if (miniPlayerToggleBtn) {
+            // Show toggle button always when there's a track in playlist
+            // (the mini player itself is hidden by default until toggled)
+            const hasPlaylist = window.MusicPlayer && window.MusicPlayer.playlist && window.MusicPlayer.playlist.length > 0;
+            const savedVisible = localStorage.getItem('mediaha_mini_player_visible') === 'true';
+            if (hasPlaylist || savedVisible) {
+                miniPlayerToggleBtn.classList.remove('hidden');
             }
-        }
 
-        // Mini player toggle
-        const tabMiniPlayerToggle = document.getElementById('tab-mini-player-toggle');
-        if (tabMiniPlayerToggle) {
-            tabMiniPlayerToggle.addEventListener('click', () => {
+            miniPlayerToggleBtn.addEventListener('click', () => {
                 const miniPlayer = document.getElementById('mini-player');
                 if (miniPlayer) {
                     miniPlayer.classList.toggle('hidden');
                     // Save preference
-                    localStorage.setItem('mediaha_mini_player_visible', !miniPlayer.classList.contains('hidden'));
+                    const isVisible = !miniPlayer.classList.contains('hidden');
+                    localStorage.setItem('mediaha_mini_player_visible', isVisible);
                 }
             });
-            // Restore preference on load
-            const savedVisible = localStorage.getItem('mediaha_mini_player_visible') === 'true';
-            if (savedVisible) {
-                const miniPlayer = document.getElementById('mini-player');
-                if (miniPlayer) miniPlayer.classList.remove('hidden');
-            }
         }
 
         if (tabEpub && tabMp3 && tabAlistVideo && tabAlist) {
@@ -186,9 +179,9 @@ export const ui = {
                     viewDropbox.classList.add('hidden');
                     viewDropbox.style.display = 'none';
                 }
-                // Show mini player if there's a track loaded
+                // Show mini player if user enabled it
                 const miniPlayer3 = document.getElementById('mini-player');
-                if (miniPlayer3 && window.MusicPlayer && window.MusicPlayer.currentIndex >= 0) {
+                if (miniPlayer3 && localStorage.getItem('mediaha_mini_player_visible') === 'true') {
                     miniPlayer3.classList.remove('hidden');
                 }
                 const { fileBrowser } = await import('./fileBrowser.js');
@@ -221,9 +214,9 @@ export const ui = {
                     viewDropbox.classList.add('hidden');
                     viewDropbox.style.display = 'none';
                 }
-                // Show mini player if there's a track loaded
+                // Show mini player if user enabled it
                 const miniPlayer4 = document.getElementById('mini-player');
-                if (miniPlayer4 && window.MusicPlayer && window.MusicPlayer.currentIndex >= 0) {
+                if (miniPlayer4 && localStorage.getItem('mediaha_mini_player_visible') === 'true') {
                     miniPlayer4.classList.remove('hidden');
                 }
                 const { fileBrowser } = await import('./fileBrowser.js');
@@ -240,9 +233,9 @@ export const ui = {
                     viewDropbox.classList.add('hidden');
                     viewDropbox.style.display = 'none';
                 }
-                // Show mini player if there's a track loaded
+                // Show mini player if user enabled it
                 const miniPlayer5 = document.getElementById('mini-player');
-                if (miniPlayer5 && window.MusicPlayer && window.MusicPlayer.currentIndex >= 0) {
+                if (miniPlayer5 && localStorage.getItem('mediaha_mini_player_visible') === 'true') {
                     miniPlayer5.classList.remove('hidden');
                 }
             });
@@ -258,9 +251,9 @@ export const ui = {
                         viewDropbox.classList.remove('hidden');
                         viewDropbox.style.display = '';
                     }
-                    // Show mini player if there's a track loaded
+                    // Show mini player if user enabled it
                     const miniPlayer6 = document.getElementById('mini-player');
-                    if (miniPlayer6 && window.MusicPlayer && window.MusicPlayer.currentIndex >= 0) {
+                    if (miniPlayer6 && localStorage.getItem('mediaha_mini_player_visible') === 'true') {
                         miniPlayer6.classList.remove('hidden');
                     }
                 });
