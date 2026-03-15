@@ -247,35 +247,26 @@ export const mp3Player = {
             if (albumInput) albumInput.value = metadata.album || '';
             if (o3icsInput) o3icsInput.value = metadata.o3ics || '';
 
-            // DEBUG: Log the metadata and o3ics
-            console.log('=== DEBUG loadMetadata ===');
-            console.log('Full metadata:', metadata);
-            console.log('metadata keys:', Object.keys(metadata));
-            
-            // Find o3ics key - there might be a hidden character issue
-            let o3icsValue = '';
-            for (const key of Object.keys(metadata)) {
-                if (key.toLowerCase().includes('o3ics') || key.toLowerCase().includes('lyric')) {
-                    console.log('Found o3ics-like key:', key, 'value:', metadata[key] ? 'has value' : 'empty');
-                    o3icsValue = metadata[key] || '';
-                    break;
+            // Find o3ics value from metadata (handles key name issues)
+            let o3icsValue = metadata.o3ics || '';
+            if (!o3icsValue) {
+                for (const key of Object.keys(metadata)) {
+                    if (key.toLowerCase().includes('o3ics') || key.toLowerCase().includes('o3ic')) {
+                        o3icsValue = metadata[key] || '';
+                        break;
+                    }
                 }
             }
-            
-            // If not found by key name, try by checking all values for LRC format
             if (!o3icsValue) {
                 const values = Object.values(metadata);
                 for (const v of values) {
                     if (typeof v === 'string' && v.includes('[ti:')) {
-                        console.log('Found LRC content in metadata');
                         o3icsValue = v;
                         break;
                     }
                 }
             }
-            
-            console.log('Final o3icsValue:', o3icsValue ? o3icsValue.substring(0, 100) + '...' : 'EMPTY');
-            
+
             this.renderLyrics(o3icsValue);
 
             const mp3Cover = document.getElementById('mp3-cover');

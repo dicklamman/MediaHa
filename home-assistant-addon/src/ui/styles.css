@@ -794,7 +794,7 @@ body {
     gap: var(--space-xl);
     align-items: stretch;
     margin-bottom: var(--space-lg);
-    min-height: 350px;
+    min-height: 250px;
 }
 
 #mp3-cover {

@@ -388,7 +388,8 @@ def lyrics_ruby():
             for item in kks.convert(line):
                 orig = item['orig']
                 hira = item['hira']
-                if orig != hira and re.search(r'[\u4E00-\u9FAF]', orig):
+                # Add ruby for ALL kanji that have a hiragana reading (for Japanese)
+                if hira and orig != hira:
                     line_res.append(f"<ruby>{orig}<rt>{hira}</rt></ruby>")
                 else:
                     line_res.append(orig)
