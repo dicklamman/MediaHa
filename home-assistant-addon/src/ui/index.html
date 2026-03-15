@@ -46,6 +46,10 @@
                         <span class="nav-icon">🎵</span>
                         MP3 Converter
                     </li>
+                    <li id="tab-music-player">
+                        <span class="nav-icon">🎶</span>
+                        Music Player
+                    </li>
                     <li id="tab-alist-video">
                         <span class="nav-icon">🎬</span>
                         AList Video
@@ -80,6 +84,57 @@
                 </div>
 
                 <div id="result"></div>
+            </div>
+
+            <!-- Music Player View -->
+            <div id="view-music-player" class="hidden">
+                <header class="page-header">
+                    <h2 class="page-title">Music Player</h2>
+                </header>
+
+                <div class="music-player-container">
+                    <!-- Now Playing -->
+                    <div class="now-playing-section">
+                        <img id="music-cover" src="" alt="Album Art" class="music-cover-large" />
+                        <div class="now-playing-info">
+                            <h3 id="music-title" class="music-title">No track playing</h3>
+                            <p id="music-artist" class="music-artist">-</p>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="music-progress-container">
+                        <span id="music-current-time" class="music-time">0:00</span>
+                        <input type="range" id="music-progress" class="music-progress-bar" min="0" max="100" value="0">
+                        <span id="music-duration" class="music-time">0:00</span>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="music-controls">
+                        <button id="music-shuffle" class="music-btn" title="Shuffle">🔀</button>
+                        <button id="music-prev" class="music-btn" title="Previous">⏮️</button>
+                        <button id="music-play-pause" class="music-btn music-btn-large" title="Play/Pause">▶️</button>
+                        <button id="music-next" class="music-btn" title="Next">⏭️</button>
+                        <button id="music-repeat" class="music-btn" title="Repeat">🔁</button>
+                    </div>
+
+                    <!-- Volume -->
+                    <div class="music-volume-container">
+                        <span class="music-volume-icon">🔊</span>
+                        <input type="range" id="music-volume" class="music-volume-slider" min="0" max="100" value="80">
+                    </div>
+
+                    <!-- Lyrics -->
+                    <div class="music-lyrics-container">
+                        <div id="music-lyrics" class="music-lyrics"></div>
+                    </div>
+
+                    <!-- Playlist -->
+                    <div class="playlist-section">
+                        <h4 class="playlist-title">Playlist (<span id="playlist-count">0</span> tracks)</h4>
+                        <div id="playlist" class="playlist-container"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- AList to STRM View -->
@@ -154,6 +209,26 @@
                 </div>
             </div>
         </main>
+
+        <!-- Mini Player Widget (shown on other pages) -->
+        <div id="mini-player" class="mini-player hidden">
+            <div class="mini-player-content">
+                <img id="mini-cover" src="" alt="Album Art" class="mini-cover" />
+                <div class="mini-info">
+                    <div id="mini-title" class="mini-title">No track</div>
+                    <div id="mini-artist" class="mini-artist">-</div>
+                </div>
+                <div class="mini-controls">
+                    <button id="mini-prev" class="mini-btn">⏮️</button>
+                    <button id="mini-play-pause" class="mini-btn mini-btn-play">▶️</button>
+                    <button id="mini-next" class="mini-btn">⏭️</button>
+                </div>
+                <div class="mini-progress-container">
+                    <input type="range" id="mini-progress" class="mini-progress-bar" min="0" max="100" value="0">
+                </div>
+                <button id="mini-close" class="mini-close">✕</button>
+            </div>
+        </div>
     </div>
 
     <!-- Right-click Context Menu -->
@@ -256,5 +331,6 @@
     <!-- Scripts -->
     <script type="module" src="js/main.js"></script>
     <script src="js/dropbox.js"></script>
+    <script src="js/musicPlayer.js"></script>
 </body>
 </html>
