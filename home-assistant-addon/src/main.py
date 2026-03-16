@@ -414,13 +414,15 @@ def lyrics_ruby():
         kks.setMode('H', 'H')  # Hiragana to Hiragana
         kks.setMode('K', 'H')  # Katakana to Hiragana
         kks.setMode('J', 'H')  # Kanji to Hiragana
-        kks = kks.get()  # Finalize configuration
+        # Use kks.convert() directly which returns tokens with orig/hira info
         result = []
         # Process line by line to prevent multi-line strings breaking pykakasi tokenization
         for line in text.split('\n'):
             line_res = []
             try:
-                for item in kks.convert(line):
+                # Use converter to get individual tokens with info
+                items = kks.convert(line)
+                for item in items:
                     orig = item['orig']
                     hira = item['hira']
                     # Add ruby for ALL kanji that have a hiragana reading (for Japanese)
