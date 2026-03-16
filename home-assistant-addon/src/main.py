@@ -407,8 +407,10 @@ def lyrics_ruby():
         
         # Check if contains any Japanese characters (indicating Japanese lyrics)
         if not re.search(r'[\u3040-\u309F\u30A0-\u30FF]', text):
+             print(f"No Japanese chars found in text, returning original")
              return jsonify({'result': text})
 
+        print(f"Japanese text detected, processing with pykakasi")
         kks = pykakasi.kakasi()
         # Set to hiragana mode for furigana reading
         kks.setMode('H', 'H')  # Hiragana to Hiragana
@@ -416,6 +418,8 @@ def lyrics_ruby():
         kks.setMode('J', 'H')  # Kanji to Hiragana
         # Use kks.convert() directly which returns tokens with orig/hira info
         result = []
+
+        print(f"Processing text with pykakasi (first 100 chars): {text[:100]}")
         # Process line by line to prevent multi-line strings breaking pykakasi tokenization
         for line in text.split('\n'):
             line_res = []
