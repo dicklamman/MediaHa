@@ -404,8 +404,17 @@ def lyrics_ruby():
     try:
         import pykakasi
         import re
+
+        # First, remove existing readings in parentheses like 漢字(よみ)
+        # This converts "飛翔(はばた)" to "飛翔"
+        # Match any kanji followed by hiragana/katakana in parentheses
+        text = re.sub(r'([一-龥]+)([\u3040-\u309F\u30A0-\u30FF]+)\)', r'\1', text)
         
-        # Check if contains any Japanese characters (indicating Japanese lyrics)
+        print(f"After removing parens: {text[:100]}")
+
+        # Check if contains any Japanese characters (indicating Japanese o3ics)
+
+
         if not re.search(r'[\u3040-\u309F\u30A0-\u30FF]', text):
              print(f"No Japanese chars found in text, returning original")
              return jsonify({'result': text})
@@ -423,9 +432,13 @@ def lyrics_ruby():
         # Process line by line to prevent multi-line strings breaking pykakasi tokenization
         for line in text.split('\n'):
             line_res = []
+            if not line.strip():
+                result.append(line)
+                continue
             try:
                 # Use converter to get individual tokens with info
                 items = kks.convert(line)
+                print(f"Converted line '{line[:30]}...' got {len(items)} items")
                 for item in items:
                     orig = item['orig']
                     hira = item['hira']
@@ -434,12 +447,15 @@ def lyrics_ruby():
                         line_res.append(f"<ruby>{orig}<rt>{hira}</rt></ruby>")
                     else:
                         line_res.append(orig)
+                print(f"Result for line: {''.join(line_res)[:50]}...")
             except Exception as e:
                 # If conversion fails for a line, use original line
                 print(f"pykakasi conversion error for line: {line}, error: {e}")
                 line_res.append(line)
             result.append("".join(line_res))
-        return jsonify({'result': "\n".join(result)})
+        final_result = "\n".join(result)
+        print(f"Final result (first 100 chars): {final_result[:100]}")
+        return jsonify({'result': final_result})
     except ImportError:
         return jsonify({'result': text}) # Fallback if module fails
     except Exception as e:
