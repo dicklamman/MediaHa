@@ -24,13 +24,20 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.hideContextMenu();
 
         // Close modals if clicking outside of them
+        const previewModal = document.getElementById('preview-modal');
+        const videoModal = document.getElementById('video-modal');
+        
         const mp3Modal = document.getElementById('mp3-modal');
         if (mp3Modal && !mp3Modal.classList.contains('hidden')) {
             // Don't close if clicking on o3ics full modal (backdrop or content)
             if (e.target.closest('.o3ics-full-modal')) return;
             
-            // Only close if clicking outside mp3-modal AND not on file/menu items
-            if (!mp3Modal.contains(e.target) && !e.target.closest('.file-item') && !e.target.closest('.menu-item')) {
+            // Don't close if other modals are open (preview or video)
+            const otherModalOpen = (previewModal && !previewModal.classList.contains('hidden')) ||
+                                   (videoModal && !videoModal.classList.contains('hidden'));
+            
+            // Only close if clicking outside mp3-modal AND not on file/menu items AND no other modal open
+            if (!otherModalOpen && !mp3Modal.contains(e.target) && !e.target.closest('.file-item') && !e.target.closest('.menu-item')) {
                 mp3Player.close();
             }
         }
