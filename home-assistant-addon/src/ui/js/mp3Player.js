@@ -171,7 +171,7 @@ export const mp3Player = {
                     const s = parseInt(match[2], 10);
                     const ms = match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3], 10);
                     const time = (m * 60) + s + (ms / 1000);
-                    parsed.push({ time, text: textContent === '' ? '🎵' : textContent });
+                    parsed.push({ time, text: textContent === '' ? '???' : textContent });
                 });
             }
         });
@@ -348,6 +348,18 @@ export const mp3Player = {
             this.enhancedMetadata = data;
             this.originalMetadata = this.originalMetadata || {};
 
+            // Track sources for each field
+            const sources = {
+                title: null,
+                artist: null,
+                album: null,
+                cover: null,
+                o3ics: null
+            };
+
+            // Get search info from API response
+            const searchInfo = data.search_info || {};
+
             // Check if any data found
             let o3icsValue = data.o3ics || '';
             if (!o3icsValue) {
@@ -376,6 +388,25 @@ export const mp3Player = {
                 album: document.getElementById('meta-disp-album').textContent,
                 o3ics: document.getElementById('meta-input-o3ics').value
             };
+
+            // Check what data is available and set sources
+            // iTunes provides: title, artist, album, cover
+            // LrcLib provides: o3ics
+            if (data.title && data.title !== this.savedOriginalDisplay.title) {
+                sources.title = 'itunes';
+            }
+            if (data.artist && data.artist !== this.savedOriginalDisplay.artist) {
+                sources.artist = 'itunes';
+            }
+            if (data.album && data.album !== this.savedOriginalDisplay.album) {
+                sources.album = 'itunes';
+            }
+            if (data.cover && data.cover !== (this.originalMetadata?.cover || '')) {
+                sources.cover = 'itunes';
+            }
+            if (o3icsValue && o3icsValue !== this.savedOriginalDisplay.o3ics) {
+                sources.o3ics = 'lrclib';
+            }
 
             if (data.title) {
                 document.getElementById('meta-disp-title').textContent = data.title;
@@ -407,19 +438,26 @@ export const mp3Player = {
             if (data.title || data.artist || data.album || data.cover || o3icsValue) {
                 // Populate enhance-preview section with original vs new values
                 document.getElementById('enhance-orig-title').textContent = this.savedOriginalDisplay.title || '-';
-                document.getElementById('enhance-new-title').textContent = data.title || '-';
+                document.getElementById('enhance-new-title').textContent = data.title || '';
                 document.getElementById('enhance-orig-artist').textContent = this.savedOriginalDisplay.artist || '-';
-                document.getElementById('enhance-new-artist').textContent = data.artist || '-';
+                document.getElementById('enhance-new-artist').textContent = data.artist || '';
                 document.getElementById('enhance-orig-album').textContent = this.savedOriginalDisplay.album || '-';
-                document.getElementById('enhance-new-album').textContent = data.album || '-';
+                document.getElementById('enhance-new-album').textContent = data.album || '';
                 
                 // Show actual lyrics content (first 3 lines as preview)
                 const origO3icsText = this.savedOriginalDisplay.o3ics || '';
                 const newO3icsText = o3icsValue || '';
                 const origPreview = origO3icsText.split('\n').slice(0, 3).join('\n') || '(No lyrics)';
-                const newPreview = newO3icsText.split('\n').slice(0, 3).join('\n') || '(No lyrics)';
+                const newPreview = newO3icsText.split('\n').slice(0, 3).join('\n') || '';
                 document.getElementById('enhance-orig-o3ics').textContent = origPreview;
                 document.getElementById('enhance-new-o3ics').textContent = newPreview;
+
+                // Update source badges
+                this.updateSourceBadge('title', sources.title, searchInfo);
+                this.updateSourceBadge('artist', sources.artist, searchInfo);
+                this.updateSourceBadge('album', sources.album, searchInfo);
+                this.updateSourceBadge('cover', sources.cover, searchInfo);
+                this.updateSourceBadge('o3ics', sources.o3ics, searchInfo);
 
                 // Populate cover previews - use saved original cover
                 const origCover = document.getElementById('enhance-orig-cover');
@@ -514,6 +552,40 @@ export const mp3Player = {
                 useBtn.classList.add('btn-outline');
             }
         });
+    },
+
+    updateSourceBadge(field, source, searchInfo) {
+        const badge = document.getElementById('enhance-source-' + field);
+        if (!badge) return;
+
+        if (source) {
+            let label = source === 'itunes' ? 'iTunes' : (source === 'lrclib' ? 'LrcLib' : source);
+            
+            // Add search info if available
+            if (searchInfo && searchInfo[source]) {
+                const info = searchInfo[source];
+                let searchDetails = '';
+                
+                if (source === 'itunes' && info.search_term) {
+                    searchDetails = ` (${info.search_term})`;
+                } else if (source === 'lrclib') {
+                    const parts = [];
+                    if (info.search_track) parts.push(`"${info.search_track}"`);
+                    if (info.search_artist) parts.push(`"${info.search_artist}"`);
+                    if (parts.length > 0) {
+                        searchDetails = ` (${parts.join(', ')})`;
+                    }
+                }
+                
+                label += searchDetails;
+            }
+            
+            badge.textContent = label;
+            badge.className = 'enhance-source-badge visible ' + source;
+        } else {
+            badge.textContent = '';
+            badge.className = 'enhance-source-badge';
+        }
     },
 
     async confirmEnhance() {
@@ -727,3 +799,7 @@ export const mp3Player = {
 window.showFullO3ics = function(type) {
     mp3Player.showFullO3ics(type);
 };
+
+
+
+

@@ -282,6 +282,19 @@ def enhance_metadata():
 
         search_term = f"{title} {artist}".strip()
 
+        # Track what search was used and what was found
+        search_info = {
+            'itunes': {
+                'search_term': search_term,
+                'found': False
+            },
+            'lrclib': {
+                'search_track': title,
+                'search_artist': artist,
+                'found': False
+            }
+        }
+
         # Search iTunes for cover/album/artist/title (try JP store first for Japanese metadata)
         cover_b64 = None
         mime_type = "image/jpeg"
@@ -294,6 +307,7 @@ def enhance_metadata():
                 
             if itunes_res.status_code == 200 and itunes_res.json().get('results'):
                 track = itunes_res.json()['results'][0]
+                search_info['itunes']['found'] = True
                 
                 if not album or album.lower() == 'unknown album':
                     album = track.get('collectionName', album)
@@ -328,7 +342,7 @@ def enhance_metadata():
             'album': album,
             'lyrics': lyrics,
             'cover': f"data:{mime_type};base64,{cover_b64}" if cover_b64 else None
-        })
+            'search_info': search_info
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -405,8 +419,8 @@ def lyrics_ruby():
         import pykakasi
         import re
 
-        # First, remove existing readings in parentheses like 漢字(よみ)
-        # This converts "飛翔(はばた)" to "飛翔"
+        # First, remove existing readings in parentheses like 漢�?(?�み)
+        # This converts "飛�?(?�ば??" to "飛�?"
         # Match any kanji followed by hiragana/katakana in parentheses
         text = re.sub(r'([一-龥]+)([\u3040-\u309F\u30A0-\u30FF]+)\)', r'\1', text)
         

@@ -894,12 +894,41 @@ body {
 }
 
 .enhance-item-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
     margin-bottom: var(--space-sm);
 }
 
 .enhance-item-label {
     font-weight: 600;
     color: var(--color-text);
+}
+
+.enhance-source-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: var(--color-primary);
+    color: white;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.enhance-source-badge.visible {
+    opacity: 1;
+}
+
+.enhance-source-badge.itunes {
+    background: #FC3C44;
+}
+
+.enhance-source-badge.lrclib {
+    background: #6366f1;
+}
+
+.enhance-source-badge.local {
+    background: var(--color-success);
 }
 
 .enhance-compare {
