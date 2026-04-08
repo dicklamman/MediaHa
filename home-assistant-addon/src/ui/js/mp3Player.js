@@ -537,11 +537,15 @@ export const mp3Player = {
 
             await this.api.updateMetadata(this.currentFile.path, data);
 
-            // Reload metadata
+            // Reload metadata to get the saved data
             await this.loadMetadata();
 
-            // Reset enhance mode
-            this.cancelEnhance();
+            // Reset enhance UI state (but DON'T restore original display values)
+            this.resetEnhanceUI();
+
+            // Re-render lyrics with new data
+            const o3icsValue = data.o3ics || this.originalMetadata?.o3ics || '';
+            this.renderLyrics(o3icsValue);
 
         } catch (err) {
             alert('Failed to save enhanced metadata.');
@@ -550,6 +554,19 @@ export const mp3Player = {
             confirmBtn.textContent = originalText;
             confirmBtn.disabled = false;
         }
+    },
+
+    // Reset enhance UI state without restoring original display values
+    resetEnhanceUI() {
+        document.getElementById('enhance-preview').classList.add('hidden');
+        document.getElementById('metadata-display').classList.remove('hidden');
+        document.getElementById('auto-enhance-btn').classList.remove('hidden');
+        document.getElementById('confirm-enhance-btn').classList.add('hidden');
+        document.getElementById('cancel-enhance-btn').classList.add('hidden');
+        document.getElementById('edit-metadata-btn').classList.remove('hidden');
+
+        this.enhancedMetadata = null;
+        this.useEnhanced = {};
     },
 
     cancelEnhance() {
