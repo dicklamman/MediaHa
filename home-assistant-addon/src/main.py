@@ -342,8 +342,9 @@ def enhance_metadata():
             'artist': artist,
             'album': album,
             'lyrics': lyrics,
-            'cover': f"data:{mime_type};base64,{cover_b64}" if cover_b64 else None
+            'cover': f"data:{mime_type};base64,{cover_b64}" if cover_b64 else None,
             'search_info': search_info
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
