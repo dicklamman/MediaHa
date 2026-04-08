@@ -42,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const previewModal = document.getElementById('preview-modal');
         if (previewModal && !previewModal.classList.contains('hidden')) {       
             if (!previewModal.contains(e.target) && !e.target.closest('.file-item') && !e.target.closest('.menu-item')) {
                 epubPlayer.close();
