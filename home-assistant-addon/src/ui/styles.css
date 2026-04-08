@@ -140,7 +140,9 @@
 }
 
 .music-volume-icon {
-    font-size: 1.25rem;
+    font-size: 24px;
+    font-family: 'Material Icons';
+    font-weight: normal;
 }
 
 .music-volume-slider {
@@ -682,9 +684,15 @@ body {
 }
 
 .sidebar-nav li .nav-icon {
-    font-size: 22px;
-    width: 24px;
+    font-size: 24px;
+    width: 28px;
+    height: 24px;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Material Icons';
+    font-weight: normal;
 }
 
 /* Theme Toggle */
@@ -929,6 +937,39 @@ body {
 
 .enhance-source-badge.local {
     background: var(--color-success);
+}
+
+/* Refresh enhance button */
+.refresh-enhance-btn {
+    margin-left: auto;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.refresh-enhance-btn:hover {
+    background: var(--hover-bg);
+    color: var(--color-primary);
+}
+
+.refresh-enhance-btn .material-icons {
+    font-size: 16px;
+}
+
+.refresh-enhance-btn.loading .material-icons {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .enhance-compare {
@@ -1284,6 +1325,62 @@ body {
 
 #preview-modal.hidden {
     display: none;
+}
+
+/* Image Preview Modal */
+#image-preview-modal {
+    position: fixed;
+    top: 5%;
+    left: 5%;
+    right: 5%;
+    bottom: 5%;
+    background: var(--modal-bg);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-xl);
+    z-index: var(--z-modal);
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+}
+
+#image-preview-modal.hidden {
+    display: none;
+}
+
+#image-preview-header {
+    padding: var(--space-md);
+    background: var(--modal-header-bg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--color-border);
+}
+
+#image-preview-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-lg);
+    overflow: auto;
+}
+
+#image-preview-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: var(--radius-md);
+}
+
+.enhance-cover-preview.clickable {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.enhance-cover-preview.clickable:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 #preview-header {

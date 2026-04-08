@@ -10,6 +10,14 @@ export const mp3Player = {
         const closeMp3Btn = document.getElementById('close-mp3');
         if (closeMp3Btn) closeMp3Btn.addEventListener('click', () => this.close());
 
+        // Image preview modal
+        const closeImagePreviewBtn = document.getElementById('close-image-preview');
+        if (closeImagePreviewBtn) {
+            closeImagePreviewBtn.addEventListener('click', () => {
+                document.getElementById('image-preview-modal').classList.add('hidden');
+            });
+        }
+
         const editBtn = document.getElementById('edit-metadata-btn');
         const saveBtn = document.getElementById('save-metadata-btn');
         const cancelBtn = document.getElementById('cancel-metadata-btn');
@@ -44,6 +52,14 @@ export const mp3Player = {
                 const field = btn.getAttribute('data-field');
                 this.useEnhanced[field] = false;
                 this.updateEnhanceButtons();
+            });
+        });
+
+        // Handle refresh enhance button clicks
+        document.querySelectorAll('.refresh-enhance-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const field = btn.getAttribute('data-field');
+                this.refreshEnhance(field);
             });
         });
 
@@ -176,7 +192,7 @@ export const mp3Player = {
                     const s = parseInt(match[2], 10);
                     const ms = match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3], 10);
                     const time = (m * 60) + s + (ms / 1000);
-                    parsed.push({ time, text: textContent === '' ? '♪' : textContent });
+                    parsed.push({ time, text: textContent === '' ? '?' : textContent });
                 });
             }
         });
@@ -559,6 +575,82 @@ export const mp3Player = {
         });
     },
 
+    async refreshEnhance(field) {
+        if (!this.api || !this.currentFile) return;
+
+        const refreshBtn = document.querySelector(`.refresh-enhance-btn[data-field="${field}"]`);
+        if (refreshBtn) {
+            refreshBtn.classList.add('loading');
+            const icon = refreshBtn.querySelector('.material-icons');
+            if (icon) icon.textContent = 'sync';
+        }
+
+        try {
+            const data = await this.api.enhanceMp3(this.currentFile.path);
+            this.enhancedMetadata = data;
+
+            switch (field) {
+                case 'cover':
+                    if (data.cover) {
+                        document.getElementById('mp3-cover').src = data.cover;
+                        document.getElementById('mp3-cover').style.display = 'block';
+                        const newCover = document.getElementById('enhance-new-cover');
+                        if (newCover) {
+                            newCover.src = data.cover;
+                            newCover.classList.add('has-image');
+                        }
+                        const newPlaceholder = document.getElementById('enhance-new-cover-placeholder');
+                        if (newPlaceholder) newPlaceholder.classList.remove('show');
+                    }
+                    this.updateSourceBadge('cover', 'itunes', data.search_info);
+                    break;
+
+                case 'o3ics':
+                    let o3icsValue = data.o3ics || '';
+                    if (!o3icsValue) {
+                        for (const key of Object.keys(data)) {
+                            if (key.toLowerCase().includes('o3ics') || key.toLowerCase().includes('o3ic')) {
+                                o3icsValue = data[key] || '';
+                                break;
+                            }
+                        }
+                    }
+                    if (!o3icsValue) {
+                        const values = Object.values(data);
+                        for (const v of values) {
+                            if (typeof v === 'string' && v.includes('[ti:')) {
+                                o3icsValue = v;
+                                break;
+                            }
+                        }
+                    }
+                    if (o3icsValue) {
+                        const newPreview = o3icsValue.split('\n').slice(0, 3).join('\n') || '';
+                        document.getElementById('enhance-new-o3ics').textContent = newPreview;
+                        this.updateSourceBadge('o3ics', 'lrclib', data.search_info);
+                    }
+                    break;
+
+                case 'album':
+                    if (data.album) {
+                        document.getElementById('meta-disp-album').textContent = data.album;
+                        document.getElementById('meta-input-album').value = data.album;
+                        document.getElementById('enhance-new-album').textContent = data.album;
+                        this.updateSourceBadge('album', 'itunes', data.search_info);
+                    }
+                    break;
+            }
+        } catch (err) {
+            console.error(`Failed to refresh ${field}:`, err);
+        } finally {
+            if (refreshBtn) {
+                refreshBtn.classList.remove('loading');
+                const icon = refreshBtn.querySelector('.material-icons');
+                if (icon) icon.textContent = 'refresh';
+            }
+        }
+    },
+
     updateSourceBadge(field, source, searchInfo) {
         const badge = document.getElementById('enhance-source-' + field);
         if (!badge) return;
@@ -803,6 +895,18 @@ export const mp3Player = {
 // Make showFullO3ics available globally for onclick handlers
 window.showFullO3ics = function(type) {
     mp3Player.showFullO3ics(type);
+};
+
+// Make showCoverPreview available globally for onclick handlers
+window.showCoverPreview = function(imgElement) {
+    const src = imgElement.src;
+    if (!src) return;
+    const modal = document.getElementById('image-preview-modal');
+    const img = document.getElementById('image-preview-img');
+    if (modal && img) {
+        img.src = src;
+        modal.classList.remove('hidden');
+    }
 };
 
 

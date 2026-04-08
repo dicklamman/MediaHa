@@ -256,6 +256,17 @@
         <div id="preview-content"></div>
     </div>
 
+    <!-- Image Preview Modal -->
+    <div id="image-preview-modal" class="hidden">
+        <div id="image-preview-header">
+            <div style="font-weight: 600;" id="image-preview-title">Cover Preview</div>
+            <button id="close-image-preview" class="modal-close">✕</button>
+        </div>
+        <div id="image-preview-content">
+            <img id="image-preview-img" src="" alt="Cover">
+        </div>
+    </div>
+
     <!-- Video Player Modal -->
     <div id="video-modal" class="hidden">
         <div id="video-header">
@@ -368,6 +379,9 @@
                             <div class="enhance-item-header">
                                 <span class="enhance-item-label">Album</span>
                                 <span id="enhance-source-album" class="enhance-source-badge"></span>
+                                <button class="btn btn-xs btn-icon refresh-enhance-btn" data-field="album" title="Refresh Album">
+                                    <span class="material-icons">refresh</span>
+                                </button>
                             </div>
                             <div class="enhance-compare">
                                 <div class="enhance-original">
@@ -391,16 +405,19 @@
                             <div class="enhance-item-header">
                                 <span class="enhance-item-label">Cover Image</span>
                                 <span id="enhance-source-cover" class="enhance-source-badge"></span>
+                                <button class="btn btn-xs btn-icon refresh-enhance-btn" data-field="cover" title="Refresh Cover">
+                                    <span class="material-icons">refresh</span>
+                                </button>
                             </div>
                             <div class="enhance-compare enhance-compare-cover">
                                 <div class="enhance-original">
                                     <span class="enhance-label">Original</span>
-                                    <img id="enhance-orig-cover" class="enhance-cover-preview" src="" alt="No Original">
+                                    <img id="enhance-orig-cover" class="enhance-cover-preview clickable" src="" alt="No Original" onclick="showCoverPreview(this)">
                                     <div id="enhance-orig-cover-placeholder" class="enhance-cover-placeholder">🎵</div>
                                 </div>
                                 <div class="enhance-new">
                                     <span class="enhance-label">Enhanced</span>
-                                    <img id="enhance-new-cover" class="enhance-cover-preview" src="" alt="No Enhanced">
+                                    <img id="enhance-new-cover" class="enhance-cover-preview clickable" src="" alt="No Enhanced" onclick="showCoverPreview(this)">
                                     <div id="enhance-new-cover-placeholder" class="enhance-cover-placeholder">🎵</div>
                                 </div>
                             </div>
@@ -415,6 +432,9 @@
                             <div class="enhance-item-header">
                                 <span class="enhance-item-label">Lyrics (.lrc)</span>
                                 <span id="enhance-source-o3ics" class="enhance-source-badge"></span>
+                                <button class="btn btn-xs btn-icon refresh-enhance-btn" data-field="o3ics" title="Refresh Lyrics">
+                                    <span class="material-icons">refresh</span>
+                                </button>
                             </div>
                             <div class="enhance-compare">
                                 <div class="enhance-original">
