@@ -192,7 +192,7 @@ export const mp3Player = {
                     const s = parseInt(match[2], 10);
                     const ms = match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3], 10);
                     const time = (m * 60) + s + (ms / 1000);
-                    parsed.push({ time, text: textContent === '' ? '?' : textContent });
+                    parsed.push({ time, text: textContent === '' ? '<span class="material-icons" style="font-size:14px">music_note</span>' : textContent });
                 });
             }
         });

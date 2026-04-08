@@ -1017,8 +1017,8 @@ body {
     border-radius: var(--radius-sm);
     margin: 0 auto;
     display: none;
-    background: var(--bg-primary);
-    border: 2px dashed var(--border-color);
+    position: relative;
+    z-index: 1;
 }
 
 .enhance-cover-preview.has-image {
@@ -1042,6 +1042,11 @@ body {
 
 .enhance-cover-placeholder.show {
     display: flex;
+}
+
+.enhance-original,
+.enhance-new {
+    position: relative;
 }
 
 .enhance-lrc-preview {
