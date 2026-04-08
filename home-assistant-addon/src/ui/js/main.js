@@ -51,7 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const videoModal = document.getElementById('video-modal');
         if (videoModal && !videoModal.classList.contains('hidden')) {
             if (!videoModal.contains(e.target) && !e.target.closest('.file-item') && !e.target.closest('.menu-item')) {
                 import('./videoPlayer.js').then(({videoPlayer}) => videoPlayer.close());
