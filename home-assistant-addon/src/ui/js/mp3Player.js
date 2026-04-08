@@ -490,15 +490,6 @@ export const mp3Player = {
                 const origCoverUrl = this.originalMetadata && this.originalMetadata.cover ? this.originalMetadata.cover : '';
                 const newCoverUrl = data.cover ? data.cover : '';
                 
-                // Update the main cover display
-                if (newCoverUrl) {
-                    const mp3Cover = document.getElementById('mp3-cover');
-                    if (mp3Cover) {
-                        mp3Cover.src = newCoverUrl;
-                        mp3Cover.style.display = 'block';
-                    }
-                }
-                
                 // Handle original cover display
                 if (origCover && origPlaceholder) {
                     if (origCoverUrl) {
@@ -708,6 +699,15 @@ export const mp3Player = {
 
             // Reload metadata to get the saved data
             await this.loadMetadata();
+
+            // Update main cover display if cover was enhanced (since loadMetadata uses original cover)
+            if (this.useEnhanced.cover && this.enhancedMetadata.cover) {
+                const mp3Cover = document.getElementById('mp3-cover');
+                if (mp3Cover) {
+                    mp3Cover.src = this.enhancedMetadata.cover;
+                    mp3Cover.style.display = 'block';
+                }
+            }
 
             // Reset enhance UI state (but DON'T restore original display values)
             this.resetEnhanceUI();
