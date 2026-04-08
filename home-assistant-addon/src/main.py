@@ -147,11 +147,11 @@ def get_metadata():
 
     # Read Lyrics
     lrc_path = os.path.splitext(file_path)[0] + '.lrc'
-    lyrics = ""
+    o3ics = ""
     if os.path.exists(lrc_path):
         try:
             with open(lrc_path, 'r', encoding='utf-8-sig') as f:
-                lyrics = f.read()
+                o3ics = f.read()
         except Exception:
             pass
 
@@ -183,7 +183,7 @@ def get_metadata():
         'title': title,
         'artist': artist,
         'album': album,
-        'lyrics': lyrics,
+        'o3ics': o3ics,
         'cover': f"data:{mime_type};base64,{cover_b64}" if cover_b64 else None
     })
 
@@ -233,12 +233,12 @@ def update_metadata():
         # Save ID3 tags to the MP3 file
         audio.save()
         
-        # Handle lyrics
+        # Handle o3ics
         lrc_path = os.path.splitext(file_path)[0] + '.lrc'
-        if 'lyrics' in data:
-            if data['lyrics'].strip():
+        if 'o3ics' in data:
+            if data['o3ics'].strip():
                 with open(lrc_path, 'w', encoding='utf-8') as f:
-                    f.write(data['lyrics'])
+                    f.write(data['o3ics'])
             else:
                 if os.path.exists(lrc_path):
                     os.remove(lrc_path)
@@ -324,13 +324,27 @@ def enhance_metadata():
         except Exception:
             pass
 
-        # Search lrcLib
-        lyrics = ""
+        # Search lrcLib - try title+artist first, then fallback to title only
+        o3ics = ""
+        lrclib_results = []
         try:
+            # First try: search by title + artist
             lrc_res = requests.get('https://lrclib.net/api/search', params={'track_name': title, 'artist_name': artist})
-            if lrc_res.status_code == 200 and lrc_res.json():
-                best_match = lrc_res.json()[0]
-                lyrics = best_match.get('syncedLyrics') or best_match.get('plainLyrics') or ""
+            if lrc_res.status_code == 200:
+                lrclib_results = lrc_res.json()
+            
+            # If no results with artist, try title only
+            if not lrclib_results and title:
+                lrc_res = requests.get('https://lrclib.net/api/search', params={'track_name': title})
+                if lrc_res.status_code == 200:
+                    lrclib_results = lrc_res.json()
+                search_info['lrclib']['fallback_to_title'] = True
+            
+            if lrclib_results:
+                best_match = lrclib_results[0]
+                o3ics = best_match.get('syncedLyrics') or best_match.get('plainLyrics') or ""
+                search_info['lrclib']['found'] = True
+                search_info['lrclib']['total_results'] = len(lrclib_results)
                 if not album: album = best_match.get('albumName', album)
                 if not artist: artist = best_match.get('artistName', artist)
                 if not title: title = best_match.get('trackName', title)
@@ -341,7 +355,7 @@ def enhance_metadata():
             'title': title,
             'artist': artist,
             'album': album,
-            'lyrics': lyrics,
+            'o3ics': o3ics,
             'cover': f"data:{mime_type};base64,{cover_b64}" if cover_b64 else None,
             'search_info': search_info
         })
@@ -412,8 +426,8 @@ def run_dropbox_sync():
     from utils.dropbox_sync import run_sync
     return Response(run_sync(target, app_key, app_secret, refresh_token), mimetype='text/plain')
 
-@app.route('/api/lyrics/ruby', methods=['POST'])
-def lyrics_ruby():
+@app.route('/api/o3ics/ruby', methods=['POST'])
+def o3ics_ruby():
     text = request.json.get('text', '')
     if not text:
         return jsonify({'result': ''})
@@ -422,7 +436,7 @@ def lyrics_ruby():
         import re
 
         # First, remove existing readings in parentheses like ?(??)
-        # This converts "?(????" to "??"
+        # This converts "?(????" to "??" 
         # Match any kanji followed by hiragana/katakana in parentheses
         text = re.sub(r'([?-?]+)([\u3040-\u309F\u30A0-\u30FF]+)\)', r'\1', text)
         
