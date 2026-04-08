@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from flask import Flask, request, jsonify, send_from_directory
 import os
 from utils.epub_converter import convert_to_hk_traditional_chinese
@@ -419,10 +420,10 @@ def lyrics_ruby():
         import pykakasi
         import re
 
-        # First, remove existing readings in parentheses like Êº¢Â?(?à„Åø)
-        # This converts "È£õÁ?(?Ø„Å∞??" to "È£õÁ?"
+        # First, remove existing readings in parentheses like ?(??)
+        # This converts "?(????" to "??"
         # Match any kanji followed by hiragana/katakana in parentheses
-        text = re.sub(r'([‰∏Ä-Èæ•]+)([\u3040-\u309F\u30A0-\u30FF]+)\)', r'\1', text)
+        text = re.sub(r'([?-?]+)([\u3040-\u309F\u30A0-\u30FF]+)\)', r'\1', text)
         
         print(f"After removing parens: {text[:100]}")
 
