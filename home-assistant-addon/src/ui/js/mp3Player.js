@@ -576,8 +576,14 @@ export const mp3Player = {
             if (icon) icon.textContent = 'sync';
         }
 
+        // Track the current offset for this field
+        if (!this.refreshOffsets) this.refreshOffsets = {};
+        const currentOffset = this.refreshOffsets[field] || 0;
+        const nextOffset = currentOffset + 1;
+        this.refreshOffsets[field] = nextOffset;
+
         try {
-            const data = await this.api.enhanceMp3(this.currentFile.path);
+            const data = await this.api.enhanceMp3(this.currentFile.path, nextOffset);
             this.enhancedMetadata = data;
 
             switch (field) {
@@ -742,6 +748,7 @@ export const mp3Player = {
 
         this.enhancedMetadata = null;
         this.useEnhanced = {};
+        this.refreshOffsets = {};
     },
 
     cancelEnhance() {
@@ -781,6 +788,7 @@ export const mp3Player = {
         // Clear enhanced data
         this.enhancedMetadata = null;
         this.useEnhanced = {};
+        this.refreshOffsets = {};
     },
 
     toggleEditMode(isEdit) {

@@ -30,11 +30,11 @@ export const api = {
         if (!response.ok) throw new Error('Failed to update metadata');
         return await response.json();
     },
-    async enhanceMp3(path) {
+    async enhanceMp3(path, offset = 0) {
         const response = await fetch('/api/enhance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ file_name: path })
+            body: JSON.stringify({ file_name: path, offset: offset })
         });
         if (!response.ok) throw new Error('Failed to enhance MP3');
         return await response.json();

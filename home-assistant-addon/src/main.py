@@ -255,6 +255,8 @@ def update_metadata():
 def enhance_metadata():
     data = request.json
     file_name = data.get('file_name')
+    # offset ?????????? (0=?????, 1=?????, ...)
+    result_offset = data.get('offset', 0)
     if not file_name:
         return jsonify({'error': 'No file name provided'}), 400
 
@@ -300,58 +302,93 @@ def enhance_metadata():
             }
         }
 
-        # Search iTunes for cover/album/artist/title (try JP store first for Japanese metadata)
+        # Detect original title language to choose appropriate iTunes store
+        import re
+        def detect_language(text):
+            """Detect if text is Japanese, Chinese, or English"""
+            if not text:
+                return 'english'
+            if re.search(r'[\u3040-\u309F\u30A0-\u30FF]', text):
+                return 'japanese'
+            if re.search(r'[\u4E00-\u9FFF]', text):
+                return 'chinese'
+            return 'english'
+
+        orig_language = detect_language(title + ' ' + artist)
+        search_info['detected_language'] = orig_language
+
+        # Search iTunes - choose store based on detected language
         cover_b64 = None
         mime_type = "image/jpeg"
         try:
-            # Try JP store first to get original Japanese text instead of romaji/english
-            itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': 1, 'country': 'jp', 'lang': 'ja_jp'})
-            if not (itunes_res.status_code == 200 and itunes_res.json().get('results')):
-                # Fallback to general search if not found in JP store
-                itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': 1})
-                
+            itunes_limit = max(5, result_offset + 1)
+            
+            if orig_language == 'japanese':
+                itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': itunes_limit, 'country': 'jp', 'lang': 'ja_jp'})
+                if not (itunes_res.status_code == 200 and itunes_res.json().get('results')):
+                    itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': itunes_limit})
+            elif orig_language == 'chinese':
+                itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': itunes_limit, 'country': 'tw', 'lang': 'zh_tw'})
+                if not (itunes_res.status_code == 200 and itunes_res.json().get('results')):
+                    itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': itunes_limit})
+            else:
+                itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': itunes_limit, 'country': 'us'})
+                if not (itunes_res.status_code == 200 and itunes_res.json().get('results')):
+                    itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': itunes_limit, 'country': 'jp', 'lang': 'ja_jp'})
+                    
             if itunes_res.status_code == 200 and itunes_res.json().get('results'):
-                track = itunes_res.json()['results'][0]
-                search_info['itunes']['found'] = True
-                
-                if not album or album.lower() == 'unknown album':
-                    album = track.get('collectionName', album)
-                if not artist or artist.lower() == 'unknown artist':
-                    artist = track.get('artistName', artist)
-                if not title or title == base_name:
-                    title = track.get('trackName', title)
+                results = itunes_res.json()['results']
+                track_idx = min(result_offset, len(results) - 1)
+                track = results[track_idx] if results else None
+                if track:
+                    search_info['itunes']['found'] = True
+                    search_info['itunes']['offset'] = result_offset
+                    search_info['itunes']['total_results'] = len(results)
+                    
+                    if not album or album.lower() == 'unknown album':
+                        album = track.get('collectionName', album)
+                    if not artist or artist.lower() == 'unknown artist':
+                        artist = track.get('artistName', artist)
+                    if not title or title == base_name:
+                        title = track.get('trackName', title)
 
-                cover_url = track.get('artworkUrl100', '').replace('100x100bb', '600x600bb')
-                if cover_url:
-                    cover_data = requests.get(cover_url).content
-                    cover_b64 = base64.b64encode(cover_data).decode('utf-8')
+                    cover_url = track.get('artworkUrl100', '').replace('100x100bb', '600x600bb')
+                    if cover_url:
+                        cover_data = requests.get(cover_url).content
+                        cover_b64 = base64.b64encode(cover_data).decode('utf-8')
         except Exception:
             pass
 
         # Search lrcLib - try title+artist first, then fallback to title only
+        # ?? offset > 0?????????? offset ?????
         o3ics = ""
         lrclib_results = []
         try:
+            lrclib_limit = max(10, result_offset + 1)
             # First try: search by title + artist
-            lrc_res = requests.get('https://lrclib.net/api/search', params={'track_name': title, 'artist_name': artist})
+            lrc_res = requests.get('https://lrclib.net/api/search', params={'track_name': title, 'artist_name': artist, 'limit': lrclib_limit})
             if lrc_res.status_code == 200:
                 lrclib_results = lrc_res.json()
             
             # If no results with artist, try title only
             if not lrclib_results and title:
-                lrc_res = requests.get('https://lrclib.net/api/search', params={'track_name': title})
+                lrc_res = requests.get('https://lrclib.net/api/search', params={'track_name': title, 'limit': lrclib_limit})
                 if lrc_res.status_code == 200:
                     lrclib_results = lrc_res.json()
                 search_info['lrclib']['fallback_to_title'] = True
             
             if lrclib_results:
-                best_match = lrclib_results[0]
-                o3ics = best_match.get('syncedLyrics') or best_match.get('plainLyrics') or ""
-                search_info['lrclib']['found'] = True
-                search_info['lrclib']['total_results'] = len(lrclib_results)
-                if not album: album = best_match.get('albumName', album)
-                if not artist: artist = best_match.get('artistName', artist)
-                if not title: title = best_match.get('trackName', title)
+                # ?? offset ????
+                lrclib_idx = min(result_offset, len(lrclib_results) - 1)
+                best_match = lrclib_results[lrclib_idx] if lrclib_results else None
+                if best_match:
+                    o3ics = best_match.get('syncedLyrics') or best_match.get('plainLyrics') or ""
+                    search_info['lrclib']['found'] = True
+                    search_info['lrclib']['offset'] = result_offset
+                    search_info['lrclib']['total_results'] = len(lrclib_results)
+                    if not album: album = best_match.get('albumName', album)
+                    if not artist: artist = best_match.get('artistName', artist)
+                    if not title: title = best_match.get('trackName', title)
         except Exception:
             pass
 
