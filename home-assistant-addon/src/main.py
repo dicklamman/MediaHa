@@ -216,6 +216,9 @@ def update_metadata():
             import base64
             from mutagen.id3 import APIC
             try:
+                # First remove all existing APIC (cover) tags
+                audio.tags.delall('APIC')
+                
                 b64_data = data['cover'].split(',')[-1]
                 cover_data = base64.b64decode(b64_data)
                 audio.tags.add(
@@ -227,7 +230,8 @@ def update_metadata():
                         data=cover_data
                     )
                 )
-            except Exception:
+            except Exception as e:
+                print(f"Error saving cover: {e}")
                 pass
         
         # Save ID3 tags to the MP3 file

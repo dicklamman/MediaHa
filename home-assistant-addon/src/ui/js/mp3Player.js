@@ -691,11 +691,17 @@ export const mp3Player = {
                 o3ics: this.useEnhanced.o3ics ? (this.enhancedMetadata.o3ics || Object.values(this.enhancedMetadata).find(v => typeof v === 'string' && v.includes('[ti:')) || '') : (this.originalMetadata.o3ics || '')
             };
 
-            if (this.useEnhanced.cover && this.enhancedMetadata.cover) {
+            console.log('confirmEnhance - useEnhanced:', this.useEnhanced);
+            console.log('confirmEnhance - enhancedMetadata.cover:', this.enhancedMetadata?.cover ? 'exists' : 'null');
+
+            if (this.useEnhanced.cover && this.enhancedMetadata?.cover) {
                 data.cover = this.enhancedMetadata.cover;
+                console.log('confirmEnhance - adding cover to data, length:', data.cover.length);
             }
 
-            await this.api.updateMetadata(this.currentFile.path, data);
+            console.log('confirmEnhance - final data keys:', Object.keys(data));
+            const result = await this.api.updateMetadata(this.currentFile.path, data);
+            console.log('confirmEnhance - updateMetadata result:', result);
 
             // Reload metadata to get the saved data
             await this.loadMetadata();
@@ -717,8 +723,8 @@ export const mp3Player = {
             this.renderLyrics(o3icsValue);
 
         } catch (err) {
-            alert('Failed to save enhanced metadata.');
-            console.error(err);
+            alert('Failed to save enhanced metadata: ' + err.message);
+            console.error('confirmEnhance error:', err);
         } finally {
             confirmBtn.textContent = originalText;
             confirmBtn.disabled = false;
