@@ -161,8 +161,13 @@ export const mp3Player = {
         lines.forEach(line => {
             const matches = [...line.matchAll(timeRegex)];
             let textContent = line.replace(timeRegex, '').trim();
-            if (textContent.startsWith(']')) {
+            // Remove leading ] (and any extra ones)
+            while (textContent.startsWith(']')) {
                 textContent = textContent.substring(1).trim();
+            }
+            // Remove trailing ] if present (handles malformed LRC)
+            if (textContent.endsWith(']')) {
+                textContent = textContent.slice(0, -1).trim();
             }
 
             if (matches.length > 0 && textContent !== undefined) {
@@ -171,7 +176,7 @@ export const mp3Player = {
                     const s = parseInt(match[2], 10);
                     const ms = match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3], 10);
                     const time = (m * 60) + s + (ms / 1000);
-                    parsed.push({ time, text: textContent === '' ? '???' : textContent });
+                    parsed.push({ time, text: textContent === '' ? '♪' : textContent });
                 });
             }
         });
