@@ -395,20 +395,25 @@ def enhance_metadata():
         # Search Deezer for cover
         if cover_source in ['deezer', 'all']:
             try:
-                deezer_res = requests.get('https://api.deezer.com/search', params={'q': search_term, 'limit': 5})
+                deezer_res = requests.get('https://api.deezer.com/search', params={'q': search_term, 'limit': 5, 'output': 'json'})
                 if deezer_res.status_code == 200:
                     deezer_data = deezer_res.json()
                     tracks = deezer_data.get('data', [])
                     if tracks:
                         dz_idx = min(result_offset, len(tracks) - 1)
                         track = tracks[dz_idx]
-                        cover_url = track.get('album', {}).get('cover_xl') or track.get('album', {}).get('cover_big') or track.get('album', {}).get('cover_medium')
+                        # Deezer provides multiple cover sizes
+                        album = track.get('album', {})
+                        cover_url = album.get('cover_xl') or album.get('cover_big') or album.get('cover_medium')
+                        if not cover_url:
+                            cover_url = track.get('artist', {}).get('picture_xl') or track.get('artist', {}).get('picture_big')
                         if cover_url:
                             cover_data = requests.get(cover_url).content
                             cover_b64 = base64.b64encode(cover_data).decode('utf-8')
                             add_cover_option('deezer', cover_b64, cover_url)
                             search_info['deezer']['found'] = True
-            except Exception:
+            except Exception as e:
+                print(f"Deezer search error: {e}")
                 pass
 
         # Search o3ics from multiple free sources

@@ -1,4 +1,4 @@
-export const mp3Player = {
+const mp3Player = {
     currentFile: null,
     api: null,
     pendingCover: null,
