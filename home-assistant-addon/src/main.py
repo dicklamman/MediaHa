@@ -255,7 +255,6 @@ def update_metadata():
 def enhance_metadata():
     data = request.json
     file_name = data.get('file_name')
-    # offset ?????????? (0=?????, 1=?????, ...)
     result_offset = data.get('offset', 0)
     if not file_name:
         return jsonify({'error': 'No file name provided'}), 400
@@ -289,44 +288,19 @@ def enhance_metadata():
 
         search_term = f"{title} {artist}".strip()
 
-        # Get cover_source parameter (which source to use for cover: itunes, musicbrainz, spotify, or all)
         cover_source = data.get('cover_source', 'itunes')
 
-        # Track what search was used and what was found
         search_info = {
-            'itunes': {
-                'search_term': search_term,
-                'found': False
-            },
-            'musicbrainz': {
-                'search_term': search_term,
-                'found': False
-            },
-            'deezer': {
-                'search_term': search_term,
-                'found': False
-            },
-            'lrclib': {
-                'search_track': title,
-                'search_artist': artist,
-                'found': False
-            },
-            'musixmatch': {
-                'search_track': title,
-                'search_artist': artist,
-                'found': False
-            },
-            'genius': {
-                'search_track': title,
-                'search_artist': artist,
-                'found': False
-            }
+            'itunes': {'search_term': search_term, 'found': False},
+            'musicbrainz': {'search_term': search_term, 'found': False},
+            'deezer': {'search_term': search_term, 'found': False},
+            'lrclib': {'search_track': title, 'search_artist': artist, 'found': False},
+            'musixmatch': {'search_track': title, 'search_artist': artist, 'found': False},
+            'genius': {'search_track': title, 'search_artist': artist, 'found': False}
         }
 
-        # Detect original title language to choose appropriate iTunes store
         import re
         def detect_language(text):
-            """Detect if text is Japanese, Chinese, or English"""
             if not text:
                 return 'english'
             if re.search(r'[\u3040-\u309F\u30A0-\u30FF]', text):
@@ -338,12 +312,10 @@ def enhance_metadata():
         orig_language = detect_language(title + ' ' + artist)
         search_info['detected_language'] = orig_language
 
-        # Initialize cover options from different sources
         cover_options = []
         default_cover = None
         mime_type = "image/jpeg"
 
-        # Function to add cover option
         def add_cover_option(source, cover_data_b64, cover_url=None):
             nonlocal default_cover
             cover_options.append({
@@ -411,7 +383,6 @@ def enhance_metadata():
                         release = releases[mb_idx]
                         release_id = release.get('id', '')
                         if release_id:
-                            # Get cover art from Cover Art Archive
                             cover_res = requests.get(f'https://coverartarchive.org/release/{release_id}/front')
                             if cover_res.status_code == 200:
                                 cover_data = cover_res.content
@@ -421,9 +392,8 @@ def enhance_metadata():
             except Exception:
                 pass
 
-        # Search Spotify (via public API - using Deezer as alternative since Spotify requires OAuth)
-        # Note: Deezer is free to use without API token
-        if cover_source in ['spotify', 'all']:
+        # Search Deezer for cover
+        if cover_source in ['deezer', 'all']:
             try:
                 deezer_res = requests.get('https://api.deezer.com/search', params={'q': search_term, 'limit': 5})
                 if deezer_res.status_code == 200:
@@ -437,36 +407,22 @@ def enhance_metadata():
                             cover_data = requests.get(cover_url).content
                             cover_b64 = base64.b64encode(cover_data).decode('utf-8')
                             add_cover_option('deezer', cover_b64, cover_url)
-                            search_info['spotify']['found'] = True
+                            search_info['deezer']['found'] = True
             except Exception:
                 pass
 
-        # Search lyrics from multiple free sources
-        # Initialize lyrics options
-        lyrics_options = []
+        # Search o3ics from multiple free sources
+        o3ics_options = []
         o3ics = ""
 
-        # Function to add lyrics option
-        def add_lyrics_option(source, lyrics_text):
-            nonlocal o3ics
-            if lyrics_text:
-                lyrics_options.append({
-                    'source': source,
-                    'lyrics': lyrics_text
-                })
-                if not o3ics:
-                    o3ics = lyrics_text
-
-        # 1. Search lrcLib - try title+artist first, then fallback to title only
+        # 1. Search lrcLib
         lrclib_results = []
         try:
             lrclib_limit = max(10, result_offset + 1)
-            # First try: search by title + artist
             lrc_res = requests.get('https://lrclib.net/api/search', params={'track_name': title, 'artist_name': artist, 'limit': lrclib_limit})
             if lrc_res.status_code == 200:
                 lrclib_results = lrc_res.json()
             
-            # If no results with artist, try title only
             if not lrclib_results and title:
                 lrc_res = requests.get('https://lrclib.net/api/search', params={'track_name': title, 'limit': lrclib_limit})
                 if lrc_res.status_code == 200:
@@ -477,8 +433,11 @@ def enhance_metadata():
                 lrclib_idx = min(result_offset, len(lrclib_results) - 1)
                 best_match = lrclib_results[lrclib_idx] if lrclib_results else None
                 if best_match:
-                    lyrics_text = best_match.get('syncedLyrics') or best_match.get('plainLyrics') or ""
-                    add_lyrics_option('lrclib', lyrics_text)
+                    o3ics_text = best_match.get('syncedLyrics') or best_match.get('plainLyrics') or ""
+                    if o3ics_text:
+                        o3ics_options.append({'source': 'lrclib', 'o3ics': o3ics_text})
+                        if not o3ics:
+                            o3ics = o3ics_text
                     search_info['lrclib']['found'] = True
                     search_info['lrclib']['offset'] = result_offset
                     search_info['lrclib']['total_results'] = len(lrclib_results)
@@ -488,31 +447,33 @@ def enhance_metadata():
         except Exception:
             pass
 
-        # 2. Search MusixMatch (free tier)
+        # 2. Search MusixMatch
         try:
-            # MusixMatch requires token for API, so we'll try their public search
             mm_search = requests.get('https://www.musixmatch.com/search', params={'pattern': search_term}, timeout=10)
             if mm_search.status_code == 200:
                 search_info['musixmatch']['found'] = True
         except Exception:
             pass
 
-        # 3. Search Genius for lyrics
+        # 3. Search Genius
         try:
             genius_search = requests.get('https://genius.com/api/search/song', params={'q': search_term}, timeout=10)
             if genius_search.status_code == 200:
-                data = genius_search.json()
-                hits = data.get('response', {}).get('hits', [])
+                genius_data = genius_search.json()
+                hits = genius_data.get('response', {}).get('hits', [])
                 if hits:
                     song_id = hits[0].get('result', {}).get('id')
                     if song_id:
-                        # Get lyrics page
-                        lyrics_page = requests.get(f'https://genius.com/api/songs/{song_id}/lyrics', timeout=10)
-                        if lyrics_page.status_code == 200:
-                            lyrics_data = lyrics_page.json()
-                            lyrics_text = lyrics_data.get('response', {}).get('lyrics', {}).get('lyrics', {}).get('body', {}).get('plain', '')
-                            if lyrics_text:
-                                add_lyrics_option('genius', lyrics_text)
+                        o3ics_page = requests.get(f'https://genius.com/api/songs/{song_id}', timeout=10)
+                        if o3ics_page.status_code == 200:
+                            o3ics_data = o3ics_page.json()
+                            o3ics_text = o3ics_data.get('response', {}).get('song', {}).get('o3ics', {}).get('plain', '')
+                            if not o3ics_text:
+                                o3ics_text = o3ics_data.get('response', {}).get('song', {}).get('description', {}).get('plain', '')
+                            if o3ics_text:
+                                o3ics_options.append({'source': 'genius', 'o3ics': o3ics_text})
+                                if not o3ics:
+                                    o3ics = o3ics_text
                                 search_info['genius']['found'] = True
         except Exception:
             pass
@@ -603,15 +564,9 @@ def o3ics_ruby():
         import pykakasi
         import re
 
-        # First, remove existing readings in parentheses like ?(??)
-        # This converts "?(????" to "??" 
-        # Match any kanji followed by hiragana/katakana in parentheses
         text = re.sub(r'([?-?]+)([\u3040-\u309F\u30A0-\u30FF]+)\)', r'\1', text)
         
         print(f"After removing parens: {text[:100]}")
-
-        # Check if contains any Japanese characters (indicating Japanese o3ics)
-
 
         if not re.search(r'[\u3040-\u309F\u30A0-\u30FF]', text):
              print(f"No Japanese chars found in text, returning original")
@@ -619,35 +574,29 @@ def o3ics_ruby():
 
         print(f"Japanese text detected, processing with pykakasi")
         kks = pykakasi.kakasi()
-        # Set to hiragana mode for furigana reading
-        kks.setMode('H', 'H')  # Hiragana to Hiragana
-        kks.setMode('K', 'H')  # Katakana to Hiragana
-        kks.setMode('J', 'H')  # Kanji to Hiragana
-        # Use kks.convert() directly which returns tokens with orig/hira info
+        kks.setMode('H', 'H')
+        kks.setMode('K', 'H')
+        kks.setMode('J', 'H')
         result = []
 
         print(f"Processing text with pykakasi (first 100 chars): {text[:100]}")
-        # Process line by line to prevent multi-line strings breaking pykakasi tokenization
         for line in text.split('\n'):
             line_res = []
             if not line.strip():
                 result.append(line)
                 continue
             try:
-                # Use converter to get individual tokens with info
                 items = kks.convert(line)
                 print(f"Converted line '{line[:30]}...' got {len(items)} items")
                 for item in items:
                     orig = item['orig']
                     hira = item['hira']
-                    # Add ruby for ALL kanji that have a hiragana reading (for Japanese)
                     if hira and orig != hira:
                         line_res.append(f"<ruby>{orig}<rt>{hira}</rt></ruby>")
                     else:
                         line_res.append(orig)
                 print(f"Result for line: {''.join(line_res)[:50]}...")
             except Exception as e:
-                # If conversion fails for a line, use original line
                 print(f"pykakasi conversion error for line: {line}, error: {e}")
                 line_res.append(line)
             result.append("".join(line_res))
@@ -655,10 +604,10 @@ def o3ics_ruby():
         print(f"Final result (first 100 chars): {final_result[:100]}")
         return jsonify({'result': final_result})
     except ImportError:
-        return jsonify({'result': text}) # Fallback if module fails
+        return jsonify({'result': text})
     except Exception as e:
         print(f"o3ics_ruby error: {e}")
-        return jsonify({'result': text}) # Fallback on any error
+        return jsonify({'result': text})
 
 if __name__ == '__main__':
     from waitress import serve
