@@ -2,9 +2,12 @@ export const mp3Player = {
     currentFile: null,
     api: null,
     pendingCover: null,
+    pendingCoverIndex: 0,
+    coverOptions: [],
     lrcData: [],
     activeIndex: -1,
     savedOriginalDisplay: null,
+    selectedCoverSource: 'all',
 
     init() {
         const closeMp3Btn = document.getElementById('close-mp3');
@@ -37,6 +40,17 @@ export const mp3Player = {
 
         const cancelEnhanceBtn = document.getElementById('cancel-enhance-btn');
         if (cancelEnhanceBtn) cancelEnhanceBtn.addEventListener('click', () => this.cancelEnhance());
+
+        // Handle cover source selection
+        document.querySelectorAll('.cover-source-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const source = btn.getAttribute('data-source');
+                this.selectedCoverSource = source;
+                // Update button styles
+                document.querySelectorAll('.cover-source-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
 
         // Handle enhance preview button clicks
         document.querySelectorAll('.use-enhance-btn').forEach(btn => {
@@ -452,7 +466,12 @@ export const mp3Player = {
                     mp3Cover.src = data.cover;
                     mp3Cover.style.display = 'block';
                 }
-                
+            }
+
+            // Store cover options and show selector
+            this.coverOptions = data.cover_options || [];
+            if (this.coverOptions.length > 0) {
+                this.showCoverOptions();
             }
 
             // If any data found, show preview and confirm/cancel buttons
@@ -583,12 +602,16 @@ export const mp3Player = {
         this.refreshOffsets[field] = nextOffset;
 
         try {
-            const data = await this.api.enhanceMp3(this.currentFile.path, nextOffset);
+            const data = await this.api.enhanceMp3(this.currentFile.path, nextOffset, this.selectedCoverSource);
             this.enhancedMetadata = data;
+
+            // Update cover options
+            this.coverOptions = data.cover_options || [];
 
             switch (field) {
                 case 'cover':
                     if (data.cover) {
+                        this.pendingCover = data.cover;
                         document.getElementById('mp3-cover').src = data.cover;
                         document.getElementById('mp3-cover').style.display = 'block';
                         const newCover = document.getElementById('enhance-new-cover');
@@ -599,7 +622,18 @@ export const mp3Player = {
                         const newPlaceholder = document.getElementById('enhance-new-cover-placeholder');
                         if (newPlaceholder) newPlaceholder.classList.remove('show');
                     }
-                    this.updateSourceBadge('cover', 'itunes', data.search_info);
+                    if (this.coverOptions.length > 0) {
+                        this.showCoverOptions();
+                    }
+                    // Determine actual source from search_info
+                    const searchInfo = data.search_info || {};
+                    if (searchInfo.musicbrainz?.found) {
+                        this.updateSourceBadge('cover', 'musicbrainz', searchInfo);
+                    } else if (searchInfo.spotify?.found) {
+                        this.updateSourceBadge('cover', 'deezer', searchInfo);
+                    } else {
+                        this.updateSourceBadge('cover', 'itunes', searchInfo);
+                    }
                     break;
 
                 case 'o3ics':
@@ -682,6 +716,63 @@ export const mp3Player = {
         }
     },
 
+    showCoverOptions() {
+        const container = document.getElementById('cover-source-selector');
+        const optionsContainer = document.getElementById('cover-options-container');
+        const optionsList = document.getElementById('cover-options-list');
+
+        if (!container || !optionsContainer || !optionsList) return;
+        if (!this.coverOptions || this.coverOptions.length === 0) {
+            container.classList.add('hidden');
+            optionsContainer.classList.add('hidden');
+            return;
+        }
+
+        // Show source selector
+        container.classList.remove('hidden');
+
+        // Show cover options list
+        optionsContainer.classList.remove('hidden');
+        optionsList.innerHTML = '';
+
+        this.coverOptions.forEach((option, index) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'cover-option-item' + (index === this.pendingCoverIndex ? ' selected' : '');
+            optionDiv.innerHTML = `
+                <img src="${option.cover || ''}" alt="${option.source}" class="cover-option-thumb" onclick="mp3Player.selectCoverOption(${index})">
+                <span class="cover-option-source">${option.source}</span>
+            `;
+            optionsList.appendChild(optionDiv);
+        });
+    },
+
+    selectCoverOption(index) {
+        if (!this.coverOptions || !this.coverOptions[index]) return;
+
+        this.pendingCoverIndex = index;
+        const option = this.coverOptions[index];
+        this.pendingCover = option.cover;
+
+        // Update display
+        const mp3Cover = document.getElementById('mp3-cover');
+        if (mp3Cover) {
+            mp3Cover.src = option.cover;
+            mp3Cover.style.display = 'block';
+        }
+        const newCover = document.getElementById('enhance-new-cover');
+        if (newCover) {
+            newCover.src = option.cover;
+            newCover.classList.add('has-image');
+        }
+        const newPlaceholder = document.getElementById('enhance-new-cover-placeholder');
+        if (newPlaceholder) newPlaceholder.classList.remove('show');
+
+        // Update selection UI
+        document.querySelectorAll('.cover-option-item').forEach((item, i) => {
+            item.classList.toggle('selected', i === index);
+        });
+    },
+
     async confirmEnhance() {
         const confirmBtn = document.getElementById('confirm-enhance-btn');
         const originalText = confirmBtn.textContent;
@@ -746,9 +837,17 @@ export const mp3Player = {
         document.getElementById('cancel-enhance-btn').classList.add('hidden');
         document.getElementById('edit-metadata-btn').classList.remove('hidden');
 
+        // Hide cover options
+        const container = document.getElementById('cover-source-selector');
+        const optionsContainer = document.getElementById('cover-options-container');
+        if (container) container.classList.add('hidden');
+        if (optionsContainer) optionsContainer.classList.add('hidden');
+
         this.enhancedMetadata = null;
         this.useEnhanced = {};
         this.refreshOffsets = {};
+        this.coverOptions = [];
+        this.pendingCoverIndex = 0;
     },
 
     cancelEnhance() {

@@ -289,9 +289,20 @@ def enhance_metadata():
 
         search_term = f"{title} {artist}".strip()
 
+        # Get cover_source parameter (which source to use for cover: itunes, musicbrainz, spotify, or all)
+        cover_source = data.get('cover_source', 'itunes')
+
         # Track what search was used and what was found
         search_info = {
             'itunes': {
+                'search_term': search_term,
+                'found': False
+            },
+            'musicbrainz': {
+                'search_term': search_term,
+                'found': False
+            },
+            'spotify': {
                 'search_term': search_term,
                 'found': False
             },
@@ -317,11 +328,25 @@ def enhance_metadata():
         orig_language = detect_language(title + ' ' + artist)
         search_info['detected_language'] = orig_language
 
-        # Search iTunes - choose store based on detected language
-        cover_b64 = None
+        # Initialize cover options from different sources
+        cover_options = []
+        default_cover = None
         mime_type = "image/jpeg"
+
+        # Function to add cover option
+        def add_cover_option(source, cover_data_b64, cover_url=None):
+            nonlocal default_cover
+            cover_options.append({
+                'source': source,
+                'cover': f"data:{mime_type};base64,{cover_data_b64}" if cover_data_b64 else None,
+                'url': cover_url
+            })
+            if default_cover is None and cover_data_b64:
+                default_cover = f"data:{mime_type};base64,{cover_data_b64}"
+
+        # Search iTunes
         try:
-            itunes_limit = max(5, result_offset + 1)
+            itunes_limit = max(10, result_offset + 1)
             
             if orig_language == 'japanese':
                 itunes_res = requests.get('https://itunes.apple.com/search', params={'term': search_term, 'media': 'music', 'limit': itunes_limit, 'country': 'jp', 'lang': 'ja_jp'})
@@ -356,11 +381,57 @@ def enhance_metadata():
                     if cover_url:
                         cover_data = requests.get(cover_url).content
                         cover_b64 = base64.b64encode(cover_data).decode('utf-8')
+                        add_cover_option('itunes', cover_b64, cover_url)
         except Exception:
             pass
 
+        # Search MusicBrainz for cover
+        if cover_source in ['musicbrainz', 'all']:
+            try:
+                mb_search = requests.get('https://musicbrainz.org/ws/2/release/', params={
+                    'query': f'recording:"{title}" AND artist:"{artist}"',
+                    'fmt': 'json',
+                    'limit': 5
+                }, headers={'User-Agent': 'MediaHa/1.0'})
+                if mb_search.status_code == 200:
+                    mb_data = mb_search.json()
+                    releases = mb_data.get('releases', [])
+                    if releases:
+                        mb_idx = min(result_offset, len(releases) - 1)
+                        release = releases[mb_idx]
+                        release_id = release.get('id', '')
+                        if release_id:
+                            # Get cover art from Cover Art Archive
+                            cover_res = requests.get(f'https://coverartarchive.org/release/{release_id}/front')
+                            if cover_res.status_code == 200:
+                                cover_data = cover_res.content
+                                cover_b64 = base64.b64encode(cover_data).decode('utf-8')
+                                add_cover_option('musicbrainz', cover_b64, f'https://coverartarchive.org/release/{release_id}/front')
+                                search_info['musicbrainz']['found'] = True
+            except Exception:
+                pass
+
+        # Search Spotify (via public API - using Deezer as alternative since Spotify requires OAuth)
+        # Note: Deezer is free to use without API token
+        if cover_source in ['spotify', 'all']:
+            try:
+                deezer_res = requests.get('https://api.deezer.com/search', params={'q': search_term, 'limit': 5})
+                if deezer_res.status_code == 200:
+                    deezer_data = deezer_res.json()
+                    tracks = deezer_data.get('data', [])
+                    if tracks:
+                        dz_idx = min(result_offset, len(tracks) - 1)
+                        track = tracks[dz_idx]
+                        cover_url = track.get('album', {}).get('cover_xl') or track.get('album', {}).get('cover_big') or track.get('album', {}).get('cover_medium')
+                        if cover_url:
+                            cover_data = requests.get(cover_url).content
+                            cover_b64 = base64.b64encode(cover_data).decode('utf-8')
+                            add_cover_option('deezer', cover_b64, cover_url)
+                            search_info['spotify']['found'] = True
+            except Exception:
+                pass
+
         # Search lrcLib - try title+artist first, then fallback to title only
-        # ?? offset > 0?????????? offset ?????
         o3ics = ""
         lrclib_results = []
         try:
@@ -378,7 +449,6 @@ def enhance_metadata():
                 search_info['lrclib']['fallback_to_title'] = True
             
             if lrclib_results:
-                # ?? offset ????
                 lrclib_idx = min(result_offset, len(lrclib_results) - 1)
                 best_match = lrclib_results[lrclib_idx] if lrclib_results else None
                 if best_match:
@@ -397,7 +467,8 @@ def enhance_metadata():
             'artist': artist,
             'album': album,
             'o3ics': o3ics,
-            'cover': f"data:{mime_type};base64,{cover_b64}" if cover_b64 else None,
+            'cover': default_cover,
+            'cover_options': cover_options,
             'search_info': search_info
         })
     except Exception as e:

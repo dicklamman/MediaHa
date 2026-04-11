@@ -1044,6 +1044,88 @@ body {
     display: flex;
 }
 
+/* Cover Source Selector */
+.cover-source-selector {
+    margin-bottom: var(--space-sm);
+}
+
+.cover-source-options {
+    display: flex;
+    gap: var(--space-xs);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.cover-source-btn {
+    font-size: 11px;
+    padding: 2px 8px;
+}
+
+.cover-source-btn.active {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+/* Cover Options Container */
+.cover-options-container {
+    margin-top: var(--space-sm);
+    padding: var(--space-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+}
+
+.cover-options-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: var(--space-xs);
+    text-align: center;
+}
+
+.cover-options-list {
+    display: flex;
+    gap: var(--space-sm);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.cover-option-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+}
+
+.cover-option-item:hover {
+    background: var(--hover-bg);
+}
+
+.cover-option-item.selected {
+    background: rgba(79, 70, 229, 0.2);
+}
+
+.cover-option-thumb {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 2px solid transparent;
+}
+
+.cover-option-item.selected .cover-option-thumb {
+    border-color: var(--color-primary);
+}
+
+.cover-option-source {
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
 .enhance-original,
 .enhance-new {
     position: relative;

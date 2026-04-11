@@ -409,6 +409,15 @@
                                     <span class="material-icons">refresh</span>
                                 </button>
                             </div>
+                            <!-- Cover Source Selector -->
+                            <div id="cover-source-selector" class="cover-source-selector hidden">
+                                <div class="cover-source-options">
+                                    <button class="btn btn-xs btn-outline cover-source-btn active" data-source="all">All</button>
+                                    <button class="btn btn-xs btn-outline cover-source-btn" data-source="itunes">iTunes</button>
+                                    <button class="btn btn-xs btn-outline cover-source-btn" data-source="deezer">Deezer</button>
+                                    <button class="btn btn-xs btn-outline cover-source-btn" data-source="musicbrainz">MusicBrainz</button>
+                                </div>
+                            </div>
                             <div class="enhance-compare enhance-compare-cover">
                                 <div class="enhance-original">
                                     <span class="enhance-label">Original</span>
@@ -420,6 +429,11 @@
                                     <img id="enhance-new-cover" class="enhance-cover-preview clickable" src="" alt="No Enhanced" onclick="showCoverPreview(this)">
                                     <div id="enhance-new-cover-placeholder" class="enhance-cover-placeholder">🎵</div>
                                 </div>
+                            </div>
+                            <!-- Cover Options Carousel -->
+                            <div id="cover-options-container" class="cover-options-container hidden">
+                                <div class="cover-options-label">Available Covers:</div>
+                                <div id="cover-options-list" class="cover-options-list"></div>
                             </div>
                             <div class="enhance-actions">
                                 <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="cover">Keep Original</button>
