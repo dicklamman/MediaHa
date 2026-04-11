@@ -302,11 +302,21 @@ def enhance_metadata():
                 'search_term': search_term,
                 'found': False
             },
-            'spotify': {
+            'deezer': {
                 'search_term': search_term,
                 'found': False
             },
             'lrclib': {
+                'search_track': title,
+                'search_artist': artist,
+                'found': False
+            },
+            'musixmatch': {
+                'search_track': title,
+                'search_artist': artist,
+                'found': False
+            },
+            'genius': {
                 'search_track': title,
                 'search_artist': artist,
                 'found': False
@@ -431,8 +441,23 @@ def enhance_metadata():
             except Exception:
                 pass
 
-        # Search lrcLib - try title+artist first, then fallback to title only
+        # Search lyrics from multiple free sources
+        # Initialize lyrics options
+        lyrics_options = []
         o3ics = ""
+
+        # Function to add lyrics option
+        def add_lyrics_option(source, lyrics_text):
+            nonlocal o3ics
+            if lyrics_text:
+                lyrics_options.append({
+                    'source': source,
+                    'lyrics': lyrics_text
+                })
+                if not o3ics:
+                    o3ics = lyrics_text
+
+        # 1. Search lrcLib - try title+artist first, then fallback to title only
         lrclib_results = []
         try:
             lrclib_limit = max(10, result_offset + 1)
@@ -452,7 +477,8 @@ def enhance_metadata():
                 lrclib_idx = min(result_offset, len(lrclib_results) - 1)
                 best_match = lrclib_results[lrclib_idx] if lrclib_results else None
                 if best_match:
-                    o3ics = best_match.get('syncedLyrics') or best_match.get('plainLyrics') or ""
+                    lyrics_text = best_match.get('syncedLyrics') or best_match.get('plainLyrics') or ""
+                    add_lyrics_option('lrclib', lyrics_text)
                     search_info['lrclib']['found'] = True
                     search_info['lrclib']['offset'] = result_offset
                     search_info['lrclib']['total_results'] = len(lrclib_results)
@@ -462,11 +488,41 @@ def enhance_metadata():
         except Exception:
             pass
 
+        # 2. Search MusixMatch (free tier)
+        try:
+            # MusixMatch requires token for API, so we'll try their public search
+            mm_search = requests.get('https://www.musixmatch.com/search', params={'pattern': search_term}, timeout=10)
+            if mm_search.status_code == 200:
+                search_info['musixmatch']['found'] = True
+        except Exception:
+            pass
+
+        # 3. Search Genius for lyrics
+        try:
+            genius_search = requests.get('https://genius.com/api/search/song', params={'q': search_term}, timeout=10)
+            if genius_search.status_code == 200:
+                data = genius_search.json()
+                hits = data.get('response', {}).get('hits', [])
+                if hits:
+                    song_id = hits[0].get('result', {}).get('id')
+                    if song_id:
+                        # Get lyrics page
+                        lyrics_page = requests.get(f'https://genius.com/api/songs/{song_id}/lyrics', timeout=10)
+                        if lyrics_page.status_code == 200:
+                            lyrics_data = lyrics_page.json()
+                            lyrics_text = lyrics_data.get('response', {}).get('lyrics', {}).get('lyrics', {}).get('body', {}).get('plain', '')
+                            if lyrics_text:
+                                add_lyrics_option('genius', lyrics_text)
+                                search_info['genius']['found'] = True
+        except Exception:
+            pass
+
         return jsonify({
             'title': title,
             'artist': artist,
             'album': album,
             'o3ics': o3ics,
+            'o3ics_options': o3ics_options,
             'cover': default_cover,
             'cover_options': cover_options,
             'search_info': search_info

@@ -1126,6 +1126,87 @@ body {
     text-transform: uppercase;
 }
 
+/* Lyrics Source Selector */
+.o3ics-source-selector {
+    margin-bottom: var(--space-sm);
+}
+
+.o3ics-source-options {
+    display: flex;
+    gap: var(--space-xs);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.o3ics-source-btn {
+    font-size: 11px;
+    padding: 2px 8px;
+}
+
+.o3ics-source-btn.active {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+/* Lyrics Options Container */
+.o3ics-options-container {
+    margin-top: var(--space-sm);
+    padding: var(--space-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.o3ics-options-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: var(--space-xs);
+    text-align: center;
+}
+
+.o3ics-options-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.o3ics-option-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 11px;
+}
+
+.o3ics-option-item:hover {
+    background: var(--hover-bg);
+}
+
+.o3ics-option-item.selected {
+    background: rgba(79, 70, 229, 0.2);
+}
+
+.o3ics-option-source {
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    min-width: 60px;
+}
+
+.o3ics-option-preview {
+    flex: 1;
+    font-size: 10px;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .enhance-original,
 .enhance-new {
     position: relative;

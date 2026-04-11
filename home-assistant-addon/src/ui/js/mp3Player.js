@@ -4,10 +4,14 @@ export const mp3Player = {
     pendingCover: null,
     pendingCoverIndex: 0,
     coverOptions: [],
+    pendingO3ics: null,
+    pendingO3icsIndex: 0,
+    o3icsOptions: [],
     lrcData: [],
     activeIndex: -1,
     savedOriginalDisplay: null,
     selectedCoverSource: 'all',
+    selectedO3icsSource: 'all',
 
     init() {
         const closeMp3Btn = document.getElementById('close-mp3');
@@ -48,6 +52,17 @@ export const mp3Player = {
                 this.selectedCoverSource = source;
                 // Update button styles
                 document.querySelectorAll('.cover-source-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
+        // Handle o3ics source selection
+        document.querySelectorAll('.o3ics-source-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const source = btn.getAttribute('data-source');
+                this.selectedO3icsSource = source;
+                // Update button styles
+                document.querySelectorAll('.o3ics-source-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
             });
         });
@@ -474,6 +489,12 @@ export const mp3Player = {
                 this.showCoverOptions();
             }
 
+            // Store o3ics options and show selector
+            this.o3icsOptions = data.o3ics_options || [];
+            if (this.o3icsOptions.length > 0) {
+                this.showO3icsOptions();
+            }
+
             // If any data found, show preview and confirm/cancel buttons
             if (data.title || data.artist || data.album || data.cover || o3icsValue) {
                 // Populate enhance-preview section with original vs new values
@@ -656,9 +677,22 @@ export const mp3Player = {
                         }
                     }
                     if (o3icsValue) {
+                        // Store o3ics options
+                        this.o3icsOptions = data.o3ics_options || [];
+                        if (this.o3icsOptions.length > 0) {
+                            this.showO3icsOptions();
+                        }
+
                         const newPreview = o3icsValue.split('\n').slice(0, 3).join('\n') || '';
                         document.getElementById('enhance-new-o3ics').textContent = newPreview;
-                        this.updateSourceBadge('o3ics', 'lrclib', data.search_info);
+
+                        // Determine source
+                        const searchInfo = data.search_info || {};
+                        if (searchInfo.genius?.found) {
+                            this.updateSourceBadge('o3ics', 'genius', searchInfo);
+                        } else {
+                            this.updateSourceBadge('o3ics', 'lrclib', searchInfo);
+                        }
                     }
                     break;
 
@@ -773,6 +807,56 @@ export const mp3Player = {
         });
     },
 
+    showO3icsOptions() {
+        const container = document.getElementById('o3ics-source-selector');
+        const optionsContainer = document.getElementById('o3ics-options-container');
+        const optionsList = document.getElementById('o3ics-options-list');
+
+        if (!container || !optionsContainer || !optionsList) return;
+        if (!this.o3icsOptions || this.o3icsOptions.length === 0) {
+            container.classList.add('hidden');
+            optionsContainer.classList.add('hidden');
+            return;
+        }
+
+        // Show source selector
+        container.classList.remove('hidden');
+
+        // Show o3ics options list
+        optionsContainer.classList.remove('hidden');
+        optionsList.innerHTML = '';
+
+        this.o3icsOptions.forEach((option, index) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'o3ics-option-item' + (index === this.pendingO3icsIndex ? ' selected' : '');
+            const preview = (option.o3ics || '').split('\n').slice(0, 2).join(' ').substring(0, 80);
+            optionDiv.innerHTML = `
+                <span class="o3ics-option-source">${option.source}</span>
+                <span class="o3ics-option-preview">${preview || '(No preview)'}</span>
+            `;
+            optionDiv.onclick = () => this.selectO3icsOption(index);
+            optionsList.appendChild(optionDiv);
+        });
+    },
+
+    selectO3icsOption(index) {
+        if (!this.o3icsOptions || !this.o3icsOptions[index]) return;
+
+        this.pendingO3icsIndex = index;
+        const option = this.o3icsOptions[index];
+        this.pendingO3ics = option.o3ics;
+
+        // Update display
+        document.getElementById('meta-input-o3ics').value = option.o3ics || '';
+        const newPreview = (option.o3ics || '').split('\n').slice(0, 3).join('\n') || '';
+        document.getElementById('enhance-new-o3ics').textContent = newPreview;
+
+        // Update selection UI
+        document.querySelectorAll('.o3ics-option-item').forEach((item, i) => {
+            item.classList.toggle('selected', i === index);
+        });
+    },
+
     async confirmEnhance() {
         const confirmBtn = document.getElementById('confirm-enhance-btn');
         const originalText = confirmBtn.textContent;
@@ -785,7 +869,7 @@ export const mp3Player = {
                 title: this.useEnhanced.title && this.enhancedMetadata.title ? this.enhancedMetadata.title : this.originalMetadata.title,
                 artist: this.useEnhanced.artist && this.enhancedMetadata.artist ? this.enhancedMetadata.artist : this.originalMetadata.artist,
                 album: this.useEnhanced.album && this.enhancedMetadata.album ? this.enhancedMetadata.album : this.originalMetadata.album,
-                o3ics: this.useEnhanced.o3ics ? (this.enhancedMetadata.o3ics || Object.values(this.enhancedMetadata).find(v => typeof v === 'string' && v.includes('[ti:')) || '') : (this.originalMetadata.o3ics || '')
+                o3ics: this.useEnhanced.o3ics ? (this.pendingO3ics || this.enhancedMetadata.o3ics || Object.values(this.enhancedMetadata).find(v => typeof v === 'string' && v.includes('[ti:')) || '') : (this.originalMetadata.o3ics || '')
             };
 
             console.log('confirmEnhance - useEnhanced:', this.useEnhanced);
@@ -843,11 +927,19 @@ export const mp3Player = {
         if (container) container.classList.add('hidden');
         if (optionsContainer) optionsContainer.classList.add('hidden');
 
+        // Hide o3ics options
+        const o3icsContainer = document.getElementById('o3ics-source-selector');
+        const o3icsOptionsContainer = document.getElementById('o3ics-options-container');
+        if (o3icsContainer) o3icsContainer.classList.add('hidden');
+        if (o3icsOptionsContainer) o3icsOptionsContainer.classList.add('hidden');
+
         this.enhancedMetadata = null;
         this.useEnhanced = {};
         this.refreshOffsets = {};
         this.coverOptions = [];
         this.pendingCoverIndex = 0;
+        this.o3icsOptions = [];
+        this.pendingO3icsIndex = 0;
     },
 
     cancelEnhance() {
