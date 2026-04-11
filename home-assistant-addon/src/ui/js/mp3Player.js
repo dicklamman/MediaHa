@@ -1,4 +1,4 @@
-const mp3Player = {
+export const mp3Player = {
     currentFile: null,
     api: null,
     pendingCover: null,
@@ -1113,6 +1113,10 @@ window.showCoverPreview = function(imgElement) {
         modal.classList.remove('hidden');
     }
 };
+
+
+// Also set as global for HTML onclick handlers
+window.mp3Player = mp3Player;
 
 
 
