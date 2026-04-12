@@ -2,10 +2,12 @@ import os
 import time
 import json
 import traceback
+import sys
 
 def run_sync(sync_target, app_key, app_secret, refresh_token):
     try:
         import dropbox
+        from dropbox.exceptions import ApiError, AuthError, HttpError
     except ImportError:
         yield b"Error: 'dropbox' module not installed. Please install it using 'pip install dropbox'.\n"
         return
@@ -48,27 +50,54 @@ def run_sync(sync_target, app_key, app_secret, refresh_token):
     def list_dropbox_files(folder):
         files = {}
         try:
+            yield f"[DEBUG] Listing Dropbox folder: {folder}\n".encode('utf-8')
             result = dbx.files_list_folder(folder)
+            yield f"[DEBUG] Got initial response for {folder}\n".encode('utf-8')
             for entry in result.entries:
                 if isinstance(entry, dropbox.files.FileMetadata):
                     files[entry.name] = entry.size
             while result.has_more:
+                yield f"[DEBUG] Fetching more entries, cursor: {result.cursor[:20]}...\n".encode('utf-8')
                 result = dbx.files_list_folder_continue(result.cursor)
                 for entry in result.entries:
                     if isinstance(entry, dropbox.files.FileMetadata):
                         files[entry.name] = entry.size
-        except dropbox.exceptions.ApiError as e:
-            yield f"Error listing Dropbox folder {folder}: {e}\n".encode('utf-8')
+            yield f"[DEBUG] Listed {len(files)} files in {folder}\n".encode('utf-8')
+        except ApiError as e:
+            error_msg = f"[ERROR] ApiError listing Dropbox folder {folder}: {type(e).__name__}: {e}\n"
+            yield error_msg.encode('utf-8')
+            yield f"[ERROR] Traceback: {traceback.format_exc()}\n".encode('utf-8')
+        except HttpError as e:
+            error_msg = f"[ERROR] HttpError listing Dropbox folder {folder}: {type(e).__name__}: {e}\n"
+            yield error_msg.encode('utf-8')
+            yield f"[ERROR] Traceback: {traceback.format_exc()}\n".encode('utf-8')
+        except Exception as e:
+            error_msg = f"[ERROR] Unexpected error listing Dropbox folder {folder}: {type(e).__name__}: {e}\n"
+            yield error_msg.encode('utf-8')
+            yield f"[ERROR] Traceback: {traceback.format_exc()}\n".encode('utf-8')
         return files
 
     def upload_file(local_path, dropbox_path):
         try:
+            yield f"[DEBUG] Starting upload: {local_path} -> {dropbox_path}\n".encode('utf-8')
             with open(local_path, "rb") as f:
                 data = f.read()
-                dbx.files_upload(data, dropbox_path, mode=dropbox.files.WriteMode.overwrite)
+                yield f"[DEBUG] Read {len(data)} bytes from local file\n".encode('utf-8')
+                result = dbx.files_upload(data, dropbox_path, mode=dropbox.files.WriteMode.overwrite)
+                yield f"[DEBUG] Upload completed, id: {result.id}\n".encode('utf-8')
             yield f"Uploaded: {local_path} -> {dropbox_path}\n".encode('utf-8')
+        except ApiError as e:
+            error_msg = f"[ERROR] ApiError uploading {local_path}: {type(e).__name__}: {e}\n"
+            yield error_msg.encode('utf-8')
+            yield f"[ERROR] Traceback: {traceback.format_exc()}\n".encode('utf-8')
+        except HttpError as e:
+            error_msg = f"[ERROR] HttpError uploading {local_path}: {type(e).__name__}: {e}\n"
+            yield error_msg.encode('utf-8')
+            yield f"[ERROR] Traceback: {traceback.format_exc()}\n".encode('utf-8')
         except Exception as e:
-            yield f"Upload failed for {local_path}: {e}\n".encode('utf-8')
+            error_msg = f"[ERROR] Upload failed for {local_path}: {type(e).__name__}: {e}\n"
+            yield error_msg.encode('utf-8')
+            yield f"[ERROR] Traceback: {traceback.format_exc()}\n".encode('utf-8')
 
     def delete_file(dropbox_path):
         try:
