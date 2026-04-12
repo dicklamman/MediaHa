@@ -1105,6 +1105,7 @@ export const mp3Player = {
 
         // Store original o3ics for cancel
         this.originalLrcText = document.getElementById('meta-input-o3ics')?.value || '';
+        this.isInLrcEditMode = true;
 
         // Reset offset input
         const offsetInput = document.getElementById('lrc-offset-input');
