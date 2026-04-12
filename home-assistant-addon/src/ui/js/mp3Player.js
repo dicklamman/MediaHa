@@ -38,6 +38,7 @@ export const mp3Player = {
         if (saveBtn) saveBtn.addEventListener('click', () => this.saveMetadata());
         if (cancelBtn) cancelBtn.addEventListener('click', () => {
             this.pendingCover = null;
+            this.resetCoverEditor();
             this.toggleEditMode(false);
             this.loadMetadata();
         });
@@ -1076,6 +1077,9 @@ export const mp3Player = {
             if (saveBtn) saveBtn.classList.remove('hidden');
             if (cancelBtn) cancelBtn.classList.remove('hidden');
             if (o3icsDiv) o3icsDiv.classList.add('hidden');
+
+            // Initialize cover editor state
+            this.initCoverEditor();
         } else {
             if (displayDiv) displayDiv.classList.remove('hidden');
             if (editorDiv) editorDiv.classList.add('hidden');
@@ -1084,6 +1088,137 @@ export const mp3Player = {
             if (cancelBtn) cancelBtn.classList.add('hidden');
             if (o3icsDiv) o3icsDiv.classList.remove('hidden');
         }
+    },
+
+    initCoverEditor() {
+        // Get current cover from display
+        const mp3Cover = document.getElementById('mp3-cover');
+        const editorPreview = document.getElementById('editor-cover-preview');
+        const editorPlaceholder = document.getElementById('editor-cover-placeholder');
+        const removeCoverBtn = document.getElementById('remove-cover-btn');
+
+        const currentCoverSrc = mp3Cover?.src || '';
+
+        if (currentCoverSrc && mp3Cover?.style.display !== 'none') {
+            if (editorPreview) {
+                editorPreview.src = currentCoverSrc;
+                editorPreview.classList.remove('hidden');
+            }
+            if (editorPlaceholder) editorPlaceholder.classList.add('hidden');
+            if (removeCoverBtn) removeCoverBtn.classList.remove('hidden');
+        } else {
+            if (editorPreview) {
+                editorPreview.src = '';
+                editorPreview.classList.add('hidden');
+            }
+            if (editorPlaceholder) editorPlaceholder.classList.remove('hidden');
+            if (removeCoverBtn) removeCoverBtn.classList.add('hidden');
+        }
+
+        // Reset URL input
+        const coverUrlInput = document.getElementById('cover-url-input');
+        const applyUrlCoverBtn = document.getElementById('apply-url-cover-btn');
+        if (coverUrlInput) coverUrlInput.style.display = 'none';
+        if (coverUrlInput) coverUrlInput.value = '';
+        if (applyUrlCoverBtn) applyUrlCoverBtn.classList.add('hidden');
+
+        // Store the original cover for cancel
+        this.originalCoverInEditor = currentCoverSrc;
+    },
+
+    handleCoverFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const dataUrl = e.target.result;
+            this.pendingCover = dataUrl;
+
+            // Update preview
+            const editorPreview = document.getElementById('editor-cover-preview');
+            const editorPlaceholder = document.getElementById('editor-cover-placeholder');
+            const removeCoverBtn = document.getElementById('remove-cover-btn');
+
+            if (editorPreview) {
+                editorPreview.src = dataUrl;
+                editorPreview.classList.remove('hidden');
+            }
+            if (editorPlaceholder) editorPlaceholder.classList.add('hidden');
+            if (removeCoverBtn) removeCoverBtn.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    },
+
+    handleCoverUrlInput() {
+        const coverUrlInput = document.getElementById('cover-url-input');
+        if (!coverUrlInput) return;
+
+        const url = coverUrlInput.value.trim();
+        if (!url) {
+            alert('Please enter a valid URL');
+            return;
+        }
+
+        // Validate URL
+        try {
+            new URL(url);
+        } catch (e) {
+            alert('Please enter a valid URL');
+            return;
+        }
+
+        this.pendingCover = url;
+
+        // Update preview
+        const editorPreview = document.getElementById('editor-cover-preview');
+        const editorPlaceholder = document.getElementById('editor-cover-placeholder');
+        const removeCoverBtn = document.getElementById('remove-cover-btn');
+
+        if (editorPreview) {
+            editorPreview.src = url;
+            editorPreview.classList.remove('hidden');
+        }
+        if (editorPlaceholder) editorPlaceholder.classList.add('hidden');
+        if (removeCoverBtn) removeCoverBtn.classList.remove('hidden');
+    },
+
+    handleRemoveCover() {
+        this.pendingCover = null;
+
+        // Reset preview
+        const editorPreview = document.getElementById('editor-cover-preview');
+        const editorPlaceholder = document.getElementById('editor-cover-placeholder');
+        const removeCoverBtn = document.getElementById('remove-cover-btn');
+
+        if (editorPreview) {
+            editorPreview.src = '';
+            editorPreview.classList.add('hidden');
+        }
+        if (editorPlaceholder) editorPlaceholder.classList.remove('hidden');
+        if (removeCoverBtn) removeCoverBtn.classList.add('hidden');
+    },
+
+    resetCoverEditor() {
+        const editorPreview = document.getElementById('editor-cover-preview');
+        const editorPlaceholder = document.getElementById('editor-cover-placeholder');
+        const removeCoverBtn = document.getElementById('remove-cover-btn');
+        const coverUrlInput = document.getElementById('cover-url-input');
+        const applyUrlCoverBtn = document.getElementById('apply-url-cover-btn');
+
+        if (editorPreview) {
+            editorPreview.src = '';
+            editorPreview.classList.add('hidden');
+        }
+        if (editorPlaceholder) editorPlaceholder.classList.remove('hidden');
+        if (removeCoverBtn) removeCoverBtn.classList.add('hidden');
+        if (coverUrlInput) {
+            coverUrlInput.value = '';
+            coverUrlInput.style.display = 'none';
+        }
+        if (applyUrlCoverBtn) applyUrlCoverBtn.classList.add('hidden');
+
+        this.originalCoverInEditor = null;
     },
 
     async saveMetadata() {
