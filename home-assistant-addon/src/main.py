@@ -27,22 +27,19 @@ def list_files():
     if not os.path.exists(target_dir):
         return jsonify([])
 
-    # For music directory, recursively get all audio files
-    if sub_dir.startswith('music/') or sub_dir == 'music':
-        items = get_all_audio_files(target_dir, MEDIA_DIR)
-    else:
-        items = []
-        for item in os.listdir(target_dir):
-            full_path = os.path.join(target_dir, item)
-            rel_path = os.path.relpath(full_path, MEDIA_DIR)
+    # Get direct contents only (non-recursive)
+    items = []
+    for item in os.listdir(target_dir):
+        full_path = os.path.join(target_dir, item)
+        rel_path = os.path.relpath(full_path, MEDIA_DIR)
 
-            # Windows compatibility for rel_path
-            rel_path = rel_path.replace('\\\\', '/')
+        # Windows compatibility for rel_path
+        rel_path = rel_path.replace('\\', '/')
 
-            if os.path.isdir(full_path):
-                items.append({'name': item, 'type': 'folder', 'path': rel_path})
-            elif item.lower().endswith(('.epub', '.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac', '.lrc', '.jpg', '.jpeg', '.png', '.strm', '.mp4')):
-                items.append({'name': item, 'type': 'file', 'path': rel_path})
+        if os.path.isdir(full_path):
+            items.append({'name': item, 'type': 'folder', 'path': rel_path})
+        elif item.lower().endswith(('.epub', '.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac', '.lrc', '.jpg', '.jpeg', '.png', '.strm', '.mp4')):
+            items.append({'name': item, 'type': 'file', 'path': rel_path})
 
     # Sort folders first, then files
     items.sort(key=lambda x: (0 if x.get('type') == 'folder' else 1, x.get('name', '').lower()))
