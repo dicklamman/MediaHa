@@ -514,6 +514,23 @@
                         <input type="text" id="meta-input-album" class="form-input">
                     </div>
                     <div class="form-group">
+                        <label class="form-label">Cover Image</label>
+                        <div class="cover-upload-container">
+                            <div class="cover-preview-container">
+                                <img id="editor-cover-preview" src="" alt="Cover Preview" class="hidden">
+                                <div id="editor-cover-placeholder" class="cover-placeholder">No cover</div>
+                            </div>
+                            <div class="cover-upload-controls">
+                                <button id="upload-cover-btn" class="btn btn-sm btn-secondary">Upload File</button>
+                                <input type="file" id="cover-file-input" accept="image/*" style="display: none;">
+                                <button id="url-cover-btn" class="btn btn-sm btn-secondary">From URL</button>
+                                <input type="text" id="cover-url-input" class="form-input" placeholder="Paste image URL..." style="display: none; margin-top: 8px;">
+                                <button id="apply-url-cover-btn" class="btn btn-sm btn-primary hidden" style="margin-top: 4px;">Apply URL</button>
+                                <button id="remove-cover-btn" class="btn btn-sm btn-danger hidden" style="margin-top: 4px;">Remove Cover</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label class="form-label">Lyrics (.lrc)</label>
                         <textarea id="meta-input-o3ics" class="form-input form-textarea"></textarea>
                     </div>

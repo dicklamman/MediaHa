@@ -65,6 +65,35 @@ export const mp3Player = {
         const lrcSubtractBtn = document.getElementById('lrc-subtract-btn');
         if (lrcSubtractBtn) lrcSubtractBtn.addEventListener('click', () => this.applyLrcOffset(-1));
 
+        // Cover upload handlers
+        const uploadCoverBtn = document.getElementById('upload-cover-btn');
+        const coverFileInput = document.getElementById('cover-file-input');
+        const urlCoverBtn = document.getElementById('url-cover-btn');
+        const coverUrlInput = document.getElementById('cover-url-input');
+        const applyUrlCoverBtn = document.getElementById('apply-url-cover-btn');
+        const removeCoverBtn = document.getElementById('remove-cover-btn');
+
+        if (uploadCoverBtn && coverFileInput) {
+            uploadCoverBtn.addEventListener('click', () => coverFileInput.click());
+            coverFileInput.addEventListener('change', (e) => this.handleCoverFileUpload(e));
+        }
+
+        if (urlCoverBtn && coverUrlInput) {
+            urlCoverBtn.addEventListener('click', () => {
+                const isVisible = coverUrlInput.style.display !== 'none';
+                coverUrlInput.style.display = isVisible ? 'none' : 'block';
+                applyUrlCoverBtn.classList.toggle('hidden', isVisible);
+            });
+        }
+
+        if (applyUrlCoverBtn) {
+            applyUrlCoverBtn.addEventListener('click', () => this.handleCoverUrlInput());
+        }
+
+        if (removeCoverBtn) {
+            removeCoverBtn.addEventListener('click', () => this.handleRemoveCover());
+        }
+
         // LRC offset input change handler
         const lrcOffsetInput = document.getElementById('lrc-offset-input');
         if (lrcOffsetInput) {
