@@ -131,7 +131,13 @@ export const ui = {
                 viewDropbox.style.display = 'none';
             }
             // Load eBook folder on init
-            fileBrowser.setBasePath('eBook');
+            const fileBrowserEl = document.getElementById('file-browser');
+            if (fileBrowserEl) {
+                fileBrowser.setBasePath('eBook');
+            } else {
+                // Wait for DOM to be ready
+                setTimeout(() => fileBrowser.setBasePath('eBook'), 100);
+            }
         }
 
         const tabMp3 = document.getElementById('tab-mp3');

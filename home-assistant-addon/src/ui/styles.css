@@ -2326,3 +2326,93 @@ rt {
     align-items: center;
     justify-content: center;
 }
+
+/* LRC Timeline Editor */
+#lrc-editor {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.lrc-editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.lrc-editor-header h4 {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.lrc-editor-actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.lrc-editor-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm);
+    background: var(--hover-bg);
+    border-radius: var(--radius-md);
+}
+
+.lrc-editor-controls label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+
+#lrc-offset-input {
+    width: 80px;
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    text-align: center;
+}
+
+#lrc-offset-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+}
+
+.lrc-editor-preview {
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--info-bg);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+}
+
+.lrc-preview-line {
+    padding: 2px 4px;
+    border-radius: 2px;
+    color: var(--color-text);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.btn-info {
+    background: #0ea5e9;
+    color: white;
+}
+
+.btn-info:hover {
+    background: #0284c7;
+}

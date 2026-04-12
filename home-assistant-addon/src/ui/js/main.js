@@ -7,17 +7,24 @@ import { videoPlayer } from './videoPlayer.js';
 import { api } from './api.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize UI components
+    // Initialize feature modules first (order matters!)
+    fileBrowser.init();
+    
+    // Initialize UI components (uses fileBrowser.setBasePath)
     ui.initTheme();
     ui.initTabs();
     ui.initMobileNav();
 
     // Initialize feature modules
-    fileBrowser.init();
     epubPlayer.init();
     mp3Player.init();
     alist.init();
     videoPlayer.init();
+    
+    // Fallback: load eBook if initTabs didn't work
+    if (!fileBrowser.currentPath || fileBrowser.currentPath === '') {
+        setTimeout(() => fileBrowser.setBasePath('eBook'), 200);
+    }
 
     // Global Event Listeners
     document.addEventListener('click', (e) => {

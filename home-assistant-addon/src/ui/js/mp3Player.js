@@ -45,6 +45,28 @@ export const mp3Player = {
         const cancelEnhanceBtn = document.getElementById('cancel-enhance-btn');
         if (cancelEnhanceBtn) cancelEnhanceBtn.addEventListener('click', () => this.cancelEnhance());
 
+        // LRC Editor buttons
+        const editLrcBtn = document.getElementById('edit-lrc-btn');
+        if (editLrcBtn) editLrcBtn.addEventListener('click', () => this.showLrcEditor());
+
+        const saveLrcBtn = document.getElementById('save-lrc-btn');
+        if (saveLrcBtn) saveLrcBtn.addEventListener('click', () => this.saveLrc());
+
+        const cancelLrcBtn = document.getElementById('cancel-lrc-btn');
+        if (cancelLrcBtn) cancelLrcBtn.addEventListener('click', () => this.cancelLrc());
+
+        const lrcAddBtn = document.getElementById('lrc-add-btn');
+        if (lrcAddBtn) lrcAddBtn.addEventListener('click', () => this.applyLrcOffset(1));
+
+        const lrcSubtractBtn = document.getElementById('lrc-subtract-btn');
+        if (lrcSubtractBtn) lrcSubtractBtn.addEventListener('click', () => this.applyLrcOffset(-1));
+
+        // LRC offset input change handler
+        const lrcOffsetInput = document.getElementById('lrc-offset-input');
+        if (lrcOffsetInput) {
+            lrcOffsetInput.addEventListener('input', () => this.updateLrcEditorPreview());
+        }
+
         // Handle cover source selection
         document.querySelectorAll('.cover-source-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -1059,6 +1081,154 @@ export const mp3Player = {
         }
     },
 
+    // LRC Timeline Editor
+    showLrcEditor() {
+        const lrcEditor = document.getElementById('lrc-editor');
+        const mp3O3ics = document.getElementById('mp3-o3ics');
+        const metadataDisplay = document.getElementById('metadata-display');
+        const enhancePreview = document.getElementById('enhance-preview');
+        const metadataEditor = document.getElementById('metadata-editor');
+
+        // Hide other sections, show LRC editor
+        if (lrcEditor) lrcEditor.classList.remove('hidden');
+        if (mp3O3ics) mp3O3ics.classList.add('hidden');
+        if (metadataDisplay) metadataDisplay.classList.add('hidden');
+        if (enhancePreview) enhancePreview.classList.add('hidden');
+        if (metadataEditor) metadataEditor.classList.add('hidden');
+
+        // Store original o3ics for cancel
+        this.originalLrcText = document.getElementById('meta-input-o3ics')?.value || '';
+
+        // Reset offset input
+        const offsetInput = document.getElementById('lrc-offset-input');
+        if (offsetInput) offsetInput.value = '0';
+
+        // Update preview
+        this.updateLrcEditorPreview();
+    },
+
+    updateLrcEditorPreview() {
+        const preview = document.getElementById('lrc-editor-preview');
+        const offsetInput = document.getElementById('lrc-offset-input');
+        if (!preview || !offsetInput) return;
+
+        const offset = parseFloat(offsetInput.value) || 0;
+        const lines = this.originalLrcText.split('\n');
+
+        preview.innerHTML = lines.map(line => {
+            // Try to parse LRC timestamp
+            const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+            const match = line.match(timeRegex);
+
+            if (match) {
+                const m = parseInt(match[1], 10);
+                const s = parseInt(match[2], 10);
+                const ms = match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3], 10);
+                const time = (m * 60) + s + (ms / 1000);
+                const newTime = Math.max(0, time + offset);
+
+                const newM = Math.floor(newTime / 60);
+                const newS = Math.floor(newTime % 60);
+                const newMs = Math.round((newTime % 1) * 1000);
+                const newMsStr = newMs < 100 ? String(newMs).padStart(2, '0') : String(newMs).slice(0, 3);
+
+                const newLine = `[${String(newM).padStart(2, '0')}:${String(newS).padStart(2, '0')}.${newMsStr}]${line.replace(timeRegex, '')}`;
+                return `<div class="lrc-preview-line">${this.escapeHtml(newLine)}</div>`;
+            }
+            return `<div class="lrc-preview-line">${this.escapeHtml(line)}</div>`;
+        }).join('');
+    },
+
+    applyLrcOffset(multiplier) {
+        const offsetInput = document.getElementById('lrc-offset-input');
+        if (!offsetInput) return;
+
+        const current = parseFloat(offsetInput.value) || 0;
+        const step = multiplier;
+        offsetInput.value = (current + step).toFixed(1);
+        this.updateLrcEditorPreview();
+    },
+
+    async saveLrc() {
+        const offsetInput = document.getElementById('lrc-offset-input');
+        if (!offsetInput) return;
+
+        const offset = parseFloat(offsetInput.value) || 0;
+        if (offset === 0) {
+            this.hideLrcEditor();
+            return;
+        }
+
+        const lines = this.originalLrcText.split('\n');
+        const newLines = lines.map(line => {
+            const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+            const match = line.match(timeRegex);
+
+            if (match) {
+                const m = parseInt(match[1], 10);
+                const s = parseInt(match[2], 10);
+                const ms = match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3], 10);
+                const time = (m * 60) + s + (ms / 1000);
+                const newTime = Math.max(0, time + offset);
+
+                const newM = Math.floor(newTime / 60);
+                const newS = Math.floor(newTime % 60);
+                const newMs = Math.round((newTime % 1) * 1000);
+                const newMsStr = newMs < 100 ? String(newMs).padStart(2, '0') : String(newMs).slice(0, 3);
+
+                return `[${String(newM).padStart(2, '0')}:${String(newS).padStart(2, '0')}.${newMsStr}]${line.replace(timeRegex, '')}`;
+            }
+            return line;
+        });
+
+        const newLrcText = newLines.join('\n');
+
+        // Update the input field
+        const o3icsInput = document.getElementById('meta-input-o3ics');
+        if (o3icsInput) o3icsInput.value = newLrcText;
+
+        // Save to metadata
+        try {
+            const data = { o3ics: newLrcText };
+            if (this.pendingCover) data.cover = this.pendingCover;
+            await this.api.updateMetadata(this.currentFile.path, data);
+
+            // Update display and re-render
+            await this.loadMetadata();
+        } catch (err) {
+            alert('Failed to save LRC: ' + err.message);
+        }
+
+        this.hideLrcEditor();
+    },
+
+    cancelLrc() {
+        this.hideLrcEditor();
+    },
+
+    hideLrcEditor() {
+        const lrcEditor = document.getElementById('lrc-editor');
+        const mp3O3ics = document.getElementById('mp3-o3ics');
+        const metadataDisplay = document.getElementById('metadata-display');
+
+        if (lrcEditor) lrcEditor.classList.add('hidden');
+        if (mp3O3ics) {
+            mp3O3ics.classList.remove('hidden');
+            // Re-render with original (unmodified) LRC
+            const o3icsValue = document.getElementById('meta-input-o3ics')?.value || this.originalMetadata?.o3ics || '';
+            this.renderLyrics(o3icsValue);
+        }
+        if (metadataDisplay) metadataDisplay.classList.remove('hidden');
+
+        this.originalLrcText = null;
+    },
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    },
+
     close() {
         const mp3Modal = document.getElementById('mp3-modal');
         const mp3Audio = document.getElementById('mp3-audio');
@@ -1084,6 +1254,7 @@ export const mp3Player = {
         this.activeIndex = -1;
         this.selectedCoverSource = 'all';
         this.selectedO3icsSource = 'all';
+        this.originalLrcText = null;
 
         // Clear display elements
         const clearElement = (id) => {
@@ -1145,6 +1316,7 @@ export const mp3Player = {
         hideContainer('o3ics-options-container');
         hideContainer('cover-source-selector');
         hideContainer('o3ics-source-selector');
+        hideContainer('lrc-editor');
 
         // Clear cover/lyrics options lists
         const coverList = document.getElementById('cover-options-list');
