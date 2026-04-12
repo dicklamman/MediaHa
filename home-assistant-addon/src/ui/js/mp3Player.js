@@ -875,9 +875,13 @@ export const mp3Player = {
             console.log('confirmEnhance - useEnhanced:', this.useEnhanced);
             console.log('confirmEnhance - enhancedMetadata.cover:', this.enhancedMetadata?.cover ? 'exists' : 'null');
 
-            if (this.useEnhanced.cover && this.enhancedMetadata?.cover) {
+            // Cover: use pendingCover first (from cover selector), then enhancedMetadata
+            if (this.pendingCover) {
+                data.cover = this.pendingCover;
+                console.log('confirmEnhance - using pendingCover, length:', data.cover.length);
+            } else if (this.useEnhanced.cover && this.enhancedMetadata?.cover) {
                 data.cover = this.enhancedMetadata.cover;
-                console.log('confirmEnhance - adding cover to data, length:', data.cover.length);
+                console.log('confirmEnhance - using enhancedMetadata.cover, length:', data.cover.length);
             }
 
             console.log('confirmEnhance - final data keys:', Object.keys(data));
@@ -887,11 +891,12 @@ export const mp3Player = {
             // Reload metadata to get the saved data
             await this.loadMetadata();
 
-            // Update main cover display if cover was enhanced (since loadMetadata uses original cover)
-            if (this.useEnhanced.cover && this.enhancedMetadata.cover) {
+            // Update main cover display if cover was saved
+            if (this.pendingCover || (this.useEnhanced.cover && this.enhancedMetadata?.cover)) {
                 const mp3Cover = document.getElementById('mp3-cover');
-                if (mp3Cover) {
-                    mp3Cover.src = this.enhancedMetadata.cover;
+                const coverToUse = this.pendingCover || this.enhancedMetadata.cover;
+                if (mp3Cover && coverToUse) {
+                    mp3Cover.src = coverToUse;
                     mp3Cover.style.display = 'block';
                 }
             }
@@ -940,6 +945,8 @@ export const mp3Player = {
         this.pendingCoverIndex = 0;
         this.o3icsOptions = [];
         this.pendingO3icsIndex = 0;
+        this.pendingCover = null;
+        this.pendingO3ics = null;
     },
 
     cancelEnhance() {
@@ -1045,14 +1052,107 @@ export const mp3Player = {
     close() {
         const mp3Modal = document.getElementById('mp3-modal');
         const mp3Audio = document.getElementById('mp3-audio');
+
+        // Stop and reset audio
         if (mp3Audio) {
             mp3Audio.pause();
             mp3Audio.currentTime = 0;
+            mp3Audio.src = '';
         }
-        if (mp3Modal) mp3Modal.classList.add('hidden');
 
-        // Reset enhance state
-        this.cancelEnhance();
+        // Clear current file
+        this.currentFile = null;
+
+        // Reset all state variables
+        this.pendingCover = null;
+        this.pendingCoverIndex = 0;
+        this.coverOptions = [];
+        this.pendingO3ics = null;
+        this.pendingO3icsIndex = 0;
+        this.o3icsOptions = [];
+        this.lrcData = [];
+        this.activeIndex = -1;
+        this.selectedCoverSource = 'all';
+        this.selectedO3icsSource = 'all';
+
+        // Clear display elements
+        const clearElement = (id) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '-';
+        };
+
+        clearElement('mp3-title');
+        clearElement('meta-disp-title');
+        clearElement('meta-disp-artist');
+        clearElement('meta-disp-album');
+
+        const coverEl = document.getElementById('mp3-cover');
+        if (coverEl) {
+            coverEl.src = '';
+            coverEl.style.display = 'none';
+        }
+
+        const o3icsEl = document.getElementById('mp3-o3ics');
+        if (o3icsEl) o3icsEl.innerHTML = '';
+
+        // Clear editor inputs
+        const clearInput = (id) => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        };
+
+        clearInput('meta-input-title');
+        clearInput('meta-input-artist');
+        clearInput('meta-input-album');
+        clearInput('meta-input-o3ics');
+
+        // Reset enhance preview elements
+        const clearEnhance = (id) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '-';
+        };
+
+        clearEnhance('enhance-new-title');
+        clearEnhance('enhance-new-artist');
+        clearEnhance('enhance-new-album');
+        clearEnhance('enhance-new-o3ics');
+
+        const newCoverEl = document.getElementById('enhance-new-cover');
+        if (newCoverEl) {
+            newCoverEl.src = '';
+            newCoverEl.classList.remove('has-image');
+        }
+
+        // Hide enhance containers
+        const hideContainer = (id) => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        };
+
+        hideContainer('enhance-preview');
+        hideContainer('enhance-new-cover');
+        hideContainer('cover-options-container');
+        hideContainer('o3ics-options-container');
+        hideContainer('cover-source-selector');
+        hideContainer('o3ics-source-selector');
+
+        // Clear cover/lyrics options lists
+        const coverList = document.getElementById('cover-options-list');
+        if (coverList) coverList.innerHTML = '';
+
+        const o3icsList = document.getElementById('o3ics-options-list');
+        if (o3icsList) o3icsList.innerHTML = '';
+
+        // Reset edit mode (cancels any edits)
+        this.toggleEditMode(false);
+
+        // Reset edit button visibility
+        document.getElementById('edit-metadata-btn')?.classList.remove('hidden');
+        document.getElementById('cancel-metadata-btn')?.classList.add('hidden');
+        document.getElementById('save-metadata-btn')?.classList.add('hidden');
+
+        // Hide modal
+        if (mp3Modal) mp3Modal.classList.add('hidden');
     },
 
     showFullO3ics(type) {
