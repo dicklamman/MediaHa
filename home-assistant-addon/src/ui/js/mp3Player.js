@@ -1133,6 +1133,7 @@ export const mp3Player = {
         const reader = new FileReader();
         reader.onload = (e) => {
             const dataUrl = e.target.result;
+            console.log('handleCoverFileUpload - setting pendingCover with dataURL');
             this.pendingCover = dataUrl;
 
             // Update preview
@@ -1152,6 +1153,7 @@ export const mp3Player = {
 
     handleCoverUrlInput() {
         const coverUrlInput = document.getElementById('cover-url-input');
+        const applyUrlCoverBtn = document.getElementById('apply-url-cover-btn');
         if (!coverUrlInput) return;
 
         const url = coverUrlInput.value.trim();
@@ -1168,6 +1170,7 @@ export const mp3Player = {
             return;
         }
 
+        console.log('handleCoverUrlInput - setting pendingCover to:', url);
         this.pendingCover = url;
 
         // Update preview
@@ -1181,9 +1184,14 @@ export const mp3Player = {
         }
         if (editorPlaceholder) editorPlaceholder.classList.add('hidden');
         if (removeCoverBtn) removeCoverBtn.classList.remove('hidden');
+
+        // Hide URL input and Apply button after successful apply
+        if (coverUrlInput) coverUrlInput.style.display = 'none';
+        if (applyUrlCoverBtn) applyUrlCoverBtn.classList.add('hidden');
     },
 
     handleRemoveCover() {
+        console.log('handleRemoveCover - clearing pendingCover');
         this.pendingCover = null;
 
         // Reset preview
@@ -1234,13 +1242,22 @@ export const mp3Player = {
             const o3ics = document.getElementById('meta-input-o3ics').value;
 
             const data = { title, artist, album, o3ics };
+
+            console.log('saveMetadata - pendingCover:', this.pendingCover);
+
+            // Use pendingCover if set (from file upload or apply URL)
             if (this.pendingCover) {
+                console.log('saveMetadata - saving cover to metadata');
                 data.cover = this.pendingCover;
             }
 
+            console.log('saveMetadata - data to send:', { ...data, cover: data.cover ? '***' : undefined });
+
             await this.api.updateMetadata(this.currentFile.path, data);
 
+            console.log('saveMetadata - updateMetadata completed');
             this.pendingCover = null;
+            this.resetCoverEditor();
             await this.loadMetadata();
             this.toggleEditMode(false);
         } catch (err) {

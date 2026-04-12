@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from flask import Flask, request, jsonify, send_from_directory
 import os
+import base64
+import re
+import urllib.request
 from utils.epub_converter import convert_to_hk_traditional_chinese
 
 app = Flask(__name__)
@@ -210,23 +213,48 @@ def update_metadata():
         if 'album' in data:
             audio.tags.add(TALB(encoding=3, text=data['album']))
         if 'cover' in data and data['cover']:
-            import base64
             from mutagen.id3 import APIC
             try:
                 # First remove all existing APIC (cover) tags
                 audio.tags.delall('APIC')
-                
-                b64_data = data['cover'].split(',')[-1]
-                cover_data = base64.b64decode(b64_data)
-                audio.tags.add(
-                    APIC(
-                        encoding=3,
-                        mime='image/jpeg',
-                        type=3,
-                        desc='Cover',
-                        data=cover_data
+
+                cover_value = data['cover']
+
+                # Check if it's a URL (starts with http:// or https://)
+                if cover_value.startswith('http://') or cover_value.startswith('https://'):
+                    # It's a URL, download the image
+                    try:
+                        with urllib.request.urlopen(cover_value, timeout=10) as response:
+                            cover_data = response.read()
+                            content_type = response.headers.get('Content-Type', 'image/jpeg')
+                            if '/' in content_type:
+                                mime = content_type.split('/')[1]
+                                if mime == 'jpeg':
+                                    mime = 'jpeg'
+                            else:
+                                mime = 'jpeg'
+                    except Exception as e:
+                        print(f"Error downloading cover from URL: {e}")
+                        mime = 'jpeg'
+                        cover_data = None
+                elif ',' in cover_value:
+                    # It's a base64 data URL, extract and decode
+                    b64_data = cover_value.split(',')[-1]
+                    cover_data = base64.b64decode(b64_data)
+                    mime = 'jpeg'
+                else:
+                    cover_data = None
+
+                if cover_data:
+                    audio.tags.add(
+                        APIC(
+                            encoding=3,
+                            mime='image/' + mime,
+                            type=3,
+                            desc='Cover',
+                            data=cover_data
+                        )
                     )
-                )
             except Exception as e:
                 print(f"Error saving cover: {e}")
                 pass
