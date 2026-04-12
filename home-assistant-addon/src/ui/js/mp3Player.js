@@ -158,7 +158,17 @@ export const mp3Player = {
             enhanceStatus.classList.add('hidden');
         }
         const autoBtn = document.getElementById('auto-enhance-btn');
-        if (autoBtn) autoBtn.textContent = 'Auto Enhance';
+        if (autoBtn) {
+            autoBtn.textContent = 'Auto Enhance';
+            autoBtn.classList.remove('hidden');
+        }
+        
+        // Reset button states for enhance preview
+        document.getElementById('enhance-preview')?.classList.add('hidden');
+        document.getElementById('metadata-display')?.classList.remove('hidden');
+        document.getElementById('confirm-enhance-btn')?.classList.add('hidden');
+        document.getElementById('cancel-enhance-btn')?.classList.add('hidden');
+        document.getElementById('edit-metadata-btn')?.classList.remove('hidden');
 
         const mp3Modal = document.getElementById('mp3-modal');
         const mp3Title = document.getElementById('mp3-title');
