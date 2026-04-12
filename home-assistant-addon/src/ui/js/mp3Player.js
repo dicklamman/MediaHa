@@ -12,6 +12,10 @@ export const mp3Player = {
     savedOriginalDisplay: null,
     selectedCoverSource: 'all',
     selectedO3icsSource: 'all',
+    lrcEditorTimedLines: null,
+    currentLrcEditorIndex: -1,
+    lrcEditorAudioHandler: null,
+    isInLrcEditMode: false,
 
     init() {
         const closeMp3Btn = document.getElementById('close-mp3');
@@ -319,6 +323,9 @@ export const mp3Player = {
     },
 
     updateSyncedLyrics(currentTime) {
+        // Skip if in LRC edit mode (editor handles its own sync)
+        if (this.isInLrcEditMode) return;
+
         if (!this.lrcData || this.lrcData.length === 0) return;
 
         let newIndex = -1;
@@ -1172,7 +1179,7 @@ export const mp3Player = {
                 p.innerHTML = line.text;
                 p.id = 'lrc-preview-line-' + index;
                 p.dataset.time = line.time;
-                // Mark as preview (not active)
+                // Mark as preview
                 p.classList.add('lrc-preview-item');
                 mp3O3ics.appendChild(p);
             });
@@ -1185,7 +1192,82 @@ export const mp3Player = {
                 p.style.fontSize = '0.9em';
                 mp3O3ics.appendChild(p);
             });
+
+            // Store timed lines and start audio sync
+            this.lrcEditorTimedLines = timedLines;
+            this.currentLrcEditorIndex = -1;
+            this.startLrcEditorAudioSync();
         }
+    },
+
+    startLrcEditorAudioSync() {
+        const mp3Audio = document.getElementById('mp3-audio');
+        if (!mp3Audio) return;
+
+        // Remove existing listener
+        if (this.lrcEditorAudioHandler) {
+            mp3Audio.removeEventListener('timeupdate', this.lrcEditorAudioHandler);
+        }
+
+        // Create and bind handler
+        this.lrcEditorAudioHandler = () => this.updateLrcEditorAudioSync();
+        mp3Audio.addEventListener('timeupdate', this.lrcEditorAudioHandler);
+
+        // Initial sync
+        this.updateLrcEditorAudioSync();
+    },
+
+    updateLrcEditorAudioSync() {
+        if (!this.lrcEditorTimedLines || this.lrcEditorTimedLines.length === 0) return;
+
+        const mp3Audio = document.getElementById('mp3-audio');
+        if (!mp3Audio) return;
+
+        const currentTime = mp3Audio.currentTime;
+        let newIndex = -1;
+
+        for (let i = 0; i < this.lrcEditorTimedLines.length; i++) {
+            if (currentTime >= this.lrcEditorTimedLines[i].time) {
+                newIndex = i;
+            } else {
+                break;
+            }
+        }
+
+        if (newIndex !== this.currentLrcEditorIndex) {
+            // Remove highlight from previous
+            if (this.currentLrcEditorIndex !== -1) {
+                const oldEl = document.getElementById('lrc-preview-line-' + this.currentLrcEditorIndex);
+                if (oldEl) oldEl.classList.remove('highlight');
+            }
+
+            this.currentLrcEditorIndex = newIndex;
+
+            // Add highlight to new
+            if (newIndex !== -1) {
+                const newEl = document.getElementById('lrc-preview-line-' + newIndex);
+                if (newEl) {
+                    newEl.classList.add('highlight');
+
+                    // Scroll to center
+                    const container = document.getElementById('mp3-o3ics');
+                    if (container) {
+                        const scrollPos = newEl.offsetTop - container.offsetTop - (container.clientHeight / 2) + (newEl.clientHeight / 2);
+                        container.scrollTo({ top: scrollPos, behavior: 'smooth' });
+                    }
+                }
+            }
+        }
+    },
+
+    stopLrcEditorAudioSync() {
+        const mp3Audio = document.getElementById('mp3-audio');
+        if (mp3Audio && this.lrcEditorAudioHandler) {
+            mp3Audio.removeEventListener('timeupdate', this.lrcEditorAudioHandler);
+            this.lrcEditorAudioHandler = null;
+        }
+        this.lrcEditorTimedLines = null;
+        this.currentLrcEditorIndex = -1;
     },
 
     applyLrcOffset(multiplier) {
@@ -1252,10 +1334,14 @@ export const mp3Player = {
     },
 
     cancelLrc() {
+        this.isInLrcEditMode = false;
         this.hideLrcEditor();
     },
 
     hideLrcEditor() {
+        // Stop audio sync first
+        this.stopLrcEditorAudioSync();
+
         const lrcEditor = document.getElementById('lrc-editor');
         const mp3O3ics = document.getElementById('mp3-o3ics');
         const metadataDisplay = document.getElementById('metadata-display');
@@ -1264,12 +1350,14 @@ export const mp3Player = {
         if (mp3O3ics) {
             mp3O3ics.classList.remove('hidden');
             mp3O3ics.classList.remove('lrc-edit-mode'); // Remove edit mode styling
-            // Re-render with current input value (in case user cancelled or saved)
+            // Re-render with current input value
             const o3icsValue = document.getElementById('meta-input-o3ics')?.value || this.originalMetadata?.o3ics || '';
             this.renderLyrics(o3icsValue);
         }
         if (metadataDisplay) metadataDisplay.classList.remove('hidden');
 
+        // Reset edit mode flag
+        this.isInLrcEditMode = false;
         this.originalLrcText = null;
     },
 
