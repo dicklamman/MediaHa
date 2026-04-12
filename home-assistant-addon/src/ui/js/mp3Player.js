@@ -1089,9 +1089,9 @@ export const mp3Player = {
         const enhancePreview = document.getElementById('enhance-preview');
         const metadataEditor = document.getElementById('metadata-editor');
 
-        // Hide other sections, show LRC editor
+        // Hide other sections, keep mp3-o3ics visible for preview
         if (lrcEditor) lrcEditor.classList.remove('hidden');
-        if (mp3O3ics) mp3O3ics.classList.add('hidden');
+        if (mp3O3ics) mp3O3ics.classList.remove('hidden'); // Keep visible for preview
         if (metadataDisplay) metadataDisplay.classList.add('hidden');
         if (enhancePreview) enhancePreview.classList.add('hidden');
         if (metadataEditor) metadataEditor.classList.add('hidden');
@@ -1103,19 +1103,20 @@ export const mp3Player = {
         const offsetInput = document.getElementById('lrc-offset-input');
         if (offsetInput) offsetInput.value = '0';
 
-        // Update preview
+        // Show the original lyrics preview first
         this.updateLrcEditorPreview();
     },
 
     updateLrcEditorPreview() {
         const preview = document.getElementById('lrc-editor-preview');
         const offsetInput = document.getElementById('lrc-offset-input');
-        if (!preview || !offsetInput) return;
+        if (!offsetInput) return;
 
         const offset = parseFloat(offsetInput.value) || 0;
         const lines = this.originalLrcText.split('\n');
 
-        preview.innerHTML = lines.map(line => {
+        // Parse and adjust timestamps, then render preview
+        const adjustedLines = lines.map(line => {
             // Try to parse LRC timestamp
             const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
             const match = line.match(timeRegex);
@@ -1132,11 +1133,59 @@ export const mp3Player = {
                 const newMs = Math.round((newTime % 1) * 1000);
                 const newMsStr = newMs < 100 ? String(newMs).padStart(2, '0') : String(newMs).slice(0, 3);
 
-                const newLine = `[${String(newM).padStart(2, '0')}:${String(newS).padStart(2, '0')}.${newMsStr}]${line.replace(timeRegex, '')}`;
-                return `<div class="lrc-preview-line">${this.escapeHtml(newLine)}</div>`;
+                const textContent = line.replace(timeRegex, '').trim();
+                return {
+                    time: newTime,
+                    text: textContent === '' ? '<span class="material-icons" style="font-size:14px">music_note</span>' : textContent
+                };
             }
-            return `<div class="lrc-preview-line">${this.escapeHtml(line)}</div>`;
-        }).join('');
+            return { time: null, text: line };
+        });
+
+        // Update text preview
+        if (preview) {
+            preview.innerHTML = lines.map((line, i) => {
+                const adjLine = adjustedLines[i];
+                const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+                if (adjLine.time !== null) {
+                    const newM = Math.floor(adjLine.time / 60);
+                    const newS = Math.floor(adjLine.time % 60);
+                    const newMs = Math.round((adjLine.time % 1) * 1000);
+                    const newMsStr = newMs < 100 ? String(newMs).padStart(2, '0') : String(newMs).slice(0, 3);
+                    const newLine = `[${String(newM).padStart(2, '0')}:${String(newS).padStart(2, '0')}.${newMsStr}]${line.replace(timeRegex, '')}`;
+                    return `<div class="lrc-preview-line">${this.escapeHtml(newLine)}</div>`;
+                }
+                return `<div class="lrc-preview-line">${this.escapeHtml(line)}</div>`;
+            }).join('');
+        }
+
+        // Update mp3-o3ics preview with adjusted timestamps
+        const mp3O3ics = document.getElementById('mp3-o3ics');
+        if (mp3O3ics) {
+            mp3O3ics.classList.add('synced');
+            mp3O3ics.innerHTML = '';
+
+            // Only show lines with timestamps
+            const timedLines = adjustedLines.filter(l => l.time !== null);
+            timedLines.forEach((line, index) => {
+                const p = document.createElement('p');
+                p.innerHTML = line.text;
+                p.id = 'lrc-preview-line-' + index;
+                p.dataset.time = line.time;
+                // Mark as preview (not active)
+                p.classList.add('lrc-preview-item');
+                mp3O3ics.appendChild(p);
+            });
+
+            // Show any non-timed lines as well
+            adjustedLines.filter(l => l.time === null).forEach(line => {
+                const p = document.createElement('p');
+                p.innerHTML = this.escapeHtml(line.text);
+                p.style.color = 'var(--color-text-muted)';
+                p.style.fontSize = '0.9em';
+                mp3O3ics.appendChild(p);
+            });
+        }
     },
 
     applyLrcOffset(multiplier) {
@@ -1214,7 +1263,8 @@ export const mp3Player = {
         if (lrcEditor) lrcEditor.classList.add('hidden');
         if (mp3O3ics) {
             mp3O3ics.classList.remove('hidden');
-            // Re-render with original (unmodified) LRC
+            mp3O3ics.classList.remove('lrc-edit-mode'); // Remove edit mode styling
+            // Re-render with current input value (in case user cancelled or saved)
             const o3icsValue = document.getElementById('meta-input-o3ics')?.value || this.originalMetadata?.o3ics || '';
             this.renderLyrics(o3icsValue);
         }
