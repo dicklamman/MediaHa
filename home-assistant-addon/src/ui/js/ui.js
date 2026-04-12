@@ -1,3 +1,5 @@
+import { fileBrowser } from './fileBrowser.js';
+
 export const ui = {
     initTheme() {
         const themeToggle = document.getElementById('theme-toggle');
@@ -107,17 +109,34 @@ export const ui = {
     },
 
     initTabs() {
+        // Set default tab to EPUB Converter and load eBook folder
         const tabEpub = document.getElementById('tab-epub');
+        const viewBrowser = document.getElementById('view-file-browser');
+        const viewMusicPlayer = document.getElementById('view-music-player');
+        const viewAlist = document.getElementById('view-alist');
+        const viewDropbox = document.getElementById('view-dropbox');
+        const pageTitle = document.getElementById('page-title');
+
+        if (tabEpub) {
+            tabEpub.classList.add('active');
+            if (pageTitle) pageTitle.textContent = 'EPUB Converter';
+            if (viewBrowser) {
+                viewBrowser.classList.remove('hidden');
+                viewBrowser.style.display = '';
+            }
+            if (viewMusicPlayer) viewMusicPlayer.classList.add('hidden');
+            if (viewAlist) viewAlist.classList.add('hidden');
+            if (viewDropbox) {
+                viewDropbox.classList.add('hidden');
+                viewDropbox.style.display = 'none';
+            }
+        }
+
         const tabMp3 = document.getElementById('tab-mp3');
         const tabMusicPlayer = document.getElementById('tab-music-player');
         const tabAlistVideo = document.getElementById('tab-alist-video');
         const tabAlist = document.getElementById('tab-alist');
         const tabDropbox = document.getElementById('tab-dropbox');
-        const pageTitle = document.getElementById('page-title');
-        const viewBrowser = document.getElementById('view-file-browser');
-        const viewMusicPlayer = document.getElementById('view-music-player');
-        const viewAlist = document.getElementById('view-alist');
-        const viewDropbox = document.getElementById('view-dropbox');
 
         const setActiveTab = (activeTab, title) => {
             [tabEpub, tabMp3, tabMusicPlayer, tabAlistVideo, tabAlist, tabDropbox].forEach(tab => {
@@ -165,7 +184,6 @@ export const ui = {
                 if (miniPlayer && localStorage.getItem('mediaha_mini_player_visible') === 'true') {
                     miniPlayer.classList.remove('hidden');
                 }
-                const { fileBrowser } = await import('./fileBrowser.js');
                 fileBrowser.setBasePath('eBook');
             });
 
@@ -184,7 +202,6 @@ export const ui = {
                 if (miniPlayer3 && localStorage.getItem('mediaha_mini_player_visible') === 'true') {
                     miniPlayer3.classList.remove('hidden');
                 }
-                const { fileBrowser } = await import('./fileBrowser.js');
                 fileBrowser.setBasePath('music');
             });
 
@@ -219,7 +236,6 @@ export const ui = {
                 if (miniPlayer4 && localStorage.getItem('mediaha_mini_player_visible') === 'true') {
                     miniPlayer4.classList.remove('hidden');
                 }
-                const { fileBrowser } = await import('./fileBrowser.js');
                 fileBrowser.setBasePath('alist');
             });
 
