@@ -14,6 +14,7 @@ export const fileBrowser = {
     },
 
     setBasePath(path) {
+        console.log('setBasePath called with path:', path);
         this.basePath = path;
         const rootCrumb = document.getElementById('root-crumb');
         if (rootCrumb) {
@@ -55,6 +56,7 @@ export const fileBrowser = {
     },
 
     async loadFiles(dir = '') {
+        console.log('loadFiles called with dir:', dir);
         this.currentPath = dir;
         this.updateBreadcrumb();
         const fileBrowserEl = document.getElementById('file-browser');

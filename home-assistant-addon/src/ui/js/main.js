@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize feature modules
     fileBrowser.init();
-    fileBrowser.loadFiles(fileBrowser.basePath);
     epubPlayer.init();
     mp3Player.init();
     alist.init();

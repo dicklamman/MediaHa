@@ -130,6 +130,8 @@ export const ui = {
                 viewDropbox.classList.add('hidden');
                 viewDropbox.style.display = 'none';
             }
+            // Load eBook folder on init
+            fileBrowser.setBasePath('eBook');
         }
 
         const tabMp3 = document.getElementById('tab-mp3');

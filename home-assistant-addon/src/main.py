@@ -28,7 +28,7 @@ def list_files():
         return jsonify([])
 
     # For music directory, recursively get all audio files
-    if 'music' in sub_dir.lower() or sub_dir == '':
+    if sub_dir.startswith('music/') or sub_dir == 'music':
         items = get_all_audio_files(target_dir, MEDIA_DIR)
     else:
         items = []
