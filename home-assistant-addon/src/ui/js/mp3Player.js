@@ -136,6 +136,11 @@ export const mp3Player = {
             btn.addEventListener('click', (e) => {
                 const field = btn.getAttribute('data-field');
                 this.useEnhanced[field] = false;
+                // Clear pendingCover when "Keep Original" is clicked for cover
+                if (field === 'cover') {
+                    this.pendingCover = null;
+                    this.pendingCoverIndex = 0;
+                }
                 this.updateEnhanceButtons();
             });
         });
