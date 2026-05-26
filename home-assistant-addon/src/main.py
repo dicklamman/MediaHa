@@ -56,7 +56,7 @@ def enforce_login():
         return
 
     # Allow login.js (needed for the login page)
-    if path == "/js/login.js":
+    if path in ("/js/login.js", "/login.js"):
         return
 
     # Protect all JS files (except login.js which is handled above)
