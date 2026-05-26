@@ -634,8 +634,35 @@ const MusicPlayer = {
     }
 };
 
+// Authentication check for music player
+async function checkAuth() {
+    try {
+        const response = await fetch('/api/auth/status');
+        if (response.status === 401 || !response.ok) {
+            window.location.href = '/login.html';
+            return false;
+        }
+        const data = await response.json();
+        if (!data.authenticated) {
+            window.location.href = '/login.html';
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.error('Auth check failed:', e);
+        window.location.href = '/login.html';
+        return false;
+    }
+}
+
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check authentication first
+    const isAuthenticated = await checkAuth();
+    if (!isAuthenticated) {
+        return; // Stop initialization if not authenticated
+    }
+
     MusicPlayer.init();
     window.MusicPlayer = MusicPlayer;
 });

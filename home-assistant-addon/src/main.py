@@ -1,22 +1,127 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session, redirect
 import os
 import base64
 import re
 import urllib.request
+import json
 from utils.epub_converter import convert_to_hk_traditional_chinese
 
+def load_auth_config():
+    """
+    Load addon authentication settings from Home Assistant options.
+    Falls back to simple defaults if options are missing.
+    """
+    # Environment variables override addon options (optional escape hatch)
+    env_user = os.environ.get("MEDIAHA_USERNAME")
+    env_pass = os.environ.get("MEDIAHA_PASSWORD")
+    if env_user and env_pass:
+        return env_user, env_pass
+
+    options_path = "/data/options.json"
+    username = "mediaha"
+    password = "changeme"
+
+    try:
+        if os.path.exists(options_path):
+            with open(options_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            username = data.get("username") or username
+            password = data.get("password") or password
+    except Exception:
+        # On any error, keep defaults
+        pass
+
+    return username, password
+
+
+AUTH_USERNAME, AUTH_PASSWORD = load_auth_config()
+
 app = Flask(__name__)
+app.secret_key = "mediaha-" + (AUTH_PASSWORD or "default-secret")
 
 MEDIA_DIR = '/media'
 
+
+@app.before_request
+def enforce_login():
+    """
+    Require login for all HTML pages and API endpoints, except the login page
+    and static assets.
+    """
+    path = request.path
+
+    # Public paths
+    if path in ("/api/login", "/health", "/login.html", "/favicon.ico"):
+        return
+
+    # Allow login.js (needed for the login page)
+    if path == "/js/login.js":
+        return
+
+    # Protect all JS files (except login.js which is handled above)
+    # Users must be authenticated to access any other JS
+    if path.endswith(".js"):
+        if not session.get("authenticated"):
+            return jsonify({"error": "Unauthorized"}), 401
+        return
+
+    # Allow static assets (CSS/fonts/images) but NOT JS
+    static_exts = (
+        ".css", ".png", ".jpg", ".jpeg", ".gif",
+        ".svg", ".ico", ".woff", ".woff2", ".ttf", ".map"
+    )
+    if path.startswith("/static/") or any(path.endswith(ext) for ext in static_exts):
+        return
+
+    # Already authenticated
+    if session.get("authenticated"):
+        return
+
+    # Protect APIs with JSON 401
+    if path.startswith("/api") or path == "/convert":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    # For HTML pages, redirect to login
+    if path == "/" or path.endswith(".html"):
+        return redirect("/login.html")
+
+    # Everything else falls through (e.g. media downloads) but still requires auth
+    return jsonify({"error": "Unauthorized"}), 401
+
 @app.route('/')
 def index():
+    # If not authenticated, before_request will redirect to /login.html
     return send_from_directory(os.path.join(os.path.dirname(__file__), 'ui'), 'index.html')
 
 @app.route('/<path:filename>')
 def serve_ui(filename):
     return send_from_directory(os.path.join(os.path.dirname(__file__), 'ui'), filename)
+
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json or {}
+    username = data.get("username", "")
+    password = data.get("password", "")
+
+    if username == AUTH_USERNAME and password == AUTH_PASSWORD:
+        session["authenticated"] = True
+        return jsonify({"success": True})
+
+    return jsonify({"error": "Invalid username or password"}), 401
+
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({"success": True})
+
+
+@app.route('/api/auth/status', methods=['GET'])
+def auth_status():
+    """Check if the current user is authenticated"""
+    return jsonify({"authenticated": session.get("authenticated", False)})
 
 @app.route('/api/files', methods=['GET'])
 def list_files():

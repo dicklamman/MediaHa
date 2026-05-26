@@ -6,7 +6,34 @@ import { alist } from './alist.js';
 import { videoPlayer } from './videoPlayer.js';
 import { api } from './api.js';
 
-document.addEventListener('DOMContentLoaded', () => {
+// Authentication check - redirect to login if not authenticated
+async function checkAuth() {
+    try {
+        const response = await fetch('/api/auth/status');
+        if (response.status === 401 || !response.ok) {
+            window.location.href = '/login.html';
+            return false;
+        }
+        const data = await response.json();
+        if (!data.authenticated) {
+            window.location.href = '/login.html';
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.error('Auth check failed:', e);
+        window.location.href = '/login.html';
+        return false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check authentication first
+    const isAuthenticated = await checkAuth();
+    if (!isAuthenticated) {
+        return; // Stop initialization if not authenticated
+    }
+
     // Initialize feature modules first (order matters!)
     fileBrowser.init();
     

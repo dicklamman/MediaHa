@@ -1,6 +1,10 @@
 export const api = {
     async getFiles(dir) {
         const response = await fetch('/api/files?dir=' + encodeURIComponent(dir));
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            return [];
+        }
         if (!response.ok) throw new Error('Failed to load files');
         return await response.json();
     },
@@ -10,6 +14,10 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ old_path, new_name }),
         });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Rename failed');
@@ -18,6 +26,10 @@ export const api = {
     },
     async getMetadata(path) {
         const response = await fetch('/api/metadata?file_name=' + encodeURIComponent(path));
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
         if (!response.ok) throw new Error('Failed to load metadata');
         return await response.json();
     },
@@ -27,6 +39,10 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ file_name: path, ...data })
         });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
         if (!response.ok) throw new Error('Failed to update metadata');
         return await response.json();
     },
@@ -36,6 +52,10 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ file_name: path, offset: offset, cover_source: coverSource })
         });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
         if (!response.ok) throw new Error('Failed to enhance MP3');
         return await response.json();
     },
@@ -45,6 +65,10 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ file_name: path }),
         });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Conversion failed');

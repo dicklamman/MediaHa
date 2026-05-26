@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaHa – Login</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="liquid-bg" aria-hidden="true"></div>
+    <div class="auth-page">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="auth-logo">MH</div>
+                <div>
+                    <h1 class="auth-title">MediaHa</h1>
+                    <p class="auth-subtitle">Media Converter · Secure Login</p>
+                </div>
+            </div>
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" id="username" name="username" class="form-input" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" id="password" name="password" class="form-input" autocomplete="current-password" required>
+                </div>
+                <div id="login-error" class="auth-error" aria-live="polite"></div>
+                <button type="submit" class="btn btn-primary auth-submit">Sign in</button>
+                <p class="auth-hint">
+                    Default credentials can be configured in the Home Assistant add-on options.
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <script src="login.js"></script>
+</body>
+</html>
+
