@@ -52,7 +52,7 @@ def enforce_login():
     path = request.path
 
     # Public paths
-    if path in ("/api/login", "/health", "/login.html", "/favicon.ico"):
+    if path in ("/api/login", "/api/auth/status", "/health", "/login.html", "/favicon.ico"):
         return
 
     # Allow login.js (needed for the login page)
