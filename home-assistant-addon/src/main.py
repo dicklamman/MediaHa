@@ -762,6 +762,17 @@ def sync_calibre():
                 yield json.dumps({'type': 'error', 'message': f'Failed to connect to Calibre-Web: {str(e)}'}) + '\n'
                 return
 
+            # Get a CSRF token for upload requests
+            try:
+                upload_page = session.get(f'{calibre_url}/upload', timeout=30)
+                upload_csrftoken = ''
+                match = re.search(r'name="csrf_token" value="([^"]+)"', upload_page.text)
+                if match:
+                    upload_csrftoken = match.group(1)
+            except Exception as e:
+                yield json.dumps({'type': 'log', 'message': f'Could not fetch upload page: {str(e)}', 'level': 'warning'}) + '\n'
+                upload_csrftoken = ''
+
             # Upload each EPUB file
             success_count = 0
             error_count = 0
@@ -772,10 +783,13 @@ def sync_calibre():
                     yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Uploading: {rel_path}'}) + '\n'
 
                     with open(epub_file, 'rb') as f:
-                        files = {'file': (epub_file.name, f, 'application/epub+zip')}
+                        files = {'btn-upload': (epub_file.name, f, 'application/epub+zip')}
+                        data = {'csrf_token': upload_csrftoken} if upload_csrftoken else {}
+
                         upload_response = session.post(
-                            f'{calibre_url}/api/upload',
+                            f'{calibre_url}/upload',
                             files=files,
+                            data=data,
                             timeout=60
                         )
 
