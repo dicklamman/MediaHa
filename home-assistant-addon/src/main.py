@@ -5,6 +5,7 @@ import base64
 import re
 import urllib.request
 import json
+import requests
 from utils.epub_converter import convert_to_hk_traditional_chinese
 
 def load_auth_config():
