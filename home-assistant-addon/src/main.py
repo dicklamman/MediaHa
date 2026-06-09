@@ -1,7 +1,84 @@
 # -*- coding: utf-8 -*-
 from flask import Flask, request, jsonify, send_from_directory, session, redirect
 import os
-import base64
+import base64# -*- coding: utf-8 -*-
+from flask import Flask, request, jsonify, render_template
+import os
+import json
+from pathlib import Path
+import requests
+from utils.epub_converter import convert_to_hk_traditional_chinese
+
+app = Flask(__name__)
+
+# Load configuration for Calibre-Web
+CONFIG_PATH = "/data/calibre_config.json"
+
+def load_calibre_config():
+    """Load Calibre-Web configuration from file."""
+    default_config = {
+        "calibre_url": "http://localhost:8080",
+        "username": "admin",
+        "password": "admin",
+        "epub_folder": "/media/eBook"
+    }
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return default_config
+
+def save_calibre_config(config):
+    """Save Calibre-Web configuration to file."""
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=4)
+
+@app.route("/calibre-config", methods=["GET", "POST"])
+def calibre_config():
+    """Handle Calibre-Web configuration."""
+    if request.method == "POST":
+        data = request.json
+        save_calibre_config(data)
+        return jsonify({"message": "Configuration saved successfully!"})
+    return jsonify(load_calibre_config())
+
+@app.route("/sync-epub", methods=["POST"])
+def sync_epub():
+    """Sync EPUB files to Calibre-Web."""
+    config = load_calibre_config()
+    epub_folder = Path(config["epub_folder"])
+    calibre_url = config["calibre_url"]
+    username = config["username"]
+    password = config["password"]
+
+    if not epub_folder.exists():
+        return jsonify({"error": "EPUB folder does not exist!"}), 400
+
+    # Collect all EPUB files (including subfolders)
+    epub_files = list(epub_folder.rglob("*.epub"))
+    if not epub_files:
+        return jsonify({"error": "No EPUB files found in the folder!"}), 400
+
+    # Sync each EPUB file to Calibre-Web
+    for epub_file in epub_files:
+        try:
+            with open(epub_file, "rb") as f:
+                response = requests.post(
+                    f"{calibre_url}/api/upload",
+                    files={"file": (epub_file.name, f)},
+                    auth=(username, password)
+                )
+                if response.status_code != 200:
+                    return jsonify({"error": f"Failed to upload {epub_file.name}: {response.text}"}), 400
+        except Exception as e:
+            return jsonify({"error": f"Error uploading {epub_file.name}: {str(e)}"}), 500
+
+    return jsonify({"message": f"Successfully synced {len(epub_files)} EPUB files to Calibre-Web!"})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=123)
 import re
 import urllib.request
 import json
@@ -532,6 +609,7 @@ def enhance_metadata():
                     if tracks:
                         dz_idx = min(result_offset, len(tracks) - 1)
                         track = tracks[dz_idx]
+                        # Deezer provides multiple cover sizes
                         album = track.get('album', {})
                         cover_url = album.get('cover_xl') or album.get('cover_big') or album.get('cover_medium')
                         if not cover_url:
