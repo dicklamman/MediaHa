@@ -750,12 +750,20 @@ def sync_calibre():
 
                 login_response = session.post(login_url, data=login_data, timeout=30, allow_redirects=False)
 
-                # Check login success - Calibre-Web redirects to / on success
-                if login_response.status_code in (200, 302) and '/login' not in login_response.headers.get('Location', ''):
+                # Check login success - look for success indicators in response
+                login_text = login_response.text.lower()
+                if login_response.status_code in (200, 302) and ('logged in' in login_text or 'login' not in login_response.headers.get('Location', '').lower()):
                     yield json.dumps({'type': 'log', 'message': 'Logged in to Calibre-Web successfully', 'level': 'success'}) + '\n'
                 else:
-                    yield json.dumps({'type': 'error', 'message': f'Login failed: HTTP {login_response.status_code}'}) + '\n'
-                    return
+                    yield json.dumps({'type': 'log', 'message': f'Login response: {login_response.status_code}, Location: {login_response.headers.get("Location", "none")}', 'level': 'warning'}) + '\n'
+                    yield json.dumps({'type': 'log', 'message': f'Login check URL: {calibre_url}/', 'level': 'warning'}) + '\n'
+                    # Verify login by checking if we can access the home page
+                    check = session.get(f'{calibre_url}/', timeout=30, allow_redirects=True)
+                    if 'login' in check.url.lower():
+                        yield json.dumps({'type': 'error', 'message': f'Login failed - redirected to login page'}) + '\n'
+                        return
+                    else:
+                        yield json.dumps({'type': 'log', 'message': 'Verified: logged in (can access home page)', 'level': 'success'}) + '\n'
             except Exception as e:
                 yield json.dumps({'type': 'error', 'message': f'Failed to connect to Calibre-Web: {str(e)}'}) + '\n'
                 return
@@ -772,7 +780,7 @@ def sync_calibre():
                     with open(epub_file, 'rb') as f:
                         files = {'btn-upload': (epub_file.name, f, 'application/epub+zip')}
                         upload_response = session.post(
-                            f'{calibre_url}/upload',
+                            f'{calibre_url}/edit-book/upload',
                             files=files,
                             timeout=60
                         )
@@ -782,8 +790,9 @@ def sync_calibre():
                             yield json.dumps({'type': 'log', 'message': f'✓ Uploaded: {rel_path}', 'level': 'success'}) + '\n'
                         else:
                             error_count += 1
-                            error_detail = upload_response.text[:500] if upload_response.text else ''
-                            yield json.dumps({'type': 'log', 'message': f'✗ Failed ({upload_response.status_code}): {rel_path}\n  {error_detail}', 'level': 'error'}) + '\n'
+                            yield json.dumps({'type': 'log', 'message': f'✗ Failed ({upload_response.status_code}): {rel_path}', 'level': 'error'}) + '\n'
+                            yield json.dumps({'type': 'log', 'message': f'  Response headers: {dict(upload_response.headers)}', 'level': 'error'}) + '\n'
+                            yield json.dumps({'type': 'log', 'message': f'  Response body: {upload_response.text[:1000]}', 'level': 'error'}) + '\n'
 
                 except Exception as e:
                     error_count += 1
