@@ -65,6 +65,10 @@
                         <span class="nav-icon material-icons">cloud</span>
                         Dropbox Sync
                     </li>
+                    <li id="tab-calibre">
+                        <span class="nav-icon material-icons">library_books</span>
+                        Calibre Web Sync
+                    </li>
                 </ul>
             </nav>
         </aside>
@@ -209,6 +213,43 @@
 
                     <h3 style="margin-bottom: var(--space-sm);">Sync Logs</h3>
                     <pre id="dropbox-log-output" class="log-output"></pre>
+                </div>
+            </div>
+
+            <!-- Calibre Web Sync View -->
+            <div id="view-calibre" class="hidden">
+                <header class="page-header">
+                    <h2 class="page-title">Calibre Web Sync</h2>
+                </header>
+
+                <div class="card">
+                    <div class="form-group">
+                        <label for="calibre-url" class="form-label">Calibre-Web URL</label>
+                        <input type="text" id="calibre-url" class="form-input" placeholder="http://192.168.1.100:8080">
+                    </div>
+                    <div class="form-group">
+                        <label for="calibre-user" class="form-label">Username</label>
+                        <input type="text" id="calibre-user" class="form-input" placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label for="calibre-pass" class="form-label">Password</label>
+                        <input type="password" id="calibre-pass" class="form-input" placeholder="password">
+                    </div>
+                    <div class="form-group">
+                        <label for="calibre-folder" class="form-label">EPUB Folder Path</label>
+                        <input type="text" id="calibre-folder" class="form-input" placeholder="/media/eBook">
+                    </div>
+                    <button id="save-calibre-settings" class="btn btn-primary">Save Settings</button>
+
+                    <div class="mt-md">
+                        <button id="sync-calibre-btn" class="btn btn-primary" style="width: 100%; font-weight: 600; padding: var(--space-md); background: var(--color-success);">
+                            <span class="material-icons" style="font-size: 20px; vertical-align: middle;">sync</span>
+                            Sync EPUB to Calibre-Web
+                        </button>
+                    </div>
+
+                    <h3 style="margin: var(--space-lg) 0 var(--space-sm);">Sync Logs</h3>
+                    <pre id="calibre-log-output" class="log-output"></pre>
                 </div>
             </div>
         </main>
@@ -543,6 +584,7 @@
     <!-- Scripts -->
     <script type="module" src="js/main.js"></script>
     <script src="js/dropbox.js"></script>
+    <script src="js/calibre-web.js"></script>
     <script src="js/musicPlayer.js"></script>
 </body>
 </html>

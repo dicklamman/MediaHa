@@ -115,6 +115,7 @@ export const ui = {
         const viewMusicPlayer = document.getElementById('view-music-player');
         const viewAlist = document.getElementById('view-alist');
         const viewDropbox = document.getElementById('view-dropbox');
+        const viewCalibre = document.getElementById('view-calibre');
         const pageTitle = document.getElementById('page-title');
 
         if (tabEpub) {
@@ -129,6 +130,10 @@ export const ui = {
             if (viewDropbox) {
                 viewDropbox.classList.add('hidden');
                 viewDropbox.style.display = 'none';
+            }
+            if (viewCalibre) {
+                viewCalibre.classList.add('hidden');
+                viewCalibre.style.display = 'none';
             }
             // Load eBook folder on init
             const fileBrowserEl = document.getElementById('file-browser');
@@ -145,9 +150,10 @@ export const ui = {
         const tabAlistVideo = document.getElementById('tab-alist-video');
         const tabAlist = document.getElementById('tab-alist');
         const tabDropbox = document.getElementById('tab-dropbox');
+        const tabCalibre = document.getElementById('tab-calibre');
 
         const setActiveTab = (activeTab, title) => {
-            [tabEpub, tabMp3, tabMusicPlayer, tabAlistVideo, tabAlist, tabDropbox].forEach(tab => {
+            [tabEpub, tabMp3, tabMusicPlayer, tabAlistVideo, tabAlist, tabDropbox, tabCalibre].forEach(tab => {
                 if (tab) tab.classList.remove('active');
             });
             if (activeTab) activeTab.classList.add('active');
@@ -275,10 +281,41 @@ export const ui = {
                         viewDropbox.classList.remove('hidden');
                         viewDropbox.style.display = '';
                     }
+                    if (viewCalibre) {
+                        viewCalibre.classList.add('hidden');
+                        viewCalibre.style.display = 'none';
+                    }
                     // Show mini player if user enabled it
                     const miniPlayer6 = document.getElementById('mini-player');
                     if (miniPlayer6 && localStorage.getItem('mediaha_mini_player_visible') === 'true') {
                         miniPlayer6.classList.remove('hidden');
+                    }
+                });
+            }
+
+            if (tabCalibre) {
+                tabCalibre.addEventListener('click', () => {
+                    setActiveTab(tabCalibre, 'Calibre Web Sync');
+                    viewBrowser.classList.add('hidden');
+                    viewBrowser.style.display = 'none';
+                    viewMusicPlayer.classList.add('hidden');
+                    viewAlist.classList.add('hidden');
+                    if (viewDropbox) {
+                        viewDropbox.classList.add('hidden');
+                        viewDropbox.style.display = 'none';
+                    }
+                    if (viewCalibre) {
+                        viewCalibre.classList.remove('hidden');
+                        viewCalibre.style.display = '';
+                    }
+                    // Load Calibre settings when switching to this tab
+                    if (window.loadCalibreSettings) {
+                        window.loadCalibreSettings();
+                    }
+                    // Hide mini player on this page
+                    const miniPlayer7 = document.getElementById('mini-player');
+                    if (miniPlayer7) {
+                        miniPlayer7.classList.add('hidden');
                     }
                 });
             }

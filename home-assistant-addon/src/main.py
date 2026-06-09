@@ -55,6 +55,10 @@ def enforce_login():
     if path in ("/api/login", "/api/auth/status", "/health", "/login.html", "/favicon.ico"):
         return
 
+    # Allow GET for calibre settings (for loading form on tab switch)
+    if path == "/api/calibre/settings" and request.method == 'GET':
+        return
+
     # Allow login.js (needed for the login page)
     if path in ("/js/login.js", "/login.js"):
         return
@@ -646,6 +650,138 @@ def save_alist_settings():
     return jsonify({'status': 'ok'})
 
 from flask import Response
+import json
+import os
+
+CALIBRE_CONFIG_PATH = '/data/calibre_options.json' if os.path.exists('/data') else os.path.join(os.path.dirname(__file__), '../config/calibre_options.json')
+
+@app.route('/api/calibre/settings', methods=['GET'])
+def get_calibre_settings():
+    """Get Calibre-Web settings"""
+    default_config = {
+        "calibre_url": "http://localhost:8080",
+        "username": "admin",
+        "password": "admin",
+        "epub_folder": "/media/eBook"
+    }
+    if os.path.exists(CALIBRE_CONFIG_PATH):
+        try:
+            with open(CALIBRE_CONFIG_PATH, 'r') as f:
+                return jsonify(json.load(f))
+        except Exception:
+            pass
+    return jsonify(default_config)
+
+@app.route('/api/calibre/settings', methods=['POST'])
+def save_calibre_settings():
+    """Save Calibre-Web settings"""
+    data = request.json
+    try:
+        os.makedirs(os.path.dirname(CALIBRE_CONFIG_PATH), exist_ok=True)
+        with open(CALIBRE_CONFIG_PATH, 'w') as f:
+            json.dump(data, f, indent=4)
+        return jsonify({'status': 'ok', 'message': 'Settings saved successfully'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/calibre/sync', methods=['POST'])
+def sync_calibre():
+    """Sync EPUB files to Calibre-Web with streaming response"""
+    from pathlib import Path
+
+    def generate():
+        try:
+            # Load settings
+            if os.path.exists(CALIBRE_CONFIG_PATH):
+                with open(CALIBRE_CONFIG_PATH, 'r') as f:
+                    config = json.load(f)
+            else:
+                yield json.dumps({'type': 'error', 'message': 'Please configure Calibre settings first'}) + '\n'
+                return
+
+            calibre_url = config.get('calibre_url', '').rstrip('/')
+            username = config.get('username', '')
+            password = config.get('password', '')
+            epub_folder = config.get('epub_folder', '/media/eBook')
+
+            if not calibre_url or not username:
+                yield json.dumps({'type': 'error', 'message': 'Please configure Calibre URL and credentials'}) + '\n'
+                return
+
+            # Check folder exists
+            epub_path = Path(epub_folder)
+            if not epub_path.exists():
+                yield json.dumps({'type': 'error', 'message': f'EPUB folder not found: {epub_folder}'}) + '\n'
+                return
+
+            # Collect all EPUB files recursively
+            epub_files = list(epub_path.rglob("*.epub"))
+            total = len(epub_files)
+
+            if total == 0:
+                yield json.dumps({'type': 'error', 'message': 'No EPUB files found in the folder'}) + '\n'
+                return
+
+            yield json.dumps({'type': 'log', 'message': f'Found {total} EPUB files to sync', 'level': 'info'}) + '\n'
+            yield json.dumps({'type': 'progress', 'current': 0, 'total': total, 'message': 'Starting sync...'}) + '\n'
+
+            # Get auth token from Calibre-Web
+            login_url = f'{calibre_url}/login'
+            session = requests.Session()
+
+            try:
+                # Try to login
+                login_response = session.post(login_url, data={
+                    'username': username,
+                    'password': password
+                }, timeout=30)
+
+                if login_response.status_code == 200:
+                    yield json.dumps({'type': 'log', 'message': 'Logged in to Calibre-Web successfully', 'level': 'success'}) + '\n'
+                else:
+                    yield json.dumps({'type': 'error', 'message': f'Login failed: {login_response.status_code}'}) + '\n'
+                    return
+            except Exception as e:
+                yield json.dumps({'type': 'error', 'message': f'Failed to connect to Calibre-Web: {str(e)}'}) + '\n'
+                return
+
+            # Upload each EPUB file
+            success_count = 0
+            error_count = 0
+
+            for idx, epub_file in enumerate(epub_files, 1):
+                try:
+                    rel_path = epub_file.relative_to(epub_path)
+                    yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Uploading: {rel_path}'}) + '\n'
+
+                    with open(epub_file, 'rb') as f:
+                        files = {'file': (epub_file.name, f, 'application/epub+zip')}
+                        upload_response = session.post(
+                            f'{calibre_url}/api/upload',
+                            files=files,
+                            timeout=60
+                        )
+
+                        if upload_response.status_code == 200:
+                            success_count += 1
+                            yield json.dumps({'type': 'log', 'message': f'✓ Uploaded: {rel_path}', 'level': 'success'}) + '\n'
+                        else:
+                            error_count += 1
+                            yield json.dumps({'type': 'log', 'message': f'✗ Failed ({upload_response.status_code}): {rel_path}', 'level': 'error'}) + '\n'
+
+                except Exception as e:
+                    error_count += 1
+                    yield json.dumps({'type': 'log', 'message': f'✗ Error uploading {epub_file.name}: {str(e)}', 'level': 'error'}) + '\n'
+
+            # Summary
+            yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
+            yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} uploaded, {error_count} failed'}) + '\n'
+
+        except Exception as e:
+            yield json.dumps({'type': 'error', 'message': f'Sync failed: {str(e)}'}) + '\n'
+
+    return Response(generate(), mimetype='application/json')
+
 @app.route('/api/alist/run', methods=['POST'])
 def run_alist():
     if os.path.exists(ALIST_CONFIG_PATH):

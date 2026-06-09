@@ -74,5 +74,66 @@ export const api = {
             throw new Error(errorData.error || 'Conversion failed');
         }
         return await response.json();
+    },
+
+    // Calibre Web Sync
+    async getCalibreSettings() {
+        const response = await fetch('/api/calibre/settings');
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        if (!response.ok) throw new Error('Failed to load Calibre settings');
+        return await response.json();
+    },
+    async saveCalibreSettings(settings) {
+        const response = await fetch('/api/calibre/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        if (!response.ok) throw new Error('Failed to save Calibre settings');
+        return await response.json();
+    },
+    async syncCalibre(onLog) {
+        const response = await fetch('/api/calibre/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Sync failed');
+        }
+
+        // Handle streaming response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            // Parse each line as JSON
+            const lines = chunk.split('\n').filter(line => line.trim());
+            for (const line of lines) {
+                try {
+                    const data = JSON.parse(line);
+                    if (onLog) onLog(data);
+                } catch (e) {
+                    // Skip invalid JSON
+                }
+            }
+        }
+
+        return { success: true };
     }
 };
