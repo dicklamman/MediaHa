@@ -727,20 +727,36 @@ def sync_calibre():
             yield json.dumps({'type': 'progress', 'current': 0, 'total': total, 'message': 'Starting sync...'}) + '\n'
 
             # Get auth token from Calibre-Web
-            login_url = f'{calibre_url}/login'
             session = requests.Session()
 
             try:
-                # Try to login
-                login_response = session.post(login_url, data={
+                # First get the login page to fetch CSRF token
+                login_url = f'{calibre_url}/login'
+                login_page = session.get(login_url, timeout=30)
+                csrftoken = ''
+
+                # Extract csrf_token from the form
+                import re
+                match = re.search(r'name="csrf_token" value="([^"]+)"', login_page.text)
+                if match:
+                    csrftoken = match.group(1)
+
+                # Login with username/password and CSRF token
+                login_data = {
                     'username': username,
-                    'password': password
-                }, timeout=30)
+                    'password': password,
+                    'csrf_token': csrftoken,
+                    'remember_me': 'on',
+                    'next': '/',
+                    'submit': 'Login'
+                }
+
+                login_response = session.post(login_url, data=login_data, timeout=30)
 
                 if login_response.status_code == 200:
                     yield json.dumps({'type': 'log', 'message': 'Logged in to Calibre-Web successfully', 'level': 'success'}) + '\n'
                 else:
-                    yield json.dumps({'type': 'error', 'message': f'Login failed: {login_response.status_code}'}) + '\n'
+                    yield json.dumps({'type': 'error', 'message': f'Login failed: HTTP {login_response.status_code}'}) + '\n'
                     return
             except Exception as e:
                 yield json.dumps({'type': 'error', 'message': f'Failed to connect to Calibre-Web: {str(e)}'}) + '\n'
