@@ -730,11 +730,11 @@ def sync_calibre():
             session = requests.Session()
 
             try:
-                # First get the login page to extract any hidden fields
+                # First get the login page to extract CSRF token
                 login_url = f'{calibre_url}/login'
                 login_page = session.get(login_url, timeout=30)
 
-                # Extract hidden fields from the form
+                # Extract csrf_token from the form
                 match = re.search(r'name="csrf_token" value="([^"]+)"', login_page.text)
                 csrftoken = match.group(1) if match else ''
 
@@ -743,27 +743,22 @@ def sync_calibre():
                     'username': username,
                     'password': password,
                     'remember_me': 'on',
-                    'next': '/',
                 }
                 if csrftoken:
                     login_data['csrf_token'] = csrftoken
 
-                login_response = session.post(login_url, data=login_data, timeout=30, allow_redirects=False)
+                # Login and follow redirects to verify
+                login_response = session.post(login_url, data=login_data, timeout=30, allow_redirects=True)
 
-                # Check login success - look for success indicators in response
-                login_text = login_response.text.lower()
-                if login_response.status_code in (200, 302) and ('logged in' in login_text or 'login' not in login_response.headers.get('Location', '').lower()):
-                    yield json.dumps({'type': 'log', 'message': 'Logged in to Calibre-Web successfully', 'level': 'success'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': f'Login response URL: {login_response.url}', 'level': 'info'}) + '\n'
+
+                # Verify we're logged in by checking if we can access the upload page
+                verify_response = session.get(f'{calibre_url}/', timeout=30, allow_redirects=True)
+                if 'login' in verify_response.url.lower():
+                    yield json.dumps({'type': 'error', 'message': f'Login failed - still redirected to login page'}) + '\n'
+                    return
                 else:
-                    yield json.dumps({'type': 'log', 'message': f'Login response: {login_response.status_code}, Location: {login_response.headers.get("Location", "none")}', 'level': 'warning'}) + '\n'
-                    yield json.dumps({'type': 'log', 'message': f'Login check URL: {calibre_url}/', 'level': 'warning'}) + '\n'
-                    # Verify login by checking if we can access the home page
-                    check = session.get(f'{calibre_url}/', timeout=30, allow_redirects=True)
-                    if 'login' in check.url.lower():
-                        yield json.dumps({'type': 'error', 'message': f'Login failed - redirected to login page'}) + '\n'
-                        return
-                    else:
-                        yield json.dumps({'type': 'log', 'message': 'Verified: logged in (can access home page)', 'level': 'success'}) + '\n'
+                    yield json.dumps({'type': 'log', 'message': 'Logged in to Calibre-Web successfully', 'level': 'success'}) + '\n'
             except Exception as e:
                 yield json.dumps({'type': 'error', 'message': f'Failed to connect to Calibre-Web: {str(e)}'}) + '\n'
                 return
