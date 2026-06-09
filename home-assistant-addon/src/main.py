@@ -730,30 +730,28 @@ def sync_calibre():
             session = requests.Session()
 
             try:
-                # First get the login page to fetch CSRF token
+                # First get the login page to extract any hidden fields
                 login_url = f'{calibre_url}/login'
                 login_page = session.get(login_url, timeout=30)
-                csrftoken = ''
 
-                # Extract csrf_token from the form
-                import re
+                # Extract hidden fields from the form
                 match = re.search(r'name="csrf_token" value="([^"]+)"', login_page.text)
-                if match:
-                    csrftoken = match.group(1)
+                csrftoken = match.group(1) if match else ''
 
-                # Login with username/password and CSRF token
+                # Login with username/password
                 login_data = {
                     'username': username,
                     'password': password,
-                    'csrf_token': csrftoken,
                     'remember_me': 'on',
                     'next': '/',
-                    'submit': 'Login'
                 }
+                if csrftoken:
+                    login_data['csrf_token'] = csrftoken
 
-                login_response = session.post(login_url, data=login_data, timeout=30)
+                login_response = session.post(login_url, data=login_data, timeout=30, allow_redirects=False)
 
-                if login_response.status_code == 200:
+                # Check login success - Calibre-Web redirects to / on success
+                if login_response.status_code in (200, 302) and '/login' not in login_response.headers.get('Location', ''):
                     yield json.dumps({'type': 'log', 'message': 'Logged in to Calibre-Web successfully', 'level': 'success'}) + '\n'
                 else:
                     yield json.dumps({'type': 'error', 'message': f'Login failed: HTTP {login_response.status_code}'}) + '\n'
@@ -761,17 +759,6 @@ def sync_calibre():
             except Exception as e:
                 yield json.dumps({'type': 'error', 'message': f'Failed to connect to Calibre-Web: {str(e)}'}) + '\n'
                 return
-
-            # Get a CSRF token for upload requests
-            try:
-                upload_page = session.get(f'{calibre_url}/upload', timeout=30)
-                upload_csrftoken = ''
-                match = re.search(r'name="csrf_token" value="([^"]+)"', upload_page.text)
-                if match:
-                    upload_csrftoken = match.group(1)
-            except Exception as e:
-                yield json.dumps({'type': 'log', 'message': f'Could not fetch upload page: {str(e)}', 'level': 'warning'}) + '\n'
-                upload_csrftoken = ''
 
             # Upload each EPUB file
             success_count = 0
@@ -784,12 +771,9 @@ def sync_calibre():
 
                     with open(epub_file, 'rb') as f:
                         files = {'btn-upload': (epub_file.name, f, 'application/epub+zip')}
-                        data = {'csrf_token': upload_csrftoken} if upload_csrftoken else {}
-
                         upload_response = session.post(
                             f'{calibre_url}/upload',
                             files=files,
-                            data=data,
                             timeout=60
                         )
 
@@ -798,7 +782,8 @@ def sync_calibre():
                             yield json.dumps({'type': 'log', 'message': f'✓ Uploaded: {rel_path}', 'level': 'success'}) + '\n'
                         else:
                             error_count += 1
-                            yield json.dumps({'type': 'log', 'message': f'✗ Failed ({upload_response.status_code}): {rel_path}', 'level': 'error'}) + '\n'
+                            error_detail = upload_response.text[:500] if upload_response.text else ''
+                            yield json.dumps({'type': 'log', 'message': f'✗ Failed ({upload_response.status_code}): {rel_path}\n  {error_detail}', 'level': 'error'}) + '\n'
 
                 except Exception as e:
                     error_count += 1
