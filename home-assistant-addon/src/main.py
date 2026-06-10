@@ -752,13 +752,15 @@ def sync_calibre():
 
                 yield json.dumps({'type': 'log', 'message': f'Login response URL: {login_response.url}', 'level': 'info'}) + '\n'
 
-                # Verify we're logged in by checking if we can access the upload page
-                verify_response = session.get(f'{calibre_url}/', timeout=30, allow_redirects=True)
-                if 'login' in verify_response.url.lower():
-                    yield json.dumps({'type': 'error', 'message': f'Login failed - still redirected to login page'}) + '\n'
+                # Verify we're logged in by checking for user info or admin page
+                verify_response = session.get(f'{calibre_url}/admin', timeout=30, allow_redirects=True)
+                yield json.dumps({'type': 'log', 'message': f'Admin check URL: {verify_response.url}', 'level': 'info'}) + '\n'
+                if 'login' in verify_response.url.lower() or 'error' in verify_response.url.lower():
+                    yield json.dumps({'type': 'error', 'message': f'Login failed - redirected to {verify_response.url}'}) + '\n'
                     return
                 else:
                     yield json.dumps({'type': 'log', 'message': 'Logged in to Calibre-Web successfully', 'level': 'success'}) + '\n'
+                    yield json.dumps({'type': 'log', 'message': f'Session cookies: {list(session.cookies.keys())}', 'level': 'info'}) + '\n'
             except Exception as e:
                 yield json.dumps({'type': 'error', 'message': f'Failed to connect to Calibre-Web: {str(e)}'}) + '\n'
                 return
@@ -775,10 +777,18 @@ def sync_calibre():
                     with open(epub_file, 'rb') as f:
                         files = {'btn-upload': (epub_file.name, f, 'application/epub+zip')}
                         upload_response = session.post(
-                            f'{calibre_url}/edit-book/upload',
+                            f'{calibre_url}/api/upload',
                             files=files,
                             timeout=60
                         )
+
+                        # Try alternate URL if first fails
+                        if upload_response.status_code == 404:
+                            upload_response = session.post(
+                                f'{calibre_url}/edit-book/upload',
+                                files=files,
+                                timeout=60
+                            )
 
                         if upload_response.status_code == 200:
                             success_count += 1
