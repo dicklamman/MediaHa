@@ -687,7 +687,7 @@ def save_calibre_settings():
 
 @app.route('/api/calibre/sync', methods=['POST'])
 def sync_calibre():
-    """Sync EPUB files to Calibre-Web with streaming response"""
+    """Sync EPUB files to Calibre library using calibredb command"""
     from pathlib import Path
 
     def generate():
@@ -705,8 +705,8 @@ def sync_calibre():
             password = config.get('password', '')
             epub_folder = config.get('epub_folder', '/media/eBook')
 
-            if not calibre_url or not username:
-                yield json.dumps({'type': 'error', 'message': 'Please configure Calibre URL and credentials'}) + '\n'
+            if not epub_folder:
+                yield json.dumps({'type': 'error', 'message': 'Please configure EPUB folder path'}) + '\n'
                 return
 
             # Check folder exists
@@ -726,86 +726,75 @@ def sync_calibre():
             yield json.dumps({'type': 'log', 'message': f'Found {total} EPUB files to sync', 'level': 'info'}) + '\n'
             yield json.dumps({'type': 'progress', 'current': 0, 'total': total, 'message': 'Starting sync...'}) + '\n'
 
-            # Get auth token from Calibre-Web
-            session = requests.Session()
+            # Check if calibredb is available
+            calibredb_path = None
+            for path in ['/usr/bin/calibredb', '/usr/local/bin/calibredb', '/opt/calibre/calibredb']:
+                if os.path.exists(path):
+                    calibredb_path = path
+                    break
 
-            try:
-                # First get the login page to extract CSRF token
-                login_url = f'{calibre_url}/login'
-                login_page = session.get(login_url, timeout=30)
+            if not calibredb_path:
+                # Try to find it in PATH
+                import shutil
+                calibredb_path = shutil.which('calibredb')
 
-                # Extract csrf_token from the form
-                match = re.search(r'name="csrf_token" value="([^"]+)"', login_page.text)
-                csrftoken = match.group(1) if match else ''
+            if not calibredb_path:
+                yield json.dumps({'type': 'log', 'message': 'calibredb not found, checking if Calibre-Web URL is provided for HTTP sync...', 'level': 'warning'}) + '\n'
+                # Fall back to HTTP method if calibredb is not available
+                if calibre_url:
+                    yield json.dumps({'type': 'log', 'message': 'Attempting HTTP sync to Calibre-Web...', 'level': 'info'}) + '\n'
+                    yield json.dumps({'type': 'log', 'message': 'Note: HTTP upload may not work due to CSRF protection', 'level': 'warning'}) + '\n'
+                    # Try HTTP method
+                    session = requests.Session()
+                    try:
+                        login_url = f'{calibre_url}/login'
+                        login_page = session.get(login_url, timeout=30)
+                        match = re.search(r'name="csrf_token" value="([^"]+)"', login_page.text)
+                        csrftoken = match.group(1) if match else ''
 
-                # Login with username/password
-                login_data = {
-                    'username': username,
-                    'password': password,
-                    'remember_me': 'on',
-                }
-                if csrftoken:
-                    login_data['csrf_token'] = csrftoken
+                        login_data = {'username': username, 'password': password, 'remember_me': 'on'}
+                        if csrftoken:
+                            login_data['csrf_token'] = csrftoken
 
-                # Login and follow redirects to verify
-                login_response = session.post(login_url, data=login_data, timeout=30, allow_redirects=True)
-
-                yield json.dumps({'type': 'log', 'message': f'Login response URL: {login_response.url}', 'level': 'info'}) + '\n'
-
-                # Verify we're logged in by checking for user info or admin page
-                verify_response = session.get(f'{calibre_url}/admin', timeout=30, allow_redirects=True)
-                yield json.dumps({'type': 'log', 'message': f'Admin check URL: {verify_response.url}', 'level': 'info'}) + '\n'
-                if 'login' in verify_response.url.lower() or 'error' in verify_response.url.lower():
-                    yield json.dumps({'type': 'error', 'message': f'Login failed - redirected to {verify_response.url}'}) + '\n'
-                    return
+                        login_response = session.post(login_url, data=login_data, timeout=30, allow_redirects=True)
+                        yield json.dumps({'type': 'log', 'message': f'Login to Calibre-Web: {login_response.url}', 'level': 'info'}) + '\n'
+                    except Exception as e:
+                        yield json.dumps({'type': 'error', 'message': f'HTTP sync failed: {str(e)}'}) + '\n'
+                        return
                 else:
-                    yield json.dumps({'type': 'log', 'message': 'Logged in to Calibre-Web successfully', 'level': 'success'}) + '\n'
-                    yield json.dumps({'type': 'log', 'message': f'Session cookies: {list(session.cookies.keys())}', 'level': 'info'}) + '\n'
-            except Exception as e:
-                yield json.dumps({'type': 'error', 'message': f'Failed to connect to Calibre-Web: {str(e)}'}) + '\n'
-                return
+                    yield json.dumps({'type': 'error', 'message': 'calibredb not found and no Calibre-Web URL configured'}) + '\n'
+                    return
 
-            # Upload each EPUB file
+            # Add each EPUB file using calibredb
             success_count = 0
             error_count = 0
 
             for idx, epub_file in enumerate(epub_files, 1):
                 try:
                     rel_path = epub_file.relative_to(epub_path)
-                    yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Uploading: {rel_path}'}) + '\n'
+                    yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Adding: {rel_path}'}) + '\n'
 
-                    with open(epub_file, 'rb') as f:
-                        files = {'btn-upload': (epub_file.name, f, 'application/epub+zip')}
-                        upload_response = session.post(
-                            f'{calibre_url}/api/upload',
-                            files=files,
-                            timeout=60
-                        )
+                    cmd = [calibredb_path or 'calibredb', 'add', str(epub_file)]
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
 
-                        # Try alternate URL if first fails
-                        if upload_response.status_code == 404:
-                            upload_response = session.post(
-                                f'{calibre_url}/edit-book/upload',
-                                files=files,
-                                timeout=60
-                            )
+                    if result.returncode == 0:
+                        success_count += 1
+                        output = result.stdout.strip() if result.stdout else 'Added'
+                        yield json.dumps({'type': 'log', 'message': f'✓ {rel_path}: {output}', 'level': 'success'}) + '\n'
+                    else:
+                        error_count += 1
+                        yield json.dumps({'type': 'log', 'message': f'✗ {rel_path}', 'level': 'error'}) + '\n'
+                        yield json.dumps({'type': 'log', 'message': f'  Error: {result.stderr[:300]}', 'level': 'error'}) + '\n'
 
-                        if upload_response.status_code == 200:
-                            success_count += 1
-                            yield json.dumps({'type': 'log', 'message': f'✓ Uploaded: {rel_path}', 'level': 'success'}) + '\n'
-                        else:
-                            error_count += 1
-                            yield json.dumps({'type': 'log', 'message': f'✗ Failed ({upload_response.status_code}): {rel_path}', 'level': 'error'}) + '\n'
-                            yield json.dumps({'type': 'log', 'message': f'  Response headers: {dict(upload_response.headers)}', 'level': 'error'}) + '\n'
-                            yield json.dumps({'type': 'log', 'message': f'  Response body: {upload_response.text[:1000]}', 'level': 'error'}) + '\n'
-
+                except subprocess.TimeoutExpired:
+                    error_count += 1
+                    yield json.dumps({'type': 'log', 'message': f'✗ Timeout: {epub_file.name}', 'level': 'error'}) + '\n'
                 except Exception as e:
                     error_count += 1
-                    yield json.dumps({'type': 'log', 'message': f'✗ Error uploading {epub_file.name}: {str(e)}', 'level': 'error'}) + '\n'
+                    yield json.dumps({'type': 'log', 'message': f'✗ Error: {epub_file.name}: {str(e)}', 'level': 'error'}) + '\n'
 
-            # Summary
             yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
-            yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} uploaded, {error_count} failed'}) + '\n'
+            yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} added, {error_count} failed'}) + '\n'
 
         except Exception as e:
             yield json.dumps({'type': 'error', 'message': f'Sync failed: {str(e)}'}) + '\n'
