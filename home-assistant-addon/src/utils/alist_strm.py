@@ -35,19 +35,60 @@ def list_directory(base_url, path, token):
         raise Exception(result.get("message"))
     return result["data"]["content"]
 
-def refresh_directory(base_url, path, token, timeout=300):
+def refresh_directory(base_url, path, token, timeout=300, retries=2):
     """Force AList to re-fetch the directory listing from the underlying cloud storage."""
     url = f"{base_url.rstrip('/')}/api/fs/refresh"
     headers = {"Authorization": token}
     data = {"path": path}
-    try:
-        resp = requests.post(url, json=data, headers=headers, timeout=timeout)
-        resp.raise_for_status()
-        result = resp.json()
-        if result.get("code") != 200:
-            raise Exception(result.get("message"))
-    except Exception as e:
-        raise Exception(f"refresh failed for {path}: {e}")
+    
+    last_error = None
+    for attempt in range(retries):
+        try:
+            resp = requests.post(url, json=data, headers=headers, timeout=timeout)
+            
+            # Debug: log response info
+            resp_text = resp.text if resp.text else ""
+            if not resp_text or resp_text.strip() == '':
+                last_error = f"Empty response (status={resp.status_code})"
+                if attempt < retries - 1:
+                    continue
+                raise Exception(f"refresh failed for {path}: {last_error}")
+            
+            try:
+                result = resp.json()
+                if result.get("code") != 200:
+                    last_error = f"API error - {result.get('message', 'unknown')}"
+                    if attempt < retries - 1:
+                        continue
+                    raise Exception(f"refresh failed for {path}: {last_error}")
+                return  # Success
+            except ValueError as e:
+                # JSON decode error
+                last_error = f"Invalid JSON (status={resp.status_code}, body={resp_text[:200]})"
+                if attempt < retries - 1:
+                    continue
+                raise Exception(f"refresh failed for {path}: {last_error}")
+                
+        except requests.exceptions.Timeout:
+            last_error = f"Server timeout after {timeout}s"
+            if attempt < retries - 1:
+                continue
+            raise Exception(f"refresh timeout for {path}: {last_error}")
+        except requests.exceptions.ConnectionError as e:
+            last_error = f"Connection error: {e}"
+            if attempt < retries - 1:
+                continue
+            raise Exception(f"refresh connection error for {path}: {last_error}")
+        except Exception as e:
+            if "refresh" in str(e).lower():
+                raise
+            last_error = str(e)
+            if attempt < retries - 1:
+                continue
+            raise Exception(f"refresh failed for {path}: {last_error}")
+    
+    # If we get here, all retries failed
+    raise Exception(f"refresh failed for {path}: {last_error} (after {retries} attempts)")
 
 def get_file_sign(base_url, path, token):
     url = f"{base_url.rstrip('/')}/api/fs/get"
