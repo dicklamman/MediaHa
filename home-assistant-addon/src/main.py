@@ -967,20 +967,20 @@ def save_ass_file():
 
             def offset_timestamp(match):
                 """Offset a timestamp by the specified amount"""
-                start = convert_time(match.group(1))
-                end = convert_time(match.group(2))
+                # Group 1: "Dialogue: \d+," (prefix)
+                # Group 2: First timestamp
+                # Group 3: Second timestamp
+                start = convert_time(match.group(2))
+                end = convert_time(match.group(3))
                 if start is not None and end is not None:
-                    start += offset_seconds
-                    end += offset_seconds
-                    # Ensure non-negative
-                    start = max(0, start)
-                    end = max(0, end)
-                    return f"{format_time(start)},{format_time(end)}"
+                    new_start = max(0, start + offset_seconds)
+                    new_end = max(0, end + offset_seconds)
+                    # Include the prefix (group 1) in the replacement
+                    return f"{match.group(1)}{format_time(new_start)},{format_time(new_end)}"
                 return match.group(0)
 
             # ASS Dialogue line format: Layer, Start, End, Style, ...
             # Pattern to match Dialogue lines with timestamps
-            # Match the Start,End timestamp pair in Dialogue lines
             content = re.sub(
                 r'(Dialogue: \d+,)(\d+:\d{2}:\d{2}\.\d{2}),(\d+:\d{2}:\d{2}\.\d{2})',
                 offset_timestamp,
