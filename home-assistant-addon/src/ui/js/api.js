@@ -1,4 +1,50 @@
 export const api = {
+    // ASS Subtitle Files
+    async readAssFile(fileName) {
+        const response = await fetch('/api/ass/read?file_name=' + encodeURIComponent(fileName));
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to read ASS file');
+        }
+        return await response.json();
+    },
+    async saveAssFile(fileName, content, offset = 0) {
+        const response = await fetch('/api/ass/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_name: fileName, content: content, offset: offset })
+        });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to save ASS file');
+        }
+        return await response.json();
+    },
+    async previewAssOffset(fileName, offset) {
+        const response = await fetch('/api/ass/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_name: fileName, offset: offset })
+        });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to preview ASS offset');
+        }
+        return await response.json();
+    },
+
     async getFiles(dir) {
         const response = await fetch('/api/files?dir=' + encodeURIComponent(dir));
         if (response.status === 401) {

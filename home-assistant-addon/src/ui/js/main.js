@@ -4,6 +4,7 @@ import { epubPlayer } from './epubPlayer.js';
 import { mp3Player } from './mp3Player.js';
 import { alist } from './alist.js';
 import { videoPlayer } from './videoPlayer.js';
+import { assEditor } from './assEditor.js';
 import { api } from './api.js';
 
 // Authentication check - redirect to login if not authenticated
@@ -47,6 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     mp3Player.init();
     alist.init();
     videoPlayer.init();
+    assEditor.init();
     
     // Fallback: load eBook if initTabs didn't work
     if (!fileBrowser.currentPath || fileBrowser.currentPath === '') {
@@ -83,6 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const menuPreview = document.getElementById('menu-preview');
     const menuRename = document.getElementById('menu-rename');
     const menuConvert = document.getElementById('menu-convert');
+    const menuEditAss = document.getElementById('menu-edit-ass');
 
     if (menuPreview) {
         menuPreview.addEventListener('click', async () => {
@@ -96,6 +99,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } else if (selectedFile.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|lrc|txt)$/)) {
                     const { mediaPreview } = await import('./mediaPreview.js');
                     mediaPreview.open(selectedFile);
+                } else if (selectedFile.name.toLowerCase().endsWith('.ass') || selectedFile.name.toLowerCase().endsWith('.ssa')) {
+                    assEditor.open(selectedFile);
                 } else {
                     window.open('/api/download?file_name=' + encodeURIComponent(selectedFile.path), '_blank');
                 }
@@ -112,6 +117,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (menuConvert) {
         menuConvert.addEventListener('click', async () => {
             await fileBrowser.handleConvert();
+        });
+    }
+
+    if (menuEditAss) {
+        menuEditAss.addEventListener('click', async () => {
+            ui.hideContextMenu();
+            const selectedFile = fileBrowser.selectedFile;
+            if (selectedFile && (selectedFile.name.toLowerCase().endsWith('.ass') || selectedFile.name.toLowerCase().endsWith('.ssa'))) {
+                assEditor.open(selectedFile);
+            }
         });
     }
 

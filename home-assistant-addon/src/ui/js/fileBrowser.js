@@ -161,6 +161,13 @@ export const fileBrowser = {
                     const { videoPlayer } = await import('./videoPlayer.js');
                     videoPlayer.open(item);
                 });
+            } else if (item.name.toLowerCase().endsWith('.ass') || item.name.toLowerCase().endsWith('.ssa')) {
+                div.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const { assEditor } = await import('./assEditor.js');
+                    assEditor.open(item);
+                });
             }
 
             div.addEventListener('contextmenu', (e) => {
@@ -198,8 +205,21 @@ export const fileBrowser = {
                         } else if (item.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|lrc|txt)$/)) {
                             menuPreview.style.display = 'block';
                             menuPreview.textContent = 'Preview File';
+                        } else if (item.name.toLowerCase().endsWith('.ass') || item.name.toLowerCase().endsWith('.ssa')) {
+                            menuPreview.style.display = 'block';
+                            menuPreview.textContent = 'Edit Subtitle';
                         } else {
                             menuPreview.style.display = 'none';
+                        }
+                    }
+                    
+                    // Show/hide ASS subtitle edit option
+                    const menuEditAss = document.getElementById('menu-edit-ass');
+                    if (menuEditAss) {
+                        if (item.name.toLowerCase().endsWith('.ass') || item.name.toLowerCase().endsWith('.ssa')) {
+                            menuEditAss.style.display = 'block';
+                        } else {
+                            menuEditAss.style.display = 'none';
                         }
                     }
                 }
