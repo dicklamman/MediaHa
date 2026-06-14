@@ -975,12 +975,14 @@ def save_ass_file():
                     # Ensure non-negative
                     start = max(0, start)
                     end = max(0, end)
-                    return f"{format_time(start)} --> {format_time(end)}"
+                    return f"{format_time(start)},{format_time(end)}"
                 return match.group(0)
 
-            # Pattern to match dialogue lines: Format: StartTime --> EndTime, rest of line
+            # ASS Dialogue line format: Layer, Start, End, Style, ...
+            # Pattern to match Dialogue lines with timestamps
+            # Match the Start,End timestamp pair in Dialogue lines
             content = re.sub(
-                r'(\d+:\d{2}:\d{2}\.\d{2})\s*-->\s*(\d+:\d{2}:\d{2}\.\d{2})',
+                r'(Dialogue: \d+,)(\d+:\d{2}:\d{2}\.\d{2}),(\d+:\d{2}:\d{2}\.\d{2})',
                 offset_timestamp,
                 content
             )
@@ -1040,8 +1042,8 @@ def preview_ass_offset():
 
         def preview_timestamp(match):
             nonlocal dialogue_count
-            start_orig = convert_time(match.group(1))
-            end_orig = convert_time(match.group(2))
+            start_orig = convert_time(match.group(2))
+            end_orig = convert_time(match.group(3))
             if start_orig is not None and end_orig is not None:
                 start_new = max(0, start_orig + offset_seconds)
                 end_new = max(0, end_orig + offset_seconds)
@@ -1049,15 +1051,15 @@ def preview_ass_offset():
                 if dialogue_count <= max_previews:
                     preview_lines.append({
                         'index': dialogue_count,
-                        'original': f"{format_time(start_orig)} --> {format_time(end_orig)}",
-                        'modified': f"{format_time(start_new)} --> {format_time(end_new)}"
+                        'original': f"{format_time(start_orig)},{format_time(end_orig)}",
+                        'modified': f"{format_time(start_new)},{format_time(end_new)}"
                     })
-                return f"{format_time(start_new)} --> {format_time(end_new)}"
+                return f"{format_time(start_new)},{format_time(end_new)}"
             return match.group(0)
 
-        # Only process first part for preview
+        # Only process Dialogue lines for preview
         modified = re.sub(
-            r'(\d+:\d{2}:\d{2}\.\d{2})\s*-->\s*(\d+:\d{2}:\d{2}\.\d{2})',
+            r'(Dialogue: \d+,)(\d+:\d{2}:\d{2}\.\d{2}),(\d+:\d{2}:\d{2}\.\d{2})',
             preview_timestamp,
             content
         )
