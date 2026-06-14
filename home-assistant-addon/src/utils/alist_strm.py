@@ -35,6 +35,20 @@ def list_directory(base_url, path, token):
         raise Exception(result.get("message"))
     return result["data"]["content"]
 
+def refresh_directory(base_url, path, token, timeout=300):
+    """Force AList to re-fetch the directory listing from the underlying cloud storage."""
+    url = f"{base_url.rstrip('/')}/api/fs/refresh"
+    headers = {"Authorization": token}
+    data = {"path": path}
+    try:
+        resp = requests.post(url, json=data, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get("code") != 200:
+            raise Exception(result.get("message"))
+    except Exception as e:
+        raise Exception(f"refresh failed for {path}: {e}")
+
 def get_file_sign(base_url, path, token):
     url = f"{base_url.rstrip('/')}/api/fs/get"
     headers = {"Authorization": token}
@@ -67,6 +81,12 @@ def generate_strm_generator(gist_config):
         os.makedirs(local_root, exist_ok=True)
 
         yield f"Scanning AList remote path: {remote_root}\n"
+        yield f"Refreshing AList remote path from cloud storage: {remote_root}...\n"
+        try:
+            refresh_directory(api_url, remote_root, token)
+            yield f"? Refreshed: {remote_root}\n"
+        except Exception as e:
+            yield f"? {e} (continuing with cached listing)\n"
 
         def recurse(current_remote_path, current_local_path):
             try:
@@ -77,7 +97,7 @@ def generate_strm_generator(gist_config):
 
             if not items:
                 return
-            
+
             for item in items:
                 name = item["name"]
                 is_dir = item["is_dir"]
@@ -86,6 +106,11 @@ def generate_strm_generator(gist_config):
 
                 if is_dir:
                     os.makedirs(full_local, exist_ok=True)
+                    try:
+                        refresh_directory(api_url, full_remote, token)
+                        yield f"? Refreshed: {full_remote}\n"
+                    except Exception as e:
+                        yield f"? {e} (continuing with cached listing)\n"
                     yield from recurse(full_remote, full_local)
                 else:
                     ext = os.path.splitext(name.lower())[1]

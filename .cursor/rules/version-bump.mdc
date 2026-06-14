@@ -1,0 +1,38 @@
+---
+description: Bump version in home-assistant-addon/config.json whenever the add-on code changes
+alwaysApply: true
+---
+
+# Version Bump on Code Change
+
+The Home Assistant add-on version lives in `home-assistant-addon/config.json` (line 3, `"version": "X.Y.Z"`).
+
+## When to bump
+
+Whenever any change is made inside `home-assistant-addon/` (Python, JS, HTML, CSS, config schema, Dockerfile, requirements, etc.), bump the **patch** number (last digit) in the same edit.
+
+- Patch change `1.1.48` → `1.1.49` for bug fixes, refactors, dependency bumps, doc updates inside the add-on.
+- Minor change `1.1.48` → `1.2.0` for new features or new endpoints.
+- Major change `1.1.48` → `2.0.0` only for breaking changes (auth, schema, route removal).
+
+Default to a patch bump unless the user explicitly says otherwise.
+
+## Do NOT bump when
+
+- Only files outside `home-assistant-addon/` change (root `README.md`, top-level docs, CI config, etc.).
+- The edit *is* the version bump itself (avoid double-increment).
+
+## How to bump
+
+1. Read `home-assistant-addon/config.json`.
+2. Increment the version string in place — keep the surrounding JSON formatting identical.
+3. Mention the new version in the assistant's final summary so the user sees it in the diff.
+
+## Example
+
+```diff
+   "name": "Media Converter",
+-  "version": "1.1.48",
++  "version": "1.1.49",
+   "slug": "media_converter",
+```
