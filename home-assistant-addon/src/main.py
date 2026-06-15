@@ -744,10 +744,13 @@ def sync_calibre():
                 # Fall back to HTTP method if calibredb is not available
                 if calibre_url:
                     yield json.dumps({'type': 'log', 'message': 'Attempting HTTP sync to Calibre-Web...', 'level': 'info'}) + '\n'
-                    yield json.dumps({'type': 'log', 'message': 'Note: HTTP upload may not work due to CSRF protection', 'level': 'warning'}) + '\n'
-                    # Try HTTP method
+                    
+                    success_count = 0
+                    error_count = 0
+                    
                     session = requests.Session()
                     try:
+                        # Step 1: Login to Calibre-Web
                         login_url = f'{calibre_url}/login'
                         login_page = session.get(login_url, timeout=30)
                         match = re.search(r'name="csrf_token" value="([^"]+)"', login_page.text)
@@ -759,6 +762,50 @@ def sync_calibre():
 
                         login_response = session.post(login_url, data=login_data, timeout=30, allow_redirects=True)
                         yield json.dumps({'type': 'log', 'message': f'Login to Calibre-Web: {login_response.url}', 'level': 'info'}) + '\n'
+                        
+                        # Step 2: Upload each EPUB file
+                        for idx, epub_file in enumerate(epub_files, 1):
+                            try:
+                                rel_path = epub_file.relative_to(epub_path)
+                                yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Adding: {rel_path}'}) + '\n'
+                                
+                                # Upload via multipart form
+                                with open(epub_file, 'rb') as f:
+                                    files = {'file': (epub_file.name, f, 'application/epub+zip')}
+                                    data = {}
+                                    if csrftoken:
+                                        data['csrf_token'] = csrftoken
+                                    
+                                    upload_response = session.post(
+                                        f'{calibre_url}/api/books',
+                                        files=files,
+                                        data=data,
+                                        timeout=60
+                                    )
+                                
+                                if upload_response.status_code in (200, 201, 204):
+                                    success_count += 1
+                                    yield json.dumps({'type': 'log', 'message': f'✓ {rel_path}', 'level': 'success'}) + '\n'
+                                else:
+                                    error_count += 1
+                                    yield json.dumps({'type': 'log', 'message': f'✗ {rel_path}: HTTP {upload_response.status_code}', 'level': 'error'}) + '\n'
+                                    try:
+                                        error_text = upload_response.text[:200]
+                                        yield json.dumps({'type': 'log', 'message': f'  Response: {error_text}', 'level': 'error'}) + '\n'
+                                    except:
+                                        pass
+                                        
+                            except requests.exceptions.Timeout:
+                                error_count += 1
+                                yield json.dumps({'type': 'log', 'message': f'✗ Timeout: {epub_file.name}', 'level': 'error'}) + '\n'
+                            except Exception as e:
+                                error_count += 1
+                                yield json.dumps({'type': 'log', 'message': f'✗ Error: {epub_file.name}: {str(e)}', 'level': 'error'}) + '\n'
+                        
+                        yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
+                        yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} added, {error_count} failed'}) + '\n'
+                        return
+                        
                     except Exception as e:
                         yield json.dumps({'type': 'error', 'message': f'HTTP sync failed: {str(e)}'}) + '\n'
                         return
