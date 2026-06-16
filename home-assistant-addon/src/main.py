@@ -755,13 +755,22 @@ def sync_calibre():
                         login_page = session.get(login_url, timeout=30)
                         match = re.search(r'name="csrf_token" value="([^"]+)"', login_page.text)
                         csrftoken = match.group(1) if match else ''
+                        
+                        if csrftoken:
+                            yield json.dumps({'type': 'log', 'message': f'Found CSRF token', 'level': 'info'}) + '\n'
+                        else:
+                            yield json.dumps({'type': 'log', 'message': f'WARNING: No CSRF token found in login page', 'level': 'warning'}) + '\n'
 
                         login_data = {'username': username, 'password': password, 'remember_me': 'on'}
                         if csrftoken:
                             login_data['csrf_token'] = csrftoken
 
                         login_response = session.post(login_url, data=login_data, timeout=30, allow_redirects=True)
-                        yield json.dumps({'type': 'log', 'message': f'Login to Calibre-Web: {login_response.url}', 'level': 'info'}) + '\n'
+                        yield json.dumps({'type': 'log', 'message': f'Login response: {login_response.status_code} -> {login_response.url}', 'level': 'info'}) + '\n'
+                        
+                        # Check if login was successful (should redirect away from /login)
+                        if '/login' in login_response.url and login_response.status_code != 302:
+                            yield json.dumps({'type': 'log', 'message': f'WARNING: Login may have failed, still on login page', 'level': 'warning'}) + '\n'
                         
                         # Step 2: Upload each EPUB file
                         for idx, epub_file in enumerate(epub_files, 1):
@@ -769,31 +778,36 @@ def sync_calibre():
                                 rel_path = epub_file.relative_to(epub_path)
                                 yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Adding: {rel_path}'}) + '\n'
                                 
-                                # Upload via multipart form
+                                # Upload via Calibre-Web's /upload endpoint (form-based, not REST API)
                                 with open(epub_file, 'rb') as f:
-                                    files = {'file': (epub_file.name, f, 'application/epub+zip')}
+                                    # Calibre-Web uses 'btn-upload' field name for the file upload
+                                    files = {'btn-upload': (epub_file.name, f, 'application/epub+zip')}
                                     data = {}
                                     if csrftoken:
                                         data['csrf_token'] = csrftoken
                                     
                                     upload_response = session.post(
-                                        f'{calibre_url}/api/books',
+                                        f'{calibre_url}/upload',
                                         files=files,
                                         data=data,
                                         timeout=60
                                     )
                                 
-                                if upload_response.status_code in (200, 201, 204):
+                                if upload_response.status_code in (200, 201, 302, 303):
                                     success_count += 1
                                     yield json.dumps({'type': 'log', 'message': f'✓ {rel_path}', 'level': 'success'}) + '\n'
                                 else:
                                     error_count += 1
                                     yield json.dumps({'type': 'log', 'message': f'✗ {rel_path}: HTTP {upload_response.status_code}', 'level': 'error'}) + '\n'
-                                    try:
-                                        error_text = upload_response.text[:200]
-                                        yield json.dumps({'type': 'log', 'message': f'  Response: {error_text}', 'level': 'error'}) + '\n'
-                                    except:
-                                        pass
+                                    # Check for redirect (might indicate success)
+                                    if upload_response.status_code in (301, 302, 303, 307, 308):
+                                        yield json.dumps({'type': 'log', 'message': f'  Redirect to: {upload_response.headers.get("Location", "unknown")}', 'level': 'error'}) + '\n'
+                                    else:
+                                        try:
+                                            error_text = upload_response.text[:500]
+                                            yield json.dumps({'type': 'log', 'message': f'  Response: {error_text}', 'level': 'error'}) + '\n'
+                                        except:
+                                            pass
                                         
                             except requests.exceptions.Timeout:
                                 error_count += 1
