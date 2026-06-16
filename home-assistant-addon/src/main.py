@@ -780,10 +780,20 @@ def sync_calibre():
                             try:
                                 # Get list of all books from Calibre-Web
                                 books_page = session.get(f'{calibre_url}/', timeout=30)
-                                # Find all book IDs from the page (look for data-bs-bookid or similar)
+                                yield json.dumps({'type': 'log', 'message': f'DEBUG: Book page status={books_page.status_code}, URL={books_page.url}', 'level': 'info'}) + '\n'
+                                
+                                # Find all book IDs from the page
                                 book_ids = re.findall(r'data-book="(\d+)"', books_page.text)
+                                yield json.dumps({'type': 'log', 'message': f'DEBUG: Found book IDs via data-book: {book_ids}', 'level': 'info'}) + '\n'
+                                
                                 if not book_ids:
                                     book_ids = re.findall(r'/book/(\d+)', books_page.text)
+                                    yield json.dumps({'type': 'log', 'message': f'DEBUG: Found book IDs via /book/: {book_ids}', 'level': 'info'}) + '\n'
+                                
+                                # Try alternative patterns
+                                if not book_ids:
+                                    book_ids = re.findall(r'"id":\s*(\d+)[^}]*title', books_page.text)
+                                    yield json.dumps({'type': 'log', 'message': f'DEBUG: Found book IDs via JSON: {book_ids}', 'level': 'info'}) + '\n'
                                 
                                 if book_ids:
                                     # Remove duplicates
@@ -793,19 +803,23 @@ def sync_calibre():
                                     deleted_count = 0
                                     for book_id in book_ids:
                                         try:
+                                            yield json.dumps({'type': 'log', 'message': f'DEBUG: Deleting book {book_id}', 'level': 'info'}) + '\n'
                                             delete_response = session.post(
                                                 f'{calibre_url}/ajax/delete/{book_id}',
                                                 data={'csrf_token': csrftoken} if csrftoken else {},
                                                 timeout=30
                                             )
+                                            yield json.dumps({'type': 'log', 'message': f'DEBUG: Delete response for {book_id}: status={delete_response.status_code}, text={delete_response.text[:200]}', 'level': 'info'}) + '\n'
                                             if delete_response.status_code in (200, 302):
                                                 deleted_count += 1
                                         except Exception as e:
-                                            pass  # Continue even if one delete fails
+                                            yield json.dumps({'type': 'log', 'message': f'DEBUG: Delete error for {book_id}: {str(e)}', 'level': 'info'}) + '\n'
                                     
                                     yield json.dumps({'type': 'log', 'message': f'Deleted {deleted_count} books', 'level': 'info'}) + '\n'
                                 else:
                                     yield json.dumps({'type': 'log', 'message': 'No existing books found', 'level': 'info'}) + '\n'
+                                    # Save sample HTML for debugging
+                                    yield json.dumps({'type': 'log', 'message': f'DEBUG: Sample HTML: {books_page.text[:500]}', 'level': 'info'}) + '\n'
                             except Exception as e:
                                 yield json.dumps({'type': 'log', 'message': f'Warning: Could not clear books: {str(e)}', 'level': 'warning'}) + '\n'
                         
@@ -875,15 +889,27 @@ def sync_calibre():
                         if uploaded_books and csrftoken:
                             yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
                             yield json.dumps({'type': 'log', 'message': 'Updating series metadata...', 'level': 'info'}) + '\n'
+                            yield json.dumps({'type': 'log', 'message': f'DEBUG: Uploaded books to process: {uploaded_books}', 'level': 'info'}) + '\n'
                             
                             try:
                                 # Get updated book list to find book IDs
                                 updated_page = session.get(f'{calibre_url}/', timeout=30)
+                                yield json.dumps({'type': 'log', 'message': f'DEBUG: Updated page status={updated_page.status_code}', 'level': 'info'}) + '\n'
                                 
                                 # Extract book IDs and titles from the updated page
-                                # Format: data-book="123" data-title="Book Title"
+                                # Try different patterns
                                 book_pattern = r'data-book="(\d+)".*?data-title="([^"]+)"'
                                 book_matches = re.findall(book_pattern, updated_page.text, re.DOTALL)
+                                yield json.dumps({'type': 'log', 'message': f'DEBUG: Found books with pattern1: {len(book_matches)}', 'level': 'info'}) + '\n'
+                                
+                                if not book_matches:
+                                    # Try alternative: look for book entries with id and title
+                                    book_pattern2 = r'"id":\s*"?(\d+)"?.*?"title":\s*"([^"]+)"'
+                                    book_matches = re.findall(book_pattern2, updated_page.text)
+                                    yield json.dumps({'type': 'log', 'message': f'DEBUG: Found books with pattern2: {len(book_matches)}', 'level': 'info'}) + '\n'
+                                
+                                if not book_matches:
+                                    yield json.dumps({'type': 'log', 'message': f'DEBUG: Sample of page content: {updated_page.text[:1000]}', 'level': 'info'}) + '\n'
                                 
                                 # Create a mapping of title -> book_id for newly uploaded books
                                 for book_id, book_title in book_matches:
@@ -891,15 +917,17 @@ def sync_calibre():
                                         if series_name and (uploaded_title in book_title or book_title in uploaded_title):
                                             # Found matching book, update series
                                             try:
+                                                yield json.dumps({'type': 'log', 'message': f'DEBUG: Setting series "{series_name}" for book_id={book_id}, title="{book_title}"', 'level': 'info'}) + '\n'
                                                 series_response = session.post(
                                                     f'{calibre_url}/ajax/editbooks/series',
                                                     data={'csrf_token': csrftoken, 'book_id': book_id, 'value': series_name},
                                                     timeout=30
                                                 )
+                                                yield json.dumps({'type': 'log', 'message': f'DEBUG: Series response: status={series_response.status_code}, text={series_response.text[:200]}', 'level': 'info'}) + '\n'
                                                 if series_response.status_code == 200:
                                                     yield json.dumps({'type': 'log', 'message': f'  Set series "{series_name}" for "{book_title}"', 'level': 'info'}) + '\n'
                                             except Exception as e:
-                                                pass  # Continue even if one update fails
+                                                yield json.dumps({'type': 'log', 'message': f'DEBUG: Series update error: {str(e)}', 'level': 'info'}) + '\n'
                                             break
                             except Exception as e:
                                 yield json.dumps({'type': 'log', 'message': f'Warning: Could not update series metadata: {str(e)}', 'level': 'warning'}) + '\n'
