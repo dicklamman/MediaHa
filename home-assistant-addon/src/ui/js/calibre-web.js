@@ -5,6 +5,7 @@ const CalibreManager = {
         this.userInput = document.getElementById('calibre-user');
         this.passInput = document.getElementById('calibre-pass');
         this.folderInput = document.getElementById('calibre-folder');
+        this.clearCheckbox = document.getElementById('calibre-clear');
         this.saveBtn = document.getElementById('save-calibre-settings');
         this.syncBtn = document.getElementById('sync-calibre-btn');
         this.logOutput = document.getElementById('calibre-log-output');
@@ -29,6 +30,7 @@ const CalibreManager = {
             if (data.username) this.userInput.value = data.username;
             if (data.password) this.passInput.value = data.password;
             if (data.epub_folder) this.folderInput.value = data.epub_folder;
+            if (data.clear_before_sync) this.clearCheckbox.checked = data.clear_before_sync;
         } catch (error) {
             console.error('Failed to load Calibre settings:', error);
         }
@@ -39,7 +41,8 @@ const CalibreManager = {
             calibre_url: this.urlInput.value.trim(),
             username: this.userInput.value.trim(),
             password: this.passInput.value,
-            epub_folder: this.folderInput.value.trim()
+            epub_folder: this.folderInput.value.trim(),
+            clear_before_sync: this.clearCheckbox.checked
         };
 
         try {

@@ -664,7 +664,8 @@ def get_calibre_settings():
         "calibre_url": "http://localhost:8080",
         "username": "admin",
         "password": "admin",
-        "epub_folder": "/media/eBook"
+        "epub_folder": "/media/eBook",
+        "clear_before_sync": False
     }
     if os.path.exists(CALIBRE_CONFIG_PATH):
         try:
@@ -705,6 +706,7 @@ def sync_calibre():
             username = config.get('username', '')
             password = config.get('password', '')
             epub_folder = config.get('epub_folder', '/media/eBook')
+            clear_before_sync = config.get('clear_before_sync', False)
 
             if not epub_folder:
                 yield json.dumps({'type': 'error', 'message': 'Please configure EPUB folder path'}) + '\n'
@@ -772,11 +774,61 @@ def sync_calibre():
                         if '/login' in login_response.url and login_response.status_code != 302:
                             yield json.dumps({'type': 'log', 'message': f'WARNING: Login may have failed, still on login page', 'level': 'warning'}) + '\n'
                         
-                        # Step 2: Upload each EPUB file
+                        # Step 2: Clear existing books if enabled
+                        if clear_before_sync:
+                            yield json.dumps({'type': 'log', 'message': 'Clearing existing books...', 'level': 'info'}) + '\n'
+                            try:
+                                # Get list of all books from Calibre-Web
+                                books_page = session.get(f'{calibre_url}/', timeout=30)
+                                # Find all book IDs from the page (look for data-bs-bookid or similar)
+                                book_ids = re.findall(r'data-book="(\d+)"', books_page.text)
+                                if not book_ids:
+                                    book_ids = re.findall(r'/book/(\d+)', books_page.text)
+                                
+                                if book_ids:
+                                    # Remove duplicates
+                                    book_ids = list(set(book_ids))
+                                    yield json.dumps({'type': 'log', 'message': f'Found {len(book_ids)} existing books, deleting...', 'level': 'info'}) + '\n'
+                                    
+                                    deleted_count = 0
+                                    for book_id in book_ids:
+                                        try:
+                                            delete_response = session.post(
+                                                f'{calibre_url}/ajax/delete/{book_id}',
+                                                data={'csrf_token': csrftoken} if csrftoken else {},
+                                                timeout=30
+                                            )
+                                            if delete_response.status_code in (200, 302):
+                                                deleted_count += 1
+                                        except Exception as e:
+                                            pass  # Continue even if one delete fails
+                                    
+                                    yield json.dumps({'type': 'log', 'message': f'Deleted {deleted_count} books', 'level': 'info'}) + '\n'
+                                else:
+                                    yield json.dumps({'type': 'log', 'message': 'No existing books found', 'level': 'info'}) + '\n'
+                            except Exception as e:
+                                yield json.dumps({'type': 'log', 'message': f'Warning: Could not clear books: {str(e)}', 'level': 'warning'}) + '\n'
+                        
+                        # Step 3: Get existing book titles before upload (to identify newly added books)
+                        existing_titles = set()
+                        try:
+                            books_page = session.get(f'{calibre_url}/', timeout=30)
+                            # Extract book titles from the page
+                            title_matches = re.findall(r'data-title="([^"]+)"', books_page.text)
+                            existing_titles = set(title_matches)
+                            yield json.dumps({'type': 'log', 'message': f'Found {len(existing_titles)} existing books in Calibre-Web', 'level': 'info'}) + '\n'
+                        except Exception as e:
+                            yield json.dumps({'type': 'log', 'message': f'Warning: Could not get existing books: {str(e)}', 'level': 'warning'}) + '\n'
+                        
+                        # Step 4: Upload each EPUB file
+                        uploaded_books = []  # Track (book_title, series_name) for metadata update
                         for idx, epub_file in enumerate(epub_files, 1):
                             try:
                                 rel_path = epub_file.relative_to(epub_path)
                                 yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Adding: {rel_path}'}) + '\n'
+                                
+                                # Extract series name from parent folder
+                                series_name = rel_path.parts[0] if len(rel_path.parts) > 1 else ''
                                 
                                 # Upload via Calibre-Web's /upload endpoint (form-based, not REST API)
                                 with open(epub_file, 'rb') as f:
@@ -795,7 +847,10 @@ def sync_calibre():
                                 
                                 if upload_response.status_code in (200, 201, 302, 303):
                                     success_count += 1
-                                    yield json.dumps({'type': 'log', 'message': f'✓ {rel_path}', 'level': 'success'}) + '\n'
+                                    # Extract book title from filename (remove extension)
+                                    book_title = epub_file.stem
+                                    uploaded_books.append((book_title, series_name))
+                                    yield json.dumps({'type': 'log', 'message': f'✓ {rel_path} [Series: {series_name}]', 'level': 'success'}) + '\n'
                                 else:
                                     error_count += 1
                                     yield json.dumps({'type': 'log', 'message': f'✗ {rel_path}: HTTP {upload_response.status_code}', 'level': 'error'}) + '\n'
@@ -815,6 +870,39 @@ def sync_calibre():
                             except Exception as e:
                                 error_count += 1
                                 yield json.dumps({'type': 'log', 'message': f'✗ Error: {epub_file.name}: {str(e)}', 'level': 'error'}) + '\n'
+                        
+                        # Step 5: Update series metadata for uploaded books
+                        if uploaded_books and csrftoken:
+                            yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
+                            yield json.dumps({'type': 'log', 'message': 'Updating series metadata...', 'level': 'info'}) + '\n'
+                            
+                            try:
+                                # Get updated book list to find book IDs
+                                updated_page = session.get(f'{calibre_url}/', timeout=30)
+                                
+                                # Extract book IDs and titles from the updated page
+                                # Format: data-book="123" data-title="Book Title"
+                                book_pattern = r'data-book="(\d+)".*?data-title="([^"]+)"'
+                                book_matches = re.findall(book_pattern, updated_page.text, re.DOTALL)
+                                
+                                # Create a mapping of title -> book_id for newly uploaded books
+                                for book_id, book_title in book_matches:
+                                    for uploaded_title, series_name in uploaded_books:
+                                        if series_name and (uploaded_title in book_title or book_title in uploaded_title):
+                                            # Found matching book, update series
+                                            try:
+                                                series_response = session.post(
+                                                    f'{calibre_url}/ajax/editbooks/series',
+                                                    data={'csrf_token': csrftoken, 'book_id': book_id, 'value': series_name},
+                                                    timeout=30
+                                                )
+                                                if series_response.status_code == 200:
+                                                    yield json.dumps({'type': 'log', 'message': f'  Set series "{series_name}" for "{book_title}"', 'level': 'info'}) + '\n'
+                                            except Exception as e:
+                                                pass  # Continue even if one update fails
+                                            break
+                            except Exception as e:
+                                yield json.dumps({'type': 'log', 'message': f'Warning: Could not update series metadata: {str(e)}', 'level': 'warning'}) + '\n'
                         
                         yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
                         yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} added, {error_count} failed'}) + '\n'
