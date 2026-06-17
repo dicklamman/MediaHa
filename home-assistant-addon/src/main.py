@@ -189,6 +189,10 @@ def enforce_login():
     if path.startswith("/api") or path == "/convert":
         return jsonify({"error": "Unauthorized"}), 401
 
+    # Allow OPDS feed downloads (for COPS/Yomu readers)
+    if path.startswith("/fetch/") or path.startswith("/fetch?"):
+        return
+
     # For HTML pages, redirect to login
     if path == "/" or path.endswith(".html"):
         return redirect("/login.html")
@@ -299,6 +303,38 @@ def download_file():
     directory = os.path.dirname(file_path)
     filename = os.path.basename(file_path)
     return send_from_directory(directory, filename)
+
+
+# OPDS/Calibre fetch endpoint for readers like Yomu
+@app.route('/fetch/<int:book_id>/<format>', methods=['GET'])
+def fetch_book(book_id, format):
+    """Serve book files for OPDS/Calibre-Web readers (COPS/Yomu)"""
+    calibre_library = request.args.get('calibre_library')
+    if not calibre_library:
+        # Try to get from config
+        config_path = CALIBRE_CONFIG_PATH
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+                calibre_library = config.get('calibre_library_path', '')
+
+    if not calibre_library:
+        return jsonify({'error': 'Calibre library not configured'}), 400
+
+    books_folder = Path(calibre_library) / 'books'
+    book_path = books_folder / str(book_id)
+
+    if not book_path.exists():
+        return jsonify({'error': 'Book not found'}), 404
+
+    # Find the file with requested format
+    format_lower = format.lower()
+    for f in os.listdir(book_path):
+        if f.lower().endswith(f'.{format_lower}'):
+            return send_from_directory(str(book_path), f)
+
+    return jsonify({'error': f'Format {format} not found for book {book_id}'}), 404
+
 
 @app.route('/api/rename', methods=['POST'])
 def rename_item():
@@ -889,6 +925,26 @@ def sync_calibre():
                         cursor.execute("DELETE FROM sqlite_sequence")
                     except:
                         pass
+
+                    # Create schema for COPS compatibility (HA COPS needs these tables)
+                    schema = """
+                        CREATE TABLE IF NOT EXISTS languages (id INTEGER PRIMARY KEY, lang_code TEXT UNIQUE NOT NULL);
+                        CREATE TABLE IF NOT EXISTS publishers (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, sort TEXT);
+                        CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL);
+                        CREATE TABLE IF NOT EXISTS identifiers (id INTEGER PRIMARY KEY, type TEXT, val TEXT);
+                        CREATE TABLE IF NOT EXISTS books_identifiers (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, type TEXT, val TEXT);
+                        CREATE TABLE IF NOT EXISTS books_languages_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, lang_code INTEGER NOT NULL);
+                        CREATE TABLE IF NOT EXISTS books_publishers_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, publisher INTEGER NOT NULL);
+                        CREATE TABLE IF NOT EXISTS books_tags_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, tag INTEGER NOT NULL);
+                    """
+                    for stmt in schema.strip().split(';'):
+                        stmt = stmt.strip()
+                        if stmt and not stmt.startswith('--'):
+                            try:
+                                cursor.execute(stmt)
+                            except:
+                                pass
+
                     conn.commit()
                     conn.close()
 
@@ -1010,7 +1066,7 @@ def sync_calibre():
                                 placeholders = ', '.join(['?' for _ in cols])
                                 cursor.execute(f"INSERT INTO books_authors_link ({', '.join(cols)}) VALUES ({placeholders})", vals)
 
-                            # Publisher
+                            # Publisher - COPS schema: book, publisher (not publisher_id)
                             if meta['publisher']:
                                 cursor.execute("SELECT id FROM publishers WHERE name = ?", (meta['publisher'],))
                                 row = cursor.fetchone()
@@ -1018,7 +1074,10 @@ def sync_calibre():
                                 if not pub_id:
                                     cursor.execute("INSERT INTO publishers (name, sort) VALUES (?, ?)", (meta['publisher'], meta['publisher']))
                                     pub_id = cursor.lastrowid
-                                cursor.execute("INSERT OR IGNORE INTO books_publishers_link (book, publisher) VALUES (?, ?)", (book_id, pub_id))
+                                try:
+                                    cursor.execute("INSERT OR IGNORE INTO books_publishers_link (book, publisher) VALUES (?, ?)", (book_id, pub_id))
+                                except:
+                                    pass
 
                             # Tags/Subjects
                             for tag_name in meta['tags'][:20]:  # Limit tags
@@ -1030,13 +1089,26 @@ def sync_calibre():
                                     tag_id = cursor.lastrowid
                                 cursor.execute("INSERT OR IGNORE INTO books_tags_link (book, tag) VALUES (?, ?)", (book_id, tag_id))
 
-                            # Identifier (ISBN or custom) - only if table exists
+                            # Identifier (ISBN or custom) - COPS/HA COPS schema: id, book, type, val
                             if meta['identifier']:
-                                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='books_identifiers'")
-                                if cursor.fetchone():
-                                    cursor.execute("SELECT 1 FROM books_identifiers WHERE book = ?", (book_id,))
-                                    if not cursor.fetchone():
-                                        cursor.execute("INSERT INTO books_identifiers (book, type, val) VALUES (?, 'ISBN', ?)", (book_id, meta['identifier']))
+                                cursor.execute("SELECT 1 FROM books_identifiers WHERE book = ?", (book_id,))
+                                if not cursor.fetchone():
+                                    cursor.execute("INSERT INTO books_identifiers (book, type, val) VALUES (?, 'ISBN', ?)", (book_id, meta['identifier']))
+
+                            # Language - COPS/HA COPS compatibility
+                            if meta['language']:
+                                lang_code = meta['language'][:10]
+                                cursor.execute("SELECT id FROM languages WHERE lang_code = ?", (lang_code,))
+                                row = cursor.fetchone()
+                                lang_id = row[0] if row else None
+                                if not lang_id:
+                                    cursor.execute("INSERT INTO languages (lang_code) VALUES (?)", (lang_code,))
+                                    lang_id = cursor.lastrowid
+                                # COPS schema uses lang_code integer, but Calibre uses direct string link
+                                try:
+                                    cursor.execute("INSERT OR IGNORE INTO books_languages_link (book, lang_code) VALUES (?, ?)", (book_id, lang_id))
+                                except:
+                                    pass
 
                             # Description as comments
                             if meta['description']:
