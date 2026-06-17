@@ -872,7 +872,7 @@ def sync_calibre():
                             cursor.execute('''
                                 INSERT INTO data (book, format, name, uncompressed_size)
                                 VALUES (?, 'EPUB', ?, ?)
-                            ''', (book_id, f"{safe_title}.epub", epub_file.stat().st_size))
+                            ''', (book_id, safe_title, epub_file.stat().st_size))
 
                             cursor.execute("SELECT id FROM authors WHERE name = 'Unknown'")
                             row = cursor.fetchone()
