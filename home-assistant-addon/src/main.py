@@ -1030,11 +1030,13 @@ def sync_calibre():
                                     tag_id = cursor.lastrowid
                                 cursor.execute("INSERT OR IGNORE INTO books_tags_link (book, tag) VALUES (?, ?)", (book_id, tag_id))
 
-                            # Identifier (ISBN or custom)
+                            # Identifier (ISBN or custom) - only if table exists
                             if meta['identifier']:
-                                cursor.execute("SELECT id FROM books_identifiers WHERE book = ?", (book_id,))
-                                if not cursor.fetchone():
-                                    cursor.execute("INSERT INTO books_identifiers (book, type, val) VALUES (?, 'ISBN', ?)", (book_id, meta['identifier']))
+                                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='books_identifiers'")
+                                if cursor.fetchone():
+                                    cursor.execute("SELECT 1 FROM books_identifiers WHERE book = ?", (book_id,))
+                                    if not cursor.fetchone():
+                                        cursor.execute("INSERT INTO books_identifiers (book, type, val) VALUES (?, 'ISBN', ?)", (book_id, meta['identifier']))
 
                             # Description as comments
                             if meta['description']:
