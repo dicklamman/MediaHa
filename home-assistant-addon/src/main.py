@@ -7,7 +7,68 @@ import urllib.request
 import json
 import requests
 import subprocess
+import zipfile
+import xml.etree.ElementTree as ET
 from utils.epub_converter import convert_to_hk_traditional_chinese
+
+def extract_epub_metadata(epub_path):
+    """
+    Extract title, author(s), and cover from an EPUB file.
+    Returns dict with 'title', 'authors', 'cover_data', 'cover_name'.
+    """
+    result = {'title': None, 'authors': [], 'cover_data': None, 'cover_name': None}
+    try:
+        with zipfile.ZipFile(epub_path, 'r') as zf:
+            # Find container.xml to get content.opf location
+            container = zf.read('META-INF/container.xml').decode('utf-8')
+            root = ET.fromstring(container)
+            rootfile = root.find('.//{urn:oasis:names:tc:opendocument:xmlns:container}rootfile')
+            if rootfile is not None:
+                opf_path = rootfile.get('full-path')
+                opf_content = zf.read(opf_path).decode('utf-8')
+                opf_root = ET.fromstring(opf_content)
+                ns = {'opf': 'http://www.idpf.org/2007/opf', 'dc': 'http://purl.org/dc/elements/1.1/'}
+                
+                # Get title
+                title_el = opf_root.find('.//dc:title', ns)
+                if title_el is not None and title_el.text:
+                    result['title'] = title_el.text.strip()
+                
+                # Get authors/creators
+                for creator in opf_root.findall('.//dc:creator', ns):
+                    if creator.text:
+                        result['authors'].append(creator.text.strip())
+                
+                # Get cover image
+                cover_id = None
+                meta_cover = opf_root.find('.//opf:meta[@name="cover"]', ns)
+                if meta_cover is not None:
+                    cover_id = meta_cover.get('content')
+                if not cover_id:
+                    # Try manifest item with properties="cover-image"
+                    for item in opf_root.findall('.//opf:item', ns):
+                        props = item.get('properties', '')
+                        if 'cover-image' in props:
+                            cover_id = item.get('id')
+                            break
+                
+                if cover_id:
+                    for item in opf_root.findall('.//opf:item', ns):
+                        if item.get('id') == cover_id:
+                            href = item.get('href')
+                            if href:
+                                opf_dir = opf_path.rsplit('/', 1)[0] if '/' in opf_path else ''
+                                cover_path = f"{opf_dir}/{href}" if opf_dir else href
+                                cover_path = cover_path.lstrip('/')
+                                try:
+                                    result['cover_data'] = zf.read(cover_path)
+                                    result['cover_name'] = os.path.basename(href)
+                                except:
+                                    pass
+                            break
+    except Exception as e:
+        pass
+    return result
 
 def load_auth_config():
     """
@@ -840,20 +901,32 @@ def sync_calibre():
                             series_index = float(match.group(1))
 
                         if use_calibre:
-                            mi = Metadata(book_title, authors=['Unknown'])
+                            meta = extract_epub_metadata(epub_file)
+                            epub_title = meta['title'] or book_title
+                            epub_authors = meta['authors'] if meta['authors'] else ['Unknown']
+                            mi = Metadata(epub_title, authors=epub_authors)
                             if series_name:
                                 mi.series = series_name
                                 mi.series_index = series_index
+                            if meta['cover_data']:
+                                import io
+                                mi.cover = io.BytesIO(meta['cover_data'])
                             format_map = {'EPUB': str(epub_file)}
                             ids, _ = cache.add_books([(mi, format_map)], add_duplicates=False)
                             if ids:
                                 success_count += 1
                                 series_info = f" [Series: {series_name} #{series_index}]" if series_name else ""
-                                yield json.dumps({'type': 'log', 'message': f'✓ {book_title}{series_info}', 'level': 'success'}) + '\n'
+                                author_info = f" by {', '.join(epub_authors[:2])}" if epub_authors and epub_authors[0] != 'Unknown' else ""
+                                yield json.dumps({'type': 'log', 'message': f'✓ {epub_title}{author_info}{series_info}', 'level': 'success'}) + '\n'
                             else:
                                 error_count += 1
                                 yield json.dumps({'type': 'log', 'message': f'✗ {epub_file.name}: Failed', 'level': 'error'}) + '\n'
                         else:
+                            # Extract metadata from EPUB
+                            meta = extract_epub_metadata(epub_file)
+                            epub_title = meta['title'] or book_title
+                            epub_authors = meta['authors'] if meta['authors'] else ['Unknown']
+                            
                             # Direct SQL import
                             cursor.execute("SELECT MAX(id) FROM books")
                             max_id = cursor.fetchone()[0] or 0
@@ -861,30 +934,42 @@ def sync_calibre():
 
                             book_dir = books_folder / str(book_id)
                             book_dir.mkdir(exist_ok=True)
-                            safe_title = re.sub(r'[<>:"/\\|?*]', '_', book_title)[:100]
+                            safe_title = re.sub(r'[<>:"/\\|?*]', '_', epub_title)[:100]
                             shutil.copy2(epub_file, book_dir / f"{safe_title}.epub")
+
+                            # Extract cover if available
+                            cover_filename = None
+                            has_cover = 0
+                            if meta['cover_data']:
+                                ext = os.path.splitext(meta['cover_name'] or 'cover.jpg')[1] or '.jpg'
+                                cover_filename = f"cover{ext}"
+                                with open(book_dir / cover_filename, 'wb') as f:
+                                    f.write(meta['cover_data'])
+                                has_cover = 1
 
                             cursor.execute('''
                                 INSERT INTO books (id, title, sort, author_sort, series_index, path, uuid, has_cover, last_modified)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, 0, '2000-01-01 00:00:00+00:00')
-                            ''', (book_id, book_title, book_title, 'Unknown', series_index, f"books/{book_id}", str(uuid.uuid4())))
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, '2000-01-01 00:00:00+00:00')
+                            ''', (book_id, epub_title, epub_title, epub_authors[0], series_index, f"books/{book_id}", str(uuid.uuid4()), has_cover))
 
                             cursor.execute('''
                                 INSERT INTO data (book, format, name, uncompressed_size)
                                 VALUES (?, 'EPUB', ?, ?)
                             ''', (book_id, safe_title, epub_file.stat().st_size))
 
-                            cursor.execute("SELECT id FROM authors WHERE name = 'Unknown'")
-                            row = cursor.fetchone()
-                            author_id = row[0] if row else None
-                            if not author_id:
-                                cursor.execute("INSERT INTO authors (name, sort) VALUES ('Unknown', 'Unknown')")
-                                author_id = cursor.lastrowid
-                            # Build dynamic insert for books_authors_link
-                            cols = ['book'] + [c for c in authors_link_cols if c != 'id']
-                            vals = [book_id] + [author_id if c in ('author', 'authors') else 0 for c in cols[1:]]
-                            placeholders = ', '.join(['?' for _ in cols])
-                            cursor.execute(f"INSERT INTO books_authors_link ({', '.join(cols)}) VALUES ({placeholders})", vals)
+                            # Handle multiple authors
+                            for author_name in epub_authors:
+                                cursor.execute("SELECT id FROM authors WHERE name = ?", (author_name,))
+                                row = cursor.fetchone()
+                                author_id = row[0] if row else None
+                                if not author_id:
+                                    cursor.execute("INSERT INTO authors (name, sort) VALUES (?, ?)", (author_name, author_name))
+                                    author_id = cursor.lastrowid
+                                # Build dynamic insert for books_authors_link
+                                cols = ['book'] + [c for c in authors_link_cols if c != 'id']
+                                vals = [book_id] + [author_id if c in ('author', 'authors') else 0 for c in cols[1:]]
+                                placeholders = ', '.join(['?' for _ in cols])
+                                cursor.execute(f"INSERT INTO books_authors_link ({', '.join(cols)}) VALUES ({placeholders})", vals)
 
                             if series_name:
                                 cursor.execute("SELECT id FROM series WHERE name = ?", (series_name,))
