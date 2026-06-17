@@ -689,11 +689,9 @@ def save_calibre_settings():
 
 @app.route('/api/calibre/sync', methods=['POST'])
 def sync_calibre():
-    """Sync EPUB files to Calibre library using direct database access"""
+    """Sync EPUB files to Calibre library using Calibre's library API"""
     from pathlib import Path
-    import sqlite3
     import shutil
-    import uuid
 
     def generate():
         try:
@@ -713,10 +711,9 @@ def sync_calibre():
                 return
 
             if not calibre_library_path:
-                yield json.dumps({'type': 'error', 'message': 'Please configure Calibre library path (where metadata.db and books folder are located)'}) + '\n'
+                yield json.dumps({'type': 'error', 'message': 'Please configure Calibre library path'}) + '\n'
                 return
 
-            # Check folders exist
             epub_path = Path(epub_folder)
             calibre_path = Path(calibre_library_path)
 
@@ -739,70 +736,35 @@ def sync_calibre():
             yield json.dumps({'type': 'log', 'message': f'Found {total} EPUB files to sync', 'level': 'info'}) + '\n'
             yield json.dumps({'type': 'log', 'message': f'Calibre library: {calibre_library_path}', 'level': 'info'}) + '\n'
 
-            metadata_db = calibre_path / 'metadata.db'
-            books_folder = calibre_path / 'books'
+            try:
+                from calibre.library import db
+                from calibre.ebooks.metadata.book.base import Metadata
+            except ImportError:
+                yield json.dumps({'type': 'error', 'message': 'Calibre library not available. Please install calibre.'}) + '\n'
+                return
 
             try:
-                # STEP 1: Clear existing library
+                # Initialize Calibre database
+                yield json.dumps({'type': 'log', 'message': 'Initializing Calibre library...', 'level': 'info'}) + '\n'
+                dbc = db(calibre_library_path)
+                cache = dbc.new_api
+
+                # STEP 1: Clear existing books
                 yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
                 yield json.dumps({'type': 'log', 'message': 'STEP 1: Clearing existing library', 'level': 'info'}) + '\n'
                 yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
 
-                # Clear books folder
-                yield json.dumps({'type': 'log', 'message': 'Clearing books folder...', 'level': 'info'}) + '\n'
-                if books_folder.exists():
-                    for item in books_folder.iterdir():
-                        try:
-                            if item.is_dir():
-                                shutil.rmtree(item)
-                            else:
-                                item.unlink()
-                        except Exception as e:
-                            yield json.dumps({'type': 'log', 'message': f'Warning: Could not remove {item.name}: {e}', 'level': 'warning'}) + '\n'
-                    yield json.dumps({'type': 'log', 'message': 'Cleared books folder', 'level': 'info'}) + '\n'
+                all_book_ids = list(cache.all_book_ids())
+                yield json.dumps({'type': 'log', 'message': f'Found {len(all_book_ids)} existing books to remove...', 'level': 'info'}) + '\n'
 
-                # Clear metadata.db - detect existing schema first
-                yield json.dumps({'type': 'log', 'message': 'Clearing metadata.db...', 'level': 'info'}) + '\n'
-                conn = sqlite3.connect(str(metadata_db))
-                cursor = conn.cursor()
-                
-                # Get existing columns in books table
-                cursor.execute("PRAGMA table_info(books)")
-                existing_columns = [row[1] for row in cursor.fetchall()]
-                yield json.dumps({'type': 'log', 'message': f'Detected books columns: {existing_columns}', 'level': 'info'}) + '\n'
-                
-                # Check which tables exist
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                tables = [row[0] for row in cursor.fetchall()]
-                yield json.dumps({'type': 'log', 'message': f'Existing tables: {tables}', 'level': 'info'}) + '\n'
-                
-                # Clear all data tables (only those that exist)
-                tables_to_clear = [
-                    'comments', 'books_series_link', 'books_authors_link', 'books_languages_link',
-                    'books_tags_link', 'books_publishers_link', 'books_identifiers', 'custom_columns_books',
-                    'data', 'authors', 'series', 'tags', 'languages', 'publishers', 'custom_columns', 'books'
-                ]
-                
-                for table in tables_to_clear:
-                    if table in tables:
-                        try:
-                            cursor.execute(f"DELETE FROM {table}")
-                        except:
-                            pass
-                
-                try:
-                    cursor.execute("DELETE FROM sqlite_sequence")
-                except:
-                    pass
-                
-                conn.commit()
-                conn.close()
-                
-                conn = sqlite3.connect(str(metadata_db))
-                conn.execute("VACUUM")
-                conn.close()
-                
-                yield json.dumps({'type': 'log', 'message': 'metadata.db cleared and vacuumed', 'level': 'info'}) + '\n'
+                # Remove books one by one
+                for book_id in all_book_ids:
+                    try:
+                        cache.remove_books([book_id], do_import=True)
+                    except:
+                        pass
+
+                yield json.dumps({'type': 'log', 'message': 'Library cleared', 'level': 'info'}) + '\n'
 
                 # STEP 2: Import EPUBs
                 yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
@@ -810,25 +772,16 @@ def sync_calibre():
                 yield json.dumps({'type': 'log', 'message': 'STEP 2: Importing EPUB files', 'level': 'info'}) + '\n'
                 yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
 
-                books_folder.mkdir(parents=True, exist_ok=True)
-                conn = sqlite3.connect(str(metadata_db))
-                cursor = conn.cursor()
-                cursor.execute("PRAGMA foreign_keys = ON")
-                
-                # Re-check columns after clearing (some might have been removed)
-                cursor.execute("PRAGMA table_info(books)")
-                books_columns = {row[1]: row[2] for row in cursor.fetchall()}
-
                 success_count = 0
                 error_count = 0
 
                 for idx, epub_file in enumerate(epub_files, 1):
                     yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Importing: {epub_file.relative_to(epub_path)}'}) + '\n'
-                    
+
                     try:
                         rel_path = epub_file.relative_to(epub_path)
                         parts = rel_path.parts
-                        
+
                         # Extract series from path
                         if len(parts) >= 3:
                             series_name = parts[-2]
@@ -836,97 +789,36 @@ def sync_calibre():
                             series_name = parts[0]
                         else:
                             series_name = ''
-                        
+
                         book_title = rel_path.stem
-                        
+
                         # Extract series index from title
                         series_index = 1.0
                         match = re.search(r'(\d+(?:\.\d+)?)', book_title)
                         if match:
                             series_index = float(match.group(1))
-                        
-                        # Get next book ID
-                        cursor.execute("SELECT MAX(id) FROM books")
-                        max_id = cursor.fetchone()[0] or 0
-                        book_id = max_id + 1
-                        
-                        # Create book directory and copy file
-                        book_dir = books_folder / str(book_id)
-                        book_dir.mkdir(exist_ok=True)
-                        
-                        safe_title = re.sub(r'[<>:"/\\|?*]', '_', book_title)[:100]
-                        epub_dest = book_dir / f"{safe_title}.epub"
-                        shutil.copy2(epub_file, epub_dest)
-                        
-                        file_size = epub_dest.stat().st_size
-                        
-                        # Insert book - only use columns that exist in this schema
-                        # Calibre standard columns: id, title, sort, author_sort, series_index, path, uuid, has_cover, last_modified
-                        # NOTE: series column was removed in Calibre 9, use books_series_link table instead
-                        book_columns = ['id', 'title', 'sort', 'author_sort', 'series_index', 'path', 'uuid', 'has_cover', 'last_modified']
-                        book_values = [book_id, book_title, book_title, 'Unknown', series_index, str(book_id), str(uuid.uuid4()), 0, '2000-01-01 00:00:00+00:00']
-                        
-                        # Filter to only existing columns
-                        insert_columns = []
-                        insert_values = []
-                        for col, val in zip(book_columns, book_values):
-                            if col in books_columns:
-                                insert_columns.append(col)
-                                insert_values.append(val)
-                        
-                        placeholders = ', '.join(['?' for _ in insert_columns])
-                        cursor.execute(f'''
-                            INSERT INTO books ({', '.join(insert_columns)})
-                            VALUES ({placeholders})
-                        ''', insert_values)
-                        
-                        # Insert data record
-                        cursor.execute('''
-                            INSERT INTO data (book, format, name, uncompressed_size)
-                            VALUES (?, ?, ?, ?)
-                        ''', (book_id, 'EPUB', f"{safe_title}.epub", file_size))
-                        
-                        # Get or create author
-                        cursor.execute("SELECT id FROM authors WHERE name = ?", ('Unknown',))
-                        row = cursor.fetchone()
-                        if row:
-                            author_id = row[0]
-                        else:
-                            cursor.execute("INSERT INTO authors (name, sort) VALUES (?, ?)", ('Unknown', 'Unknown'))
-                            author_id = cursor.lastrowid
-                        
-                        cursor.execute('''
-                            INSERT INTO books_authors_link (book, author, ord)
-                            VALUES (?, ?, ?)
-                        ''', (book_id, author_id, 0))
-                        
-                        # Get or create series - ALWAYS use books_series_link (Calibre standard way)
+
+                        # Create metadata object
+                        mi = Metadata(book_title, authors=['Unknown'])
                         if series_name:
-                            cursor.execute("SELECT id FROM series WHERE name = ?", (series_name,))
-                            row = cursor.fetchone()
-                            if row:
-                                series_id = row[0]
-                            else:
-                                cursor.execute("INSERT INTO series (name, sort) VALUES (?, ?)", (series_name, series_name))
-                                series_id = cursor.lastrowid
-                            
-                            cursor.execute('''
-                                INSERT INTO books_series_link (book, series, series_index)
-                                VALUES (?, ?, ?)
-                            ''', (book_id, series_id, series_index))
-                        
-                        conn.commit()
-                        success_count += 1
-                        
-                        series_info = f" [Series: {series_name} #{series_index}]" if series_name else ""
-                        yield json.dumps({'type': 'log', 'message': f'✓ {book_title}{series_info}', 'level': 'success'}) + '\n'
-                        
+                            mi.series = series_name
+                            mi.series_index = series_index
+
+                        # Add book to Calibre
+                        format_map = {'EPUB': str(epub_file)}
+                        ids, duplicates = cache.add_books([(mi, format_map)], add_duplicates=False)
+
+                        if ids:
+                            success_count += 1
+                            series_info = f" [Series: {series_name} #{series_index}]" if series_name else ""
+                            yield json.dumps({'type': 'log', 'message': f'✓ {book_title}{series_info}', 'level': 'success'}) + '\n'
+                        else:
+                            error_count += 1
+                            yield json.dumps({'type': 'log', 'message': f'✗ {epub_file.name}: Duplicate or failed', 'level': 'error'}) + '\n'
+
                     except Exception as e:
                         error_count += 1
-                        conn.rollback()
                         yield json.dumps({'type': 'log', 'message': f'✗ {epub_file.name}: {str(e)}', 'level': 'error'}) + '\n'
-
-                conn.close()
 
                 yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
                 if error_count > 0:
