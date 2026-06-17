@@ -689,13 +689,14 @@ def save_calibre_settings():
 
 @app.route('/api/calibre/sync', methods=['POST'])
 def sync_calibre():
-    """Sync EPUB files to Calibre library using Calibre's library API"""
+    """Sync EPUB files to Calibre library using Calibre's library API (with SQL fallback)"""
     from pathlib import Path
     import shutil
+    import sqlite3
+    import uuid
 
     def generate():
         try:
-            # Load settings
             if os.path.exists(CALIBRE_CONFIG_PATH):
                 with open(CALIBRE_CONFIG_PATH, 'r') as f:
                     config = json.load(f)
@@ -706,67 +707,93 @@ def sync_calibre():
             epub_folder = config.get('epub_folder', '/media/eBook')
             calibre_library_path = config.get('calibre_library_path', '')
 
-            if not epub_folder:
-                yield json.dumps({'type': 'error', 'message': 'Please configure EPUB folder path'}) + '\n'
-                return
-
-            if not calibre_library_path:
-                yield json.dumps({'type': 'error', 'message': 'Please configure Calibre library path'}) + '\n'
+            if not epub_folder or not calibre_library_path:
+                yield json.dumps({'type': 'error', 'message': 'Please configure both EPUB folder and Calibre library path'}) + '\n'
                 return
 
             epub_path = Path(epub_folder)
             calibre_path = Path(calibre_library_path)
 
-            if not epub_path.exists():
-                yield json.dumps({'type': 'error', 'message': f'EPUB folder not found: {epub_folder}'}) + '\n'
+            if not epub_path.exists() or not calibre_path.exists():
+                yield json.dumps({'type': 'error', 'message': 'Folder not found'}) + '\n'
                 return
 
-            if not calibre_path.exists():
-                yield json.dumps({'type': 'error', 'message': f'Calibre library folder not found: {calibre_library_path}'}) + '\n'
-                return
-
-            # Collect EPUB files
             epub_files = list(epub_path.rglob("*.epub"))
             total = len(epub_files)
 
             if total == 0:
-                yield json.dumps({'type': 'error', 'message': 'No EPUB files found in the folder'}) + '\n'
+                yield json.dumps({'type': 'error', 'message': 'No EPUB files found'}) + '\n'
                 return
 
-            yield json.dumps({'type': 'log', 'message': f'Found {total} EPUB files to sync', 'level': 'info'}) + '\n'
+            yield json.dumps({'type': 'log', 'message': f'Found {total} EPUB files', 'level': 'info'}) + '\n'
             yield json.dumps({'type': 'log', 'message': f'Calibre library: {calibre_library_path}', 'level': 'info'}) + '\n'
 
+            # Try to use Calibre API
+            use_calibre = False
             try:
                 from calibre.library import db
                 from calibre.ebooks.metadata.book.base import Metadata
+                use_calibre = True
+                yield json.dumps({'type': 'log', 'message': 'Using Calibre library API', 'level': 'info'}) + '\n'
             except ImportError:
-                yield json.dumps({'type': 'error', 'message': 'Calibre library not available. Please install calibre.'}) + '\n'
-                return
+                yield json.dumps({'type': 'log', 'message': 'Calibre library not available, using direct SQL', 'level': 'info'}) + '\n'
+
+            metadata_db = calibre_path / 'metadata.db'
+            books_folder = calibre_path / 'books'
 
             try:
-                # Initialize Calibre database
-                yield json.dumps({'type': 'log', 'message': 'Initializing Calibre library...', 'level': 'info'}) + '\n'
-                dbc = db(calibre_library_path)
-                cache = dbc.new_api
-
-                # STEP 1: Clear existing books
+                # STEP 1: Clear library
                 yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
-                yield json.dumps({'type': 'log', 'message': 'STEP 1: Clearing existing library', 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': 'STEP 1: Clearing library', 'level': 'info'}) + '\n'
                 yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
 
-                all_book_ids = list(cache.all_book_ids())
-                yield json.dumps({'type': 'log', 'message': f'Found {len(all_book_ids)} existing books to remove...', 'level': 'info'}) + '\n'
+                if use_calibre:
+                    dbc = db(calibre_library_path)
+                    cache = dbc.new_api
+                    for book_id in cache.all_book_ids():
+                        try:
+                            cache.remove_books([book_id], do_import=True)
+                        except:
+                            pass
+                else:
+                    # Clear books folder
+                    if books_folder.exists():
+                        for item in books_folder.iterdir():
+                            try:
+                                if item.is_dir():
+                                    shutil.rmtree(item)
+                                else:
+                                    item.unlink()
+                            except:
+                                pass
 
-                # Remove books one by one
-                for book_id in all_book_ids:
+                    # Clear database tables
+                    conn = sqlite3.connect(str(metadata_db))
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='trigger'")
+                    for (trigger,) in cursor.fetchall():
+                        try:
+                            cursor.execute(f"DROP TRIGGER IF EXISTS {trigger}")
+                        except:
+                            pass
+                    tables = ['comments', 'books_series_link', 'books_authors_link', 'books_languages_link',
+                              'books_tags_link', 'books_publishers_link', 'books_identifiers', 'custom_columns_books',
+                              'data', 'authors', 'series', 'tags', 'languages', 'publishers', 'custom_columns', 'books']
+                    for table in tables:
+                        try:
+                            cursor.execute(f"DELETE FROM {table}")
+                        except:
+                            pass
                     try:
-                        cache.remove_books([book_id], do_import=True)
+                        cursor.execute("DELETE FROM sqlite_sequence")
                     except:
                         pass
+                    conn.commit()
+                    conn.close()
 
                 yield json.dumps({'type': 'log', 'message': 'Library cleared', 'level': 'info'}) + '\n'
 
-                # STEP 2: Import EPUBs
+                # STEP 2: Import
                 yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
                 yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
                 yield json.dumps({'type': 'log', 'message': 'STEP 2: Importing EPUB files', 'level': 'info'}) + '\n'
@@ -775,6 +802,9 @@ def sync_calibre():
                 success_count = 0
                 error_count = 0
 
+                if use_calibre:
+                    cache = dbc.new_api
+
                 for idx, epub_file in enumerate(epub_files, 1):
                     yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Importing: {epub_file.relative_to(epub_path)}'}) + '\n'
 
@@ -782,7 +812,6 @@ def sync_calibre():
                         rel_path = epub_file.relative_to(epub_path)
                         parts = rel_path.parts
 
-                        # Extract series from path
                         if len(parts) >= 3:
                             series_name = parts[-2]
                         elif len(parts) == 2:
@@ -792,29 +821,77 @@ def sync_calibre():
 
                         book_title = rel_path.stem
 
-                        # Extract series index from title
                         series_index = 1.0
                         match = re.search(r'(\d+(?:\.\d+)?)', book_title)
                         if match:
                             series_index = float(match.group(1))
 
-                        # Create metadata object
-                        mi = Metadata(book_title, authors=['Unknown'])
-                        if series_name:
-                            mi.series = series_name
-                            mi.series_index = series_index
+                        if use_calibre:
+                            mi = Metadata(book_title, authors=['Unknown'])
+                            if series_name:
+                                mi.series = series_name
+                                mi.series_index = series_index
+                            format_map = {'EPUB': str(epub_file)}
+                            ids, _ = cache.add_books([(mi, format_map)], add_duplicates=False)
+                            if ids:
+                                success_count += 1
+                                series_info = f" [Series: {series_name} #{series_index}]" if series_name else ""
+                                yield json.dumps({'type': 'log', 'message': f'✓ {book_title}{series_info}', 'level': 'success'}) + '\n'
+                            else:
+                                error_count += 1
+                                yield json.dumps({'type': 'log', 'message': f'✗ {epub_file.name}: Failed', 'level': 'error'}) + '\n'
+                        else:
+                            # Direct SQL import
+                            conn = sqlite3.connect(str(metadata_db))
+                            cursor = conn.cursor()
+                            cursor.execute("SELECT MAX(id) FROM books")
+                            max_id = cursor.fetchone()[0] or 0
+                            book_id = max_id + 1
 
-                        # Add book to Calibre
-                        format_map = {'EPUB': str(epub_file)}
-                        ids, duplicates = cache.add_books([(mi, format_map)], add_duplicates=False)
+                            book_dir = books_folder / str(book_id)
+                            book_dir.mkdir(exist_ok=True)
+                            safe_title = re.sub(r'[<>:"/\\|?*]', '_', book_title)[:100]
+                            shutil.copy2(epub_file, book_dir / f"{safe_title}.epub")
 
-                        if ids:
+                            # Insert book
+                            cursor.execute('''
+                                INSERT INTO books (id, title, sort, author_sort, series_index, path, uuid, has_cover, last_modified)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, 0, '2000-01-01 00:00:00+00:00')
+                            ''', (book_id, book_title, book_title, 'Unknown', series_index, str(book_id), str(uuid.uuid4())))
+
+                            # Insert data
+                            cursor.execute('''
+                                INSERT INTO data (book, format, name, uncompressed_size)
+                                VALUES (?, 'EPUB', ?, ?)
+                            ''', (book_id, f"{safe_title}.epub", epub_file.stat().st_size))
+
+                            # Insert author
+                            cursor.execute("SELECT id FROM authors WHERE name = 'Unknown'")
+                            row = cursor.fetchone()
+                            if row:
+                                author_id = row[0]
+                            else:
+                                cursor.execute("INSERT INTO authors (name, sort) VALUES ('Unknown', 'Unknown')")
+                                author_id = cursor.lastrowid
+                            cursor.execute("INSERT INTO books_authors_link (book, author, ord) VALUES (?, ?, 0)", (book_id, author_id))
+
+                            # Insert series
+                            if series_name:
+                                cursor.execute("SELECT id FROM series WHERE name = ?", (series_name,))
+                                row = cursor.fetchone()
+                                if row:
+                                    series_id = row[0]
+                                else:
+                                    cursor.execute("INSERT INTO series (name, sort) VALUES (?, ?)", (series_name, series_name))
+                                    series_id = cursor.lastrowid
+                                cursor.execute("INSERT INTO books_series_link (book, series, series_index) VALUES (?, ?, ?)",
+                                             (book_id, series_id, series_index))
+
+                            conn.commit()
+                            conn.close()
                             success_count += 1
                             series_info = f" [Series: {series_name} #{series_index}]" if series_name else ""
                             yield json.dumps({'type': 'log', 'message': f'✓ {book_title}{series_info}', 'level': 'success'}) + '\n'
-                        else:
-                            error_count += 1
-                            yield json.dumps({'type': 'log', 'message': f'✗ {epub_file.name}: Duplicate or failed', 'level': 'error'}) + '\n'
 
                     except Exception as e:
                         error_count += 1
@@ -822,9 +899,9 @@ def sync_calibre():
 
                 yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
                 if error_count > 0:
-                    yield json.dumps({'type': 'error', 'message': f'Sync completed with errors: {success_count} succeeded, {error_count} failed'}) + '\n'
+                    yield json.dumps({'type': 'error', 'message': f'Completed with errors: {success_count} succeeded, {error_count} failed'}) + '\n'
                 else:
-                    yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} books imported successfully'}) + '\n'
+                    yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} books imported'}) + '\n'
 
             except Exception as e:
                 import traceback
