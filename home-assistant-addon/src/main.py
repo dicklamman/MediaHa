@@ -812,12 +812,11 @@ def sync_calibre():
                     conn.execute("PRAGMA journal_mode=WAL")
                     cursor = conn.cursor()
                     cursor.execute("PRAGMA table_info(books_authors_link)")
-                    authors_link_cols = [row[1] for row in cursor.fetchall()]
-                    author_col = 'author' if 'author' in authors_link_cols else 'authors'
-                    ord_col = 'ord' if 'ord' in authors_link_cols else 'sequence'
+                    authors_link_cols = {row[1] for row in cursor.fetchall()}
+                    yield json.dumps({'type': 'log', 'message': f'DEBUG: books_authors_link columns: {authors_link_cols}', 'level': 'info'}) + '\n'
                     cursor.execute("PRAGMA table_info(books_series_link)")
-                    series_link_cols = [row[1] for row in cursor.fetchall()]
-                    series_col = 'series' if 'series' in series_link_cols else 'series_index'
+                    series_link_cols = {row[1] for row in cursor.fetchall()}
+                    yield json.dumps({'type': 'log', 'message': f'DEBUG: books_series_link columns: {series_link_cols}', 'level': 'info'}) + '\n'
 
                 for idx, epub_file in enumerate(epub_files, 1):
                     yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Importing: {epub_file.relative_to(epub_path)}'}) + '\n'
@@ -881,7 +880,11 @@ def sync_calibre():
                             if not author_id:
                                 cursor.execute("INSERT INTO authors (name, sort) VALUES ('Unknown', 'Unknown')")
                                 author_id = cursor.lastrowid
-                            cursor.execute(f"INSERT INTO books_authors_link (book, {author_col}, {ord_col}) VALUES (?, ?, 0)", (book_id, author_id))
+                            # Build dynamic insert for books_authors_link
+                            cols = ['book'] + [c for c in authors_link_cols if c != 'id']
+                            vals = [book_id] + [author_id if c in ('author', 'authors') else 0 for c in cols[1:]]
+                            placeholders = ', '.join(['?' for _ in cols])
+                            cursor.execute(f"INSERT INTO books_authors_link ({', '.join(cols)}) VALUES ({placeholders})", vals)
 
                             if series_name:
                                 cursor.execute("SELECT id FROM series WHERE name = ?", (series_name,))
@@ -891,8 +894,10 @@ def sync_calibre():
                                 else:
                                     cursor.execute("INSERT INTO series (name, sort) VALUES (?, ?)", (series_name, series_name))
                                     series_id = cursor.lastrowid
-                                cursor.execute(f"INSERT INTO books_series_link (book, {series_col}, series_index) VALUES (?, ?, ?)",
-                                             (book_id, series_id, series_index))
+                                cols = ['book', 'series', 'series_index']
+                                vals = [book_id, series_id, series_index]
+                                placeholders = ', '.join(['?' for _ in cols])
+                                cursor.execute(f"INSERT INTO books_series_link ({', '.join(cols)}) VALUES ({placeholders})", vals)
 
                             conn.commit()
                             success_count += 1
