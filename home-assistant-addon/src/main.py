@@ -13,10 +13,14 @@ from utils.epub_converter import convert_to_hk_traditional_chinese
 
 def extract_epub_metadata(epub_path):
     """
-    Extract title, author(s), and cover from an EPUB file.
-    Returns dict with 'title', 'authors', 'cover_data', 'cover_name'.
+    Extract comprehensive metadata from an EPUB file.
+    Returns dict with title, authors, cover, language, publisher, identifier, description, tags, date.
     """
-    result = {'title': None, 'authors': [], 'cover_data': None, 'cover_name': None}
+    result = {
+        'title': None, 'authors': [], 'cover_data': None, 'cover_name': None,
+        'language': None, 'publisher': None, 'identifier': None,
+        'description': None, 'tags': [], 'date': None
+    }
     try:
         with zipfile.ZipFile(epub_path, 'r') as zf:
             # Find container.xml to get content.opf location
@@ -39,13 +43,49 @@ def extract_epub_metadata(epub_path):
                     if creator.text:
                         result['authors'].append(creator.text.strip())
                 
+                # Get language
+                lang_el = opf_root.find('.//dc:language', ns)
+                if lang_el is not None and lang_el.text:
+                    result['language'] = lang_el.text.strip()
+                
+                # Get publisher
+                pub_el = opf_root.find('.//dc:publisher', ns)
+                if pub_el is not None and pub_el.text:
+                    result['publisher'] = pub_el.text.strip()
+                
+                # Get identifier (ISBN or UUID)
+                for id_el in opf_root.findall('.//dc:identifier', ns):
+                    if id_el.text:
+                        id_text = id_el.text.strip()
+                        id_val = id_el.text.strip()
+                        # Check scheme attribute or content
+                        scheme = id_el.get('{http://purl.org/dc/elements/1.1/}scheme') or id_el.get('scheme') or ''
+                        if 'isbn' in scheme.lower() or 'isbn' in id_text.lower():
+                            result['identifier'] = id_text
+                        elif not result['identifier']:
+                            result['identifier'] = id_text
+                
+                # Get description/synopsis
+                desc_el = opf_root.find('.//dc:description', ns)
+                if desc_el is not None and desc_el.text:
+                    result['description'] = desc_el.text.strip()
+                
+                # Get tags/subjects
+                for subj in opf_root.findall('.//dc:subject', ns):
+                    if subj.text:
+                        result['tags'].append(subj.text.strip())
+                
+                # Get date
+                date_el = opf_root.find('.//dc:date', ns)
+                if date_el is not None and date_el.text:
+                    result['date'] = date_el.text.strip()
+                
                 # Get cover image
                 cover_id = None
                 meta_cover = opf_root.find('.//opf:meta[@name="cover"]', ns)
                 if meta_cover is not None:
                     cover_id = meta_cover.get('content')
                 if not cover_id:
-                    # Try manifest item with properties="cover-image"
                     for item in opf_root.findall('.//opf:item', ns):
                         props = item.get('properties', '')
                         if 'cover-image' in props:
@@ -965,11 +1005,42 @@ def sync_calibre():
                                 if not author_id:
                                     cursor.execute("INSERT INTO authors (name, sort) VALUES (?, ?)", (author_name, author_name))
                                     author_id = cursor.lastrowid
-                                # Build dynamic insert for books_authors_link
                                 cols = ['book'] + [c for c in authors_link_cols if c != 'id']
                                 vals = [book_id] + [author_id if c in ('author', 'authors') else 0 for c in cols[1:]]
                                 placeholders = ', '.join(['?' for _ in cols])
                                 cursor.execute(f"INSERT INTO books_authors_link ({', '.join(cols)}) VALUES ({placeholders})", vals)
+
+                            # Publisher
+                            if meta['publisher']:
+                                cursor.execute("SELECT id FROM publishers WHERE name = ?", (meta['publisher'],))
+                                row = cursor.fetchone()
+                                pub_id = row[0] if row else None
+                                if not pub_id:
+                                    cursor.execute("INSERT INTO publishers (name, sort) VALUES (?, ?)", (meta['publisher'], meta['publisher']))
+                                    pub_id = cursor.lastrowid
+                                cursor.execute("INSERT OR IGNORE INTO books_publishers_link (book, publisher) VALUES (?, ?)", (book_id, pub_id))
+
+                            # Tags/Subjects
+                            for tag_name in meta['tags'][:20]:  # Limit tags
+                                cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+                                row = cursor.fetchone()
+                                tag_id = row[0] if row else None
+                                if not tag_id:
+                                    cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
+                                    tag_id = cursor.lastrowid
+                                cursor.execute("INSERT OR IGNORE INTO books_tags_link (book, tag) VALUES (?, ?)", (book_id, tag_id))
+
+                            # Identifier (ISBN or custom)
+                            if meta['identifier']:
+                                cursor.execute("SELECT id FROM identifiers WHERE type = 'ISBN' AND val = ?", (meta['identifier'],))
+                                if not cursor.fetchone():
+                                    cursor.execute("INSERT INTO identifiers (type, val) VALUES ('ISBN', ?)", (meta['identifier'],))
+                                    ident_id = cursor.lastrowid
+                                    cursor.execute("INSERT OR IGNORE INTO books_identifiers (book, id) VALUES (?, ?)", (book_id, ident_id))
+
+                            # Description as comments
+                            if meta['description']:
+                                cursor.execute("INSERT INTO comments (book, text) VALUES (?, ?)", (book_id, meta['description'][:10000]))
 
                             if series_name:
                                 cursor.execute("SELECT id FROM series WHERE name = ?", (series_name,))
@@ -991,8 +1062,9 @@ def sync_calibre():
 
                             conn.commit()
                             success_count += 1
-                            series_info = f" [Series: {series_name} #{series_index}]" if series_name else ""
-                            yield json.dumps({'type': 'log', 'message': f'✓ {book_title}{series_info}', 'level': 'success'}) + '\n'
+                            series_info = f" [{series_name} #{series_index}]" if series_name else ""
+                            author_info = f" by {epub_authors[0]}" if epub_authors and epub_authors[0] != 'Unknown' else ""
+                            yield json.dumps({'type': 'log', 'message': f'✓ {epub_title}{author_info}{series_info}', 'level': 'success'}) + '\n'
 
                     except Exception as e:
                         if not use_calibre:
