@@ -1,16 +1,14 @@
-// Calibre Web Sync Module
+// Calibre Library Sync Module
 const CalibreManager = {
     init() {
-        this.urlInput = document.getElementById('calibre-url');
-        this.userInput = document.getElementById('calibre-user');
-        this.passInput = document.getElementById('calibre-pass');
+        this.libraryPathInput = document.getElementById('calibre-library-path');
         this.folderInput = document.getElementById('calibre-folder');
         this.clearCheckbox = document.getElementById('calibre-clear');
         this.saveBtn = document.getElementById('save-calibre-settings');
         this.syncBtn = document.getElementById('sync-calibre-btn');
         this.logOutput = document.getElementById('calibre-log-output');
 
-        if (!this.urlInput) return;
+        if (!this.libraryPathInput) return;
 
         this.bindEvents();
         this.loadSettings();
@@ -26,11 +24,9 @@ const CalibreManager = {
             const response = await fetch('/api/calibre/settings');
             const data = await response.json();
 
-            if (data.calibre_url) this.urlInput.value = data.calibre_url;
-            if (data.username) this.userInput.value = data.username;
-            if (data.password) this.passInput.value = data.password;
+            if (data.calibre_library_path) this.libraryPathInput.value = data.calibre_library_path;
             if (data.epub_folder) this.folderInput.value = data.epub_folder;
-            if (data.clear_before_sync) this.clearCheckbox.checked = data.clear_before_sync;
+            if (data.clear_before_sync !== undefined) this.clearCheckbox.checked = data.clear_before_sync;
         } catch (error) {
             console.error('Failed to load Calibre settings:', error);
         }
@@ -38,9 +34,7 @@ const CalibreManager = {
 
     async saveSettings() {
         const settings = {
-            calibre_url: this.urlInput.value.trim(),
-            username: this.userInput.value.trim(),
-            password: this.passInput.value,
+            calibre_library_path: this.libraryPathInput.value.trim(),
             epub_folder: this.folderInput.value.trim(),
             clear_before_sync: this.clearCheckbox.checked
         };
@@ -72,12 +66,12 @@ const CalibreManager = {
         if (this.syncBtn.disabled) return;
 
         // Check if settings are configured
-        if (!this.urlInput.value.trim()) {
-            this.showLog('Please configure Calibre-Web URL first!', 'error');
+        if (!this.libraryPathInput.value.trim()) {
+            this.showLog('Please configure Calibre Library Path first!', 'error');
             return;
         }
         if (!this.folderInput.value.trim()) {
-            this.showLog('Please configure EPUB Folder Path first!', 'error');
+            this.showLog('Please configure EPUB Source Folder Path first!', 'error');
             return;
         }
 
@@ -85,9 +79,13 @@ const CalibreManager = {
         this.syncBtn.innerHTML = '<span class="spinner"></span> Syncing...';
         this.logOutput.textContent = '';
 
-        this.showLog('Starting EPUB sync to Calibre-Web...', 'info');
+        this.showLog('Starting EPUB sync to Calibre Library...', 'info');
+        this.showLog('This will clear the library and rebuild it from scratch.', 'info');
 
         try {
+            // Save settings first
+            await this.saveSettings();
+
             const response = await fetch('/api/calibre/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -136,7 +134,7 @@ const CalibreManager = {
             this.showLog('Sync failed: ' + error.message, 'error');
         } finally {
             this.syncBtn.disabled = false;
-            this.syncBtn.innerHTML = '<span class="material-icons" style="font-size: 20px; vertical-align: middle;">sync</span> Sync EPUB to Calibre-Web';
+            this.syncBtn.innerHTML = '<span class="material-icons" style="font-size: 20px; vertical-align: middle;">sync</span> Sync EPUB to Calibre Library';
         }
     },
 
