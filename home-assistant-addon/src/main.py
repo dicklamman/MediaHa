@@ -894,8 +894,13 @@ def sync_calibre():
                                 else:
                                     cursor.execute("INSERT INTO series (name, sort) VALUES (?, ?)", (series_name, series_name))
                                     series_id = cursor.lastrowid
-                                cols = ['book', 'series', 'series_index']
-                                vals = [book_id, series_id, series_index]
+                                cols = ['book', 'series'] + [c for c in series_link_cols if c not in ('id', 'book', 'series')]
+                                vals = [book_id, series_id]
+                                for c in cols[2:]:
+                                    if c == 'series_index':
+                                        vals.append(series_index)
+                                    else:
+                                        vals.append(0)
                                 placeholders = ', '.join(['?' for _ in cols])
                                 cursor.execute(f"INSERT INTO books_series_link ({', '.join(cols)}) VALUES ({placeholders})", vals)
 
