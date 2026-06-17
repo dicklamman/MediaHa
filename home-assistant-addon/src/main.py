@@ -1032,11 +1032,9 @@ def sync_calibre():
 
                             # Identifier (ISBN or custom)
                             if meta['identifier']:
-                                cursor.execute("SELECT id FROM identifiers WHERE type = 'ISBN' AND val = ?", (meta['identifier'],))
+                                cursor.execute("SELECT id FROM books_identifiers WHERE book = ?", (book_id,))
                                 if not cursor.fetchone():
-                                    cursor.execute("INSERT INTO identifiers (type, val) VALUES ('ISBN', ?)", (meta['identifier'],))
-                                    ident_id = cursor.lastrowid
-                                    cursor.execute("INSERT OR IGNORE INTO books_identifiers (book, id) VALUES (?, ?)", (book_id, ident_id))
+                                    cursor.execute("INSERT INTO books_identifiers (book, type, val) VALUES (?, 'ISBN', ?)", (book_id, meta['identifier']))
 
                             # Description as comments
                             if meta['description']:
