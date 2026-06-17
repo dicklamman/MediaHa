@@ -841,9 +841,42 @@ def sync_calibre():
                                 error_count += 1
                                 yield json.dumps({'type': 'log', 'message': f'✗ {epub_file.name}: Failed', 'level': 'error'}) + '\n'
                         else:
-                            # Direct SQL import
-                            conn = sqlite3.connect(str(metadata_db))
-                            cursor = conn.cursor()
+                    # Direct SQL import - keep single connection
+                    conn = sqlite3.connect(str(metadata_db), timeout=30)
+                    conn.execute("PRAGMA journal_mode=WAL")
+                    cursor = conn.cursor()
+
+                    # Detect actual column names
+                    cursor.execute("PRAGMA table_info(books_authors_link)")
+                    authors_link_cols = [row[1] for row in cursor.fetchall()]
+                    author_col = 'author' if 'author' in authors_link_cols else 'authors'
+                    ord_col = 'ord' if 'ord' in authors_link_cols else 'sequence'
+
+                    cursor.execute("PRAGMA table_info(books_series_link)")
+                    series_link_cols = [row[1] for row in cursor.fetchall()]
+                    series_col = 'series' if 'series' in series_link_cols else 'series_index'
+
+                    for idx, epub_file in enumerate(epub_files, 1):
+                        yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Importing: {epub_file.relative_to(epub_path)}'}) + '\n'
+
+                        try:
+                            rel_path = epub_file.relative_to(epub_path)
+                            parts = rel_path.parts
+
+                            if len(parts) >= 3:
+                                series_name = parts[-2]
+                            elif len(parts) == 2:
+                                series_name = parts[0]
+                            else:
+                                series_name = ''
+
+                            book_title = rel_path.stem
+
+                            series_index = 1.0
+                            match = re.search(r'(\d+(?:\.\d+)?)', book_title)
+                            if match:
+                                series_index = float(match.group(1))
+
                             cursor.execute("SELECT MAX(id) FROM books")
                             max_id = cursor.fetchone()[0] or 0
                             book_id = max_id + 1
@@ -873,7 +906,7 @@ def sync_calibre():
                             else:
                                 cursor.execute("INSERT INTO authors (name, sort) VALUES ('Unknown', 'Unknown')")
                                 author_id = cursor.lastrowid
-                            cursor.execute("INSERT INTO books_authors_link (book, author, ord) VALUES (?, ?, 0)", (book_id, author_id))
+                            cursor.execute(f"INSERT INTO books_authors_link (book, {author_col}, {ord_col}) VALUES (?, ?, 0)", (book_id, author_id))
 
                             # Insert series
                             if series_name:
@@ -884,18 +917,20 @@ def sync_calibre():
                                 else:
                                     cursor.execute("INSERT INTO series (name, sort) VALUES (?, ?)", (series_name, series_name))
                                     series_id = cursor.lastrowid
-                                cursor.execute("INSERT INTO books_series_link (book, series, series_index) VALUES (?, ?, ?)",
+                                cursor.execute(f"INSERT INTO books_series_link (book, {series_col}, series_index) VALUES (?, ?, ?)",
                                              (book_id, series_id, series_index))
 
                             conn.commit()
-                            conn.close()
                             success_count += 1
                             series_info = f" [Series: {series_name} #{series_index}]" if series_name else ""
                             yield json.dumps({'type': 'log', 'message': f'✓ {book_title}{series_info}', 'level': 'success'}) + '\n'
 
-                    except Exception as e:
-                        error_count += 1
-                        yield json.dumps({'type': 'log', 'message': f'✗ {epub_file.name}: {str(e)}', 'level': 'error'}) + '\n'
+                        except Exception as e:
+                            conn.rollback()
+                            error_count += 1
+                            yield json.dumps({'type': 'log', 'message': f'✗ {epub_file.name}: {str(e)}', 'level': 'error'}) + '\n'
+
+                    conn.close()
 
                 yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
                 if error_count > 0:
