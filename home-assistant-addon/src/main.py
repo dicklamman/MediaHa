@@ -867,7 +867,7 @@ def sync_calibre():
                             cursor.execute('''
                                 INSERT INTO books (id, title, sort, author_sort, series_index, path, uuid, has_cover, last_modified)
                                 VALUES (?, ?, ?, ?, ?, ?, ?, 0, '2000-01-01 00:00:00+00:00')
-                            ''', (book_id, book_title, book_title, 'Unknown', series_index, str(book_id), str(uuid.uuid4())))
+                            ''', (book_id, book_title, book_title, 'Unknown', series_index, f"books/{book_id}", str(uuid.uuid4())))
 
                             cursor.execute('''
                                 INSERT INTO data (book, format, name, uncompressed_size)
