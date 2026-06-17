@@ -8,7 +8,6 @@ import json
 import requests
 import subprocess
 from utils.epub_converter import convert_to_hk_traditional_chinese
-from utils.calibre_db_sync import sync_calibre_library
 
 def load_auth_config():
     """
@@ -692,6 +691,9 @@ def save_calibre_settings():
 def sync_calibre():
     """Sync EPUB files to Calibre library using direct database access"""
     from pathlib import Path
+    import sqlite3
+    import shutil
+    import uuid
 
     def generate():
         try:
@@ -726,7 +728,7 @@ def sync_calibre():
                 yield json.dumps({'type': 'error', 'message': f'Calibre library folder not found: {calibre_library_path}'}) + '\n'
                 return
 
-            # Count EPUB files
+            # Collect EPUB files
             epub_files = list(epub_path.rglob("*.epub"))
             total = len(epub_files)
 
@@ -736,42 +738,217 @@ def sync_calibre():
 
             yield json.dumps({'type': 'log', 'message': f'Found {total} EPUB files to sync', 'level': 'info'}) + '\n'
             yield json.dumps({'type': 'log', 'message': f'Calibre library: {calibre_library_path}', 'level': 'info'}) + '\n'
-            yield json.dumps({'type': 'progress', 'current': 0, 'total': total, 'message': 'Starting sync...'}) + '\n'
 
-            # Run the sync
+            metadata_db = calibre_path / 'metadata.db'
+            books_folder = calibre_path / 'books'
+
             try:
-                sync = CalibreDBSync(str(calibre_path), str(epub_path))
-                
-                # Clear existing library
+                # STEP 1: Clear existing library
                 yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
                 yield json.dumps({'type': 'log', 'message': 'STEP 1: Clearing existing library', 'level': 'info'}) + '\n'
                 yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
-                sync.clear_library(lambda msg: yield json.dumps({'type': 'log', 'message': msg, 'level': 'info'}) + '\n' if False else None)
-                
-                # Import EPUBs
+
+                # Clear books folder
+                yield json.dumps({'type': 'log', 'message': 'Clearing books folder...', 'level': 'info'}) + '\n'
+                if books_folder.exists():
+                    for item in books_folder.iterdir():
+                        try:
+                            if item.is_dir():
+                                shutil.rmtree(item)
+                            else:
+                                item.unlink()
+                        except Exception as e:
+                            yield json.dumps({'type': 'log', 'message': f'Warning: Could not remove {item.name}: {e}', 'level': 'warning'}) + '\n'
+                    yield json.dumps({'type': 'log', 'message': 'Cleared books folder', 'level': 'info'}) + '\n'
+
+                # Clear metadata.db
+                yield json.dumps({'type': 'log', 'message': 'Clearing metadata.db...', 'level': 'info'}) + '\n'
+                if metadata_db.exists():
+                    conn = sqlite3.connect(str(metadata_db))
+                    cursor = conn.cursor()
+                    
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                    tables = [row[0] for row in cursor.fetchall()]
+                    
+                    tables_to_clear = [
+                        'comments', 'books_series_link', 'books_authors_link', 'books_languages_link',
+                        'books_tags_link', 'books_publishers_link', 'books_identifiers', 'custom_columns_books',
+                        'data', 'authors', 'series', 'tags', 'languages', 'publishers', 'custom_columns', 'books'
+                    ]
+                    
+                    for table in tables_to_clear:
+                        if table in tables:
+                            try:
+                                cursor.execute(f"DELETE FROM {table}")
+                            except:
+                                pass
+                    
+                    try:
+                        cursor.execute("DELETE FROM sqlite_sequence")
+                    except:
+                        pass
+                    
+                    conn.commit()
+                    conn.close()
+                    
+                    conn = sqlite3.connect(str(metadata_db))
+                    conn.execute("VACUUM")
+                    conn.close()
+                    
+                    yield json.dumps({'type': 'log', 'message': 'metadata.db cleared and vacuumed', 'level': 'info'}) + '\n'
+                else:
+                    yield json.dumps({'type': 'log', 'message': 'Creating new metadata.db...', 'level': 'info'}) + '\n'
+                    # Create minimal database
+                    conn = sqlite3.connect(str(metadata_db))
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS books (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            title TEXT NOT NULL, sort TEXT, series TEXT, series_index REAL DEFAULT 1.0,
+                            last_modified DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                    ''')
+                    cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS authors (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, sort TEXT, link TEXT
+                        )
+                    ''')
+                    cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS series (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, sort TEXT
+                        )
+                    ''')
+                    cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS data (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT, book INTEGER, format TEXT, name TEXT,
+                            uncompressed_size INTEGER
+                        )
+                    ''')
+                    cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS books_authors_link (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT, book INTEGER, author INTEGER, ord INTEGER DEFAULT 0
+                        )
+                    ''')
+                    cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS books_series_link (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT, book INTEGER, series INTEGER, series_index REAL DEFAULT 1.0
+                        )
+                    ''')
+                    conn.commit()
+                    conn.close()
+                    yield json.dumps({'type': 'log', 'message': 'Created new metadata.db', 'level': 'info'}) + '\n'
+
+                # STEP 2: Import EPUBs
                 yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
                 yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
                 yield json.dumps({'type': 'log', 'message': 'STEP 2: Importing EPUB files', 'level': 'info'}) + '\n'
                 yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
-                
-                if sync.calibredb_path:
-                    yield json.dumps({'type': 'log', 'message': f'Found calibredb at: {sync.calibredb_path}', 'level': 'info'}) + '\n'
-                    success, errors_count, error_list = sync.import_with_calibredb(
-                        lambda msg: None,  # We yield directly below
-                        lambda current, t, filename: None
-                    )
+
+                books_folder.mkdir(parents=True, exist_ok=True)
+                conn = sqlite3.connect(str(metadata_db))
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA foreign_keys = ON")
+
+                success_count = 0
+                error_count = 0
+
+                for idx, epub_file in enumerate(epub_files, 1):
+                    yield json.dumps({'type': 'progress', 'current': idx, 'total': total, 'message': f'Importing: {epub_file.relative_to(epub_path)}'}) + '\n'
+                    
+                    try:
+                        rel_path = epub_file.relative_to(epub_path)
+                        parts = rel_path.parts
+                        
+                        # Extract series from path
+                        if len(parts) >= 3:
+                            series_name = parts[-2]
+                        elif len(parts) == 2:
+                            series_name = parts[0]
+                        else:
+                            series_name = ''
+                        
+                        book_title = rel_path.stem
+                        
+                        # Extract series index from title
+                        series_index = 1.0
+                        match = re.search(r'(\d+)', book_title)
+                        if match:
+                            series_index = float(match.group(1))
+                        
+                        # Get next book ID
+                        cursor.execute("SELECT MAX(id) FROM books")
+                        max_id = cursor.fetchone()[0] or 0
+                        book_id = max_id + 1
+                        
+                        # Create book directory and copy file
+                        book_dir = books_folder / str(book_id)
+                        book_dir.mkdir(exist_ok=True)
+                        
+                        safe_title = re.sub(r'[<>:"/\\|?*]', '_', book_title)[:100]
+                        epub_dest = book_dir / f"{safe_title}.epub"
+                        shutil.copy2(epub_file, epub_dest)
+                        
+                        file_size = epub_dest.stat().st_size
+                        
+                        # Insert book
+                        cursor.execute('''
+                            INSERT INTO books (id, title, sort, series, series_index, last_modified)
+                            VALUES (?, ?, ?, ?, ?, datetime('now'))
+                        ''', (book_id, book_title, book_title, series_name if series_name else None, series_index))
+                        
+                        # Insert data record
+                        cursor.execute('''
+                            INSERT INTO data (book, format, name, uncompressed_size)
+                            VALUES (?, ?, ?, ?)
+                        ''', (book_id, 'EPUB', f"{safe_title}.epub", file_size))
+                        
+                        # Get or create author
+                        cursor.execute("SELECT id FROM authors WHERE name = ?", ('Unknown',))
+                        row = cursor.fetchone()
+                        if row:
+                            author_id = row[0]
+                        else:
+                            cursor.execute("INSERT INTO authors (name, sort) VALUES (?, ?)", ('Unknown', 'Unknown'))
+                            author_id = cursor.lastrowid
+                        
+                        cursor.execute('''
+                            INSERT INTO books_authors_link (book, author, ord)
+                            VALUES (?, ?, ?)
+                        ''', (book_id, author_id, 0))
+                        
+                        # Get or create series
+                        if series_name:
+                            cursor.execute("SELECT id FROM series WHERE name = ?", (series_name,))
+                            row = cursor.fetchone()
+                            if row:
+                                series_id = row[0]
+                            else:
+                                cursor.execute("INSERT INTO series (name, sort) VALUES (?, ?)", (series_name, series_name))
+                                series_id = cursor.lastrowid
+                            
+                            cursor.execute('''
+                                INSERT INTO books_series_link (book, series, series_index)
+                                VALUES (?, ?, ?)
+                            ''', (book_id, series_id, series_index))
+                        
+                        conn.commit()
+                        success_count += 1
+                        
+                        series_info = f" [Series: {series_name} #{series_index}]" if series_name else ""
+                        yield json.dumps({'type': 'log', 'message': f'✓ {book_title}{series_info}', 'level': 'success'}) + '\n'
+                        
+                    except Exception as e:
+                        error_count += 1
+                        conn.rollback()
+                        yield json.dumps({'type': 'log', 'message': f'✗ {epub_file.name}: {str(e)}', 'level': 'error'}) + '\n'
+
+                conn.close()
+
+                yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
+                if error_count > 0:
+                    yield json.dumps({'type': 'error', 'message': f'Sync completed with errors: {success_count} succeeded, {error_count} failed'}) + '\n'
                 else:
-                    yield json.dumps({'type': 'log', 'message': 'Using direct database import', 'level': 'info'}) + '\n'
-                    success, errors_count, error_list = sync.import_epubs_direct(
-                        lambda msg: None,
-                        lambda current, t, filename: None
-                    )
-                
-                if errors_count > 0:
-                    yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
-                    yield json.dumps({'type': 'error', 'message': f'Sync completed with errors: {success} succeeded, {errors_count} failed'}) + '\n'
-                else:
-                    yield json.dumps({'type': 'success', 'message': f'Sync completed! {success} books imported successfully'}) + '\n'
+                    yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} books imported successfully'}) + '\n'
 
             except Exception as e:
                 import traceback
