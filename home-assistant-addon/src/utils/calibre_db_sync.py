@@ -2,12 +2,15 @@ import sqlite3
 import os
 import shutil
 import uuid
+import re
+import subprocess
 from pathlib import Path
-from typing import List, Tuple, Generator
+from typing import List, Tuple, Generator, Optional, Callable
+from xml.etree import ElementTree
 import json
 
 class CalibreDBSync:
-    """Direct Calibre metadata.db sync - replaces HTTP API approach"""
+    """Sync EPUB files to Calibre library using calibredb or direct database access"""
     
     def __init__(self, calibre_path: str, epub_folder: str):
         """
@@ -21,15 +24,26 @@ class CalibreDBSync:
         self.metadata_db = self.calibre_path / 'metadata.db'
         self.books_folder = self.calibre_path / 'books'
         self.epub_folder = Path(epub_folder)
+        
+        # Try to find calibredb
+        self.calibredb_path = None
+        for path in ['/usr/bin/calibredb', '/usr/local/bin/calibredb', 
+                     '/opt/calibre/bin/calibredb', '/Applications/calibre.app/Contents/MacOS/calibredb']:
+            if os.path.exists(path):
+                self.calibredb_path = path
+                break
+        
+        if not self.calibredb_path:
+            import shutil as sh
+            self.calibredb_path = sh.which('calibredb')
     
-    def clear_library(self, yield_func) -> Generator[str, None, None]:
+    def clear_library(self, log_func: Callable[[str], None]) -> None:
         """Clear all books from metadata.db and books folder"""
         
         # Step 1: Clear books folder
-        yield from yield_func("Clearing books folder...")
+        log_func("Clearing books folder...")
         if self.books_folder.exists():
             try:
-                # Remove all book directories (they are named by book ID)
                 for item in self.books_folder.iterdir():
                     try:
                         if item.is_dir():
@@ -37,13 +51,13 @@ class CalibreDBSync:
                         else:
                             item.unlink()
                     except Exception as e:
-                        yield from yield_func(f"Warning: Could not remove {item.name}: {e}")
-                yield from yield_func(f"Cleared books folder")
+                        log_func(f"Warning: Could not remove {item.name}: {e}")
+                log_func("Cleared books folder")
             except Exception as e:
-                yield from yield_func(f"Error clearing books folder: {e}")
+                log_func(f"Error clearing books folder: {e}")
         
         # Step 2: Clear metadata.db
-        yield from yield_func("Clearing metadata.db...")
+        log_func("Clearing metadata.db...")
         if self.metadata_db.exists():
             try:
                 conn = sqlite3.connect(str(self.metadata_db))
@@ -53,38 +67,36 @@ class CalibreDBSync:
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
                 tables = [row[0] for row in cursor.fetchall()]
                 
-                yield from yield_func(f"Found tables: {tables}")
+                log_func(f"Found tables: {tables}")
                 
-                # Delete all data from all tables (in correct order for foreign keys)
-                # First delete from tables that reference others
+                # Delete all data from tables in correct order (respecting foreign keys)
                 tables_to_clear = [
-                    'comments',           # References books
-                    'books_series_link',  # References books and series
-                    'books_authors_link', # References books and authors
+                    'comments',
+                    'books_series_link',
+                    'books_authors_link',
                     'books_languages_link',
                     'books_tags_link',
                     'books_publishers_link',
                     'books_identifiers',
                     'custom_columns_books',
-                    'authors',            # Can clear after links
+                    'data',
+                    'authors',
                     'series',
                     'tags',
                     'languages',
                     'publishers',
                     'custom_columns',
-                    'data',               # References books
-                    'books'               # Main table last
+                    'books'
                 ]
                 
                 for table in tables_to_clear:
                     if table in tables:
                         try:
                             cursor.execute(f"DELETE FROM {table}")
-                            yield from yield_func(f"Cleared table: {table}")
+                            log_func(f"Cleared table: {table}")
                         except Exception as e:
-                            yield from yield_func(f"Warning: Could not clear {table}: {e}")
+                            log_func(f"Warning: Could not clear {table}: {e}")
                 
-                # Reset auto-increment counters
                 try:
                     cursor.execute("DELETE FROM sqlite_sequence")
                 except:
@@ -94,18 +106,17 @@ class CalibreDBSync:
                 conn.close()
                 
                 # Vacuum to shrink the database
-                yield from yield_func("Vacuuming database...")
+                log_func("Vacuuming database...")
                 conn = sqlite3.connect(str(self.metadata_db))
                 conn.execute("VACUUM")
                 conn.close()
                 
-                yield from yield_func("metadata.db cleared and vacuumed")
+                log_func("metadata.db cleared and vacuumed")
                 
             except Exception as e:
-                yield from yield_func(f"Error clearing metadata.db: {e}")
+                log_func(f"Error clearing metadata.db: {e}")
         else:
-            yield from yield_func("metadata.db not found, will create new one")
-            # Create empty database with schema
+            log_func("metadata.db not found, will create new one")
             self._create_empty_db()
     
     def _create_empty_db(self):
@@ -113,25 +124,23 @@ class CalibreDBSync:
         conn = sqlite3.connect(str(self.metadata_db))
         cursor = conn.cursor()
         
-        # Create core tables
+        # Create tables matching Calibre's schema
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS books (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 sort TEXT,
                 author_sort TEXT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                pubdate DATETIME,
                 series_index REAL DEFAULT 1.0,
                 last_modified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                rating REAL,
-                flags INTEGER DEFAULT 0,
-                uuid TEXT,
-                path TEXT,
-                has_cover INTEGER DEFAULT 0,
-                description TEXT,
                 series TEXT,
-                author DISPLAY_ENTITY
+                author_sort_alias TEXT GENERATED ALWAYS AS (
+                    CASE 
+                        WHEN INSTR(name, ',') > 0 THEN 
+                            TRIM(SUBSTR(name, INSTR(name, ',') + 1)) || ' ' || TRIM(SUBSTR(name, 1, INSTR(name, ',') - 1))
+                        ELSE name
+                    END
+                ) VIRTUAL
             )
         ''')
         
@@ -305,17 +314,25 @@ class CalibreDBSync:
     
     def _get_or_create_author(self, conn: sqlite3.Connection, name: str) -> int:
         """Get author ID or create if not exists"""
+        if not name or name.strip() == '':
+            name = 'Unknown'
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM authors WHERE name = ?", (name,))
         row = cursor.fetchone()
         if row:
             return row[0]
-        cursor.execute("INSERT INTO authors (name, sort) VALUES (?, ?)", (name, name))
+        # Create author sort: "Last, First" format
+        author_sort = name
+        if ',' not in name:
+            parts = name.split()
+            if len(parts) > 1:
+                author_sort = f"{parts[-1]}, {' '.join(parts[:-1])}"
+        cursor.execute("INSERT INTO authors (name, sort) VALUES (?, ?)", (name, author_sort))
         return cursor.lastrowid
     
-    def _get_or_create_series(self, conn: sqlite3.Connection, name: str) -> int:
+    def _get_or_create_series(self, conn: sqlite3.Connection, name: str) -> Optional[int]:
         """Get series ID or create if not exists"""
-        if not name:
+        if not name or name.strip() == '':
             return None
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM series WHERE name = ?", (name,))
@@ -329,27 +346,24 @@ class CalibreDBSync:
         """Extract series name from EPUB file path"""
         parts = rel_path.parts
         if len(parts) >= 3:
-            # category/series/book.epub -> series is 2nd to last
             return parts[-2]
         elif len(parts) == 2:
-            # series/book.epub -> series is first
             return parts[0]
         return ''
     
     def _extract_title_from_path(self, rel_path: Path) -> str:
         """Extract book title from file path"""
-        return rel_path.stem  # Remove extension
+        return rel_path.stem
     
     def _extract_series_index(self, title: str) -> float:
-        """Extract series index from book title (e.g., 'Book Name 01' -> 1)"""
-        import re
+        """Extract series index from book title"""
         # Try to find volume/chapter number
         patterns = [
             r'[第卷]?\s*(\d+)',  # Chinese: 第01卷 or 卷01 or 01
             r'[vV]ol\.?\s*(\d+)',  # Vol. 1
             r'[Ee][Pp]?\s*\.?\s*(\d+)',  # Ep. 1 or E1
-            r'\s+(\d+)$',  # Ends with number: Book Name 01
-            r'[_\s-]+(\d+)',  # Separated by underscore/space/dash before extension
+            r'\s+(\d+)$',  # Ends with number
+            r'[_\s-]+(\d+)',  # Separated
         ]
         
         for pattern in patterns:
@@ -357,61 +371,117 @@ class CalibreDBSync:
             if match:
                 return float(match.group(1))
         
-        return 1.0  # Default
+        return 1.0
     
     def _sanitize_filename(self, name: str) -> str:
         """Sanitize filename for cross-platform compatibility"""
-        import re
-        # Remove/replace invalid characters
         name = re.sub(r'[<>:"/\\|?*]', '_', name)
-        # Limit length
         if len(name) > 100:
             name = name[:100]
         return name
     
-    def import_epubs(self, yield_func, progress_callback=None) -> Tuple[int, int, List[str]]:
-        """
-        Import all EPUB files from source folder into Calibre database
+    def import_with_calibredb(self, log_func: Callable[[str], None], 
+                             progress_callback: Optional[Callable[[int, int, str], None]] = None) -> Tuple[int, int, List[str]]:
+        """Import using calibredb command-line tool"""
+        if not self.calibredb_path:
+            return 0, 0, ["calibredb not found in PATH"]
         
-        Returns:
-            Tuple of (success_count, error_count, error_messages)
-        """
-        # Get all EPUB files
         epub_files = list(self.epub_folder.rglob("*.epub"))
         total = len(epub_files)
         
         if total == 0:
             return 0, 0, ["No EPUB files found"]
         
-        yield from yield_func(f"Found {total} EPUB files to import")
+        log_func(f"Using calibredb: {self.calibredb_path}")
+        log_func(f"Found {total} EPUB files to import")
         
-        # Ensure books folder exists
+        success_count = 0
+        error_count = 0
+        errors = []
+        
+        for idx, epub_file in enumerate(epub_files, 1):
+            try:
+                if progress_callback:
+                    progress_callback(idx, total, str(epub_file.relative_to(self.epub_folder)))
+                
+                rel_path = epub_file.relative_to(self.epub_folder)
+                series_name = self._extract_series_from_path(rel_path)
+                
+                log_func(f"[{idx}/{total}] Importing: {rel_path}")
+                
+                # Build calibredb command
+                cmd = [
+                    self.calibredb_path,
+                    'add',
+                    str(epub_file),
+                    '--library-path', str(self.calibre_path)
+                ]
+                
+                if series_name:
+                    cmd.extend(['--series', series_name])
+                    series_index = self._extract_series_index(rel_path.stem)
+                    cmd.extend(['--series-index', str(series_index)])
+                
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=120
+                )
+                
+                if result.returncode == 0:
+                    success_count += 1
+                    log_func(f"  ✓ {rel_path}" + (f" [Series: {series_name}]" if series_name else ""))
+                else:
+                    error_count += 1
+                    error_msg = f"Error importing {rel_path}: {result.stderr}"
+                    errors.append(error_msg)
+                    log_func(f"  ✗ {error_msg}")
+                    
+            except subprocess.TimeoutExpired:
+                error_count += 1
+                error_msg = f"Timeout: {epub_file.name}"
+                errors.append(error_msg)
+                log_func(f"  ✗ {error_msg}")
+            except Exception as e:
+                error_count += 1
+                error_msg = f"Error: {epub_file.name}: {str(e)}"
+                errors.append(error_msg)
+                log_func(f"  ✗ {error_msg}")
+        
+        log_func("")
+        log_func(f"Import complete: {success_count} succeeded, {error_count} failed")
+        
+        return success_count, error_count, errors
+    
+    def import_epubs_direct(self, log_func: Callable[[str], None],
+                          progress_callback: Optional[Callable[[int, int, str], None]] = None) -> Tuple[int, int, List[str]]:
+        """Import EPUBs directly into database without calibredb"""
+        epub_files = list(self.epub_folder.rglob("*.epub"))
+        total = len(epub_files)
+        
+        if total == 0:
+            return 0, 0, ["No EPUB files found"]
+        
+        log_func(f"Using direct database import")
+        log_func(f"Found {total} EPUB files to import")
+        
         self._ensure_books_folder()
         
-        # Ensure database exists
         if not self.metadata_db.exists():
-            yield from yield_func("Creating new metadata.db...")
+            log_func("Creating new metadata.db...")
             self._create_empty_db()
         
-        # Connect to database
         conn = sqlite3.connect(str(self.metadata_db))
         cursor = conn.cursor()
-        
-        # Enable foreign keys
         cursor.execute("PRAGMA foreign_keys = ON")
         
         success_count = 0
         error_count = 0
         errors = []
-        imported_books = []
-        
-        # Track authors and series for logging
-        authors_cache = {}
-        series_cache = {}
         
         for idx, epub_file in enumerate(epub_files, 1):
             try:
-                # Calculate progress
                 if progress_callback:
                     progress_callback(idx, total, str(epub_file.relative_to(self.epub_folder)))
                 
@@ -420,126 +490,88 @@ class CalibreDBSync:
                 series_name = self._extract_series_from_path(rel_path)
                 series_index = self._extract_series_index(book_title)
                 
-                yield from yield_func(f"[{idx}/{total}] Importing: {book_title}")
+                log_func(f"[{idx}/{total}] Importing: {book_title}")
                 
-                # Get next book ID
                 book_id = self._get_next_book_id(conn)
                 
-                # Create book directory
                 book_dir = self.books_folder / str(book_id)
                 book_dir.mkdir(exist_ok=True)
                 
-                # Copy EPUB file
                 safe_title = self._sanitize_filename(book_title)
                 epub_dest = book_dir / f"{safe_title}.epub"
                 shutil.copy2(epub_file, epub_dest)
                 
-                # Get file size
                 file_size = epub_dest.stat().st_size
-                
-                # Generate UUID
                 book_uuid = str(uuid.uuid4())
                 
-                # Insert book record
+                # Insert book
                 cursor.execute('''
-                    INSERT INTO books (
-                        id, title, sort, author_sort, series, series_index,
-                        timestamp, pubdate, last_modified, uuid, path,
-                        has_cover, flags
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO books (id, title, sort, series, series_index, last_modified)
+                    VALUES (?, ?, ?, ?, ?, datetime('now'))
                 ''', (
                     book_id,
                     book_title,
-                    book_title,  # sort
-                    '',  # author_sort
+                    book_title,
                     series_name if series_name else None,
-                    series_index,
-                    'now',
-                    None,
-                    'now',
-                    book_uuid,
-                    str(book_id),  # path relative to books folder
-                    0,  # has_cover
-                    0   # flags
+                    series_index
                 ))
                 
-                # Insert data record (the actual file)
+                # Insert data record
                 cursor.execute('''
                     INSERT INTO data (book, format, name, uncompressed_size)
                     VALUES (?, ?, ?, ?)
                 ''', (book_id, 'EPUB', f"{safe_title}.epub", file_size))
                 
-                # Create default author if not already created
-                if 'Unknown' not in authors_cache:
-                    cursor.execute("SELECT id FROM authors WHERE name = ?", ('Unknown',))
-                    row = cursor.fetchone()
-                    if row:
-                        authors_cache['Unknown'] = row[0]
-                    else:
-                        cursor.execute("INSERT INTO authors (name, sort) VALUES (?, ?)", ('Unknown', 'Unknown'))
-                        authors_cache['Unknown'] = cursor.lastrowid
-                
-                # Link to default author
+                # Create default author
+                author_id = self._get_or_create_author(conn, 'Unknown')
                 cursor.execute('''
                     INSERT INTO books_authors_link (book, author, ord)
                     VALUES (?, ?, ?)
-                ''', (book_id, authors_cache['Unknown'], 0))
+                ''', (book_id, author_id, 0))
                 
                 # Link to series if exists
                 if series_name:
-                    if series_name not in series_cache:
-                        cursor.execute("SELECT id FROM series WHERE name = ?", (series_name,))
-                        row = cursor.fetchone()
-                        if row:
-                            series_cache[series_name] = row[0]
-                        else:
-                            cursor.execute("INSERT INTO series (name, sort) VALUES (?, ?)", (series_name, series_name))
-                            series_cache[series_name] = cursor.lastrowid
-                    
-                    cursor.execute('''
-                        INSERT INTO books_series_link (book, series, series_index)
-                        VALUES (?, ?, ?)
-                    ''', (book_id, series_cache[series_name], series_index))
+                    series_id = self._get_or_create_series(conn, series_name)
+                    if series_id:
+                        cursor.execute('''
+                            INSERT INTO books_series_link (book, series, series_index)
+                            VALUES (?, ?, ?)
+                        ''', (book_id, series_id, series_index))
                 
-                # Commit after each book
                 conn.commit()
                 
                 success_count += 1
-                imported_books.append({
-                    'id': book_id,
-                    'title': book_title,
-                    'series': series_name,
-                    'series_index': series_index
-                })
-                
-                yield from yield_func(f"  ✓ {book_title}" + (f" [Series: {series_name} #{series_index}]" if series_name else ""))
+                log_func(f"  ✓ {book_title}" + (f" [Series: {series_name} #{series_index}]" if series_name else ""))
                 
             except Exception as e:
                 error_count += 1
                 error_msg = f"Error importing {epub_file.name}: {str(e)}"
                 errors.append(error_msg)
-                yield from yield_func(f"  ✗ {error_msg}")
+                log_func(f"  ✗ {error_msg}")
+                conn.rollback()
         
         conn.close()
         
-        yield from yield_func("")
-        yield from yield_func(f"Import complete: {success_count} succeeded, {error_count} failed")
-        
-        if errors:
-            yield from yield_func(f"Errors: {len(errors)}")
+        log_func("")
+        log_func(f"Import complete: {success_count} succeeded, {error_count} failed")
         
         return success_count, error_count, errors
 
 
-def sync_calibre_library(calibre_path: str, epub_folder: str, yield_func, progress_callback=None) -> dict:
+def sync_calibre_library(calibre_path: str, epub_folder: str, 
+                       log_func: Callable[[str], None],
+                       progress_callback: Optional[Callable[[int, int, str], None]] = None) -> Generator[str, None, dict]:
     """
-    Main sync function
+    Main sync function - tries calibredb first, falls back to direct DB
     
     Args:
         calibre_path: Path to Calibre library folder
         epub_folder: Path to EPUB source folder
-        yield_func: Generator function to yield log messages
-        progress_callback: Optional callback for progress updates
+        log_func: Function to call for logging messages
+        progress_callback: Optional callback for progress updates (current, total, filename)
+    
+    Yields:
+        Log messages as JSON strings
     
     Returns:
         Dict with sync results
@@ -547,23 +579,27 @@ def sync_calibre_library(calibre_path: str, epub_folder: str, yield_func, progre
     sync = CalibreDBSync(calibre_path, epub_folder)
     
     # Clear existing library
-    yield from yield_func("=" * 50)
-    yield from yield_func("STEP 1: Clearing existing library")
-    yield from yield_func("=" * 50)
+    log_func("=" * 50)
+    log_func("STEP 1: Clearing existing library")
+    log_func("=" * 50)
     
-    for msg in sync.clear_library(yield_func):
-        pass  # Already yielded
+    sync.clear_library(log_func)
     
-    # Import EPUBs
-    yield from yield_func("")
-    yield from yield_func("=" * 50)
-    yield from yield_func("STEP 2: Importing EPUB files")
-    yield from yield_func("=" * 50)
+    # Try calibredb first, fall back to direct DB
+    log_func("")
+    log_func("=" * 50)
+    log_func("STEP 2: Importing EPUB files")
+    log_func("=" * 50)
     
-    success, errors_count, errors = sync.import_epubs(yield_func, progress_callback)
+    if sync.calibredb_path:
+        log_func(f"Found calibredb at: {sync.calibredb_path}")
+        success, errors_count, error_list = sync.import_with_calibredb(log_func, progress_callback)
+    else:
+        log_func("calibredb not found, using direct database import")
+        success, errors_count, error_list = sync.import_epubs_direct(log_func, progress_callback)
     
     return {
         'success': success,
         'errors': errors_count,
-        'error_messages': errors
+        'error_messages': error_list
     }

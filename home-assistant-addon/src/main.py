@@ -738,32 +738,48 @@ def sync_calibre():
             yield json.dumps({'type': 'log', 'message': f'Calibre library: {calibre_library_path}', 'level': 'info'}) + '\n'
             yield json.dumps({'type': 'progress', 'current': 0, 'total': total, 'message': 'Starting sync...'}) + '\n'
 
-            def log_func(msg):
-                yield json.dumps({'type': 'log', 'message': msg, 'level': 'info'}) + '\n'
-
-            def progress_callback(current, total, filename):
-                yield json.dumps({'type': 'progress', 'current': current, 'total': total, 'message': f'Importing: {filename}'}) + '\n'
-
             # Run the sync
             try:
-                result = sync_calibre_library(
-                    str(calibre_path),
-                    str(epub_path),
-                    log_func,
-                    progress_callback
-                )
-
-                if result['errors'] > 0:
-                    yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
-                    yield json.dumps({'type': 'error', 'message': f'Sync completed with errors: {result["success"]} succeeded, {result["errors"]} failed'}) + '\n'
+                sync = CalibreDBSync(str(calibre_path), str(epub_path))
+                
+                # Clear existing library
+                yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': 'STEP 1: Clearing existing library', 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
+                sync.clear_library(lambda msg: yield json.dumps({'type': 'log', 'message': msg, 'level': 'info'}) + '\n' if False else None)
+                
+                # Import EPUBs
+                yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': 'STEP 2: Importing EPUB files', 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
+                
+                if sync.calibredb_path:
+                    yield json.dumps({'type': 'log', 'message': f'Found calibredb at: {sync.calibredb_path}', 'level': 'info'}) + '\n'
+                    success, errors_count, error_list = sync.import_with_calibredb(
+                        lambda msg: None,  # We yield directly below
+                        lambda current, t, filename: None
+                    )
                 else:
-                    yield json.dumps({'type': 'success', 'message': f'Sync completed! {result["success"]} books imported successfully'}) + '\n'
+                    yield json.dumps({'type': 'log', 'message': 'Using direct database import', 'level': 'info'}) + '\n'
+                    success, errors_count, error_list = sync.import_epubs_direct(
+                        lambda msg: None,
+                        lambda current, t, filename: None
+                    )
+                
+                if errors_count > 0:
+                    yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
+                    yield json.dumps({'type': 'error', 'message': f'Sync completed with errors: {success} succeeded, {errors_count} failed'}) + '\n'
+                else:
+                    yield json.dumps({'type': 'success', 'message': f'Sync completed! {success} books imported successfully'}) + '\n'
 
             except Exception as e:
-                yield json.dumps({'type': 'error', 'message': f'Sync failed: {str(e)}'}) + '\n'
+                import traceback
+                yield json.dumps({'type': 'error', 'message': f'Sync failed: {str(e)}\n{traceback.format_exc()}'}) + '\n'
 
         except Exception as e:
-            yield json.dumps({'type': 'error', 'message': f'Sync error: {str(e)}'}) + '\n'
+            import traceback
+            yield json.dumps({'type': 'error', 'message': f'Sync error: {str(e)}\n{traceback.format_exc()}'}) + '\n'
 
     return app.response_class(generate(), mimetype='application/json')
 
