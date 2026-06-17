@@ -761,82 +761,48 @@ def sync_calibre():
                             yield json.dumps({'type': 'log', 'message': f'Warning: Could not remove {item.name}: {e}', 'level': 'warning'}) + '\n'
                     yield json.dumps({'type': 'log', 'message': 'Cleared books folder', 'level': 'info'}) + '\n'
 
-                # Clear metadata.db
+                # Clear metadata.db - detect existing schema first
                 yield json.dumps({'type': 'log', 'message': 'Clearing metadata.db...', 'level': 'info'}) + '\n'
-                if metadata_db.exists():
-                    conn = sqlite3.connect(str(metadata_db))
-                    cursor = conn.cursor()
-                    
-                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                    tables = [row[0] for row in cursor.fetchall()]
-                    
-                    tables_to_clear = [
-                        'comments', 'books_series_link', 'books_authors_link', 'books_languages_link',
-                        'books_tags_link', 'books_publishers_link', 'books_identifiers', 'custom_columns_books',
-                        'data', 'authors', 'series', 'tags', 'languages', 'publishers', 'custom_columns', 'books'
-                    ]
-                    
-                    for table in tables_to_clear:
-                        if table in tables:
-                            try:
-                                cursor.execute(f"DELETE FROM {table}")
-                            except:
-                                pass
-                    
-                    try:
-                        cursor.execute("DELETE FROM sqlite_sequence")
-                    except:
-                        pass
-                    
-                    conn.commit()
-                    conn.close()
-                    
-                    conn = sqlite3.connect(str(metadata_db))
-                    conn.execute("VACUUM")
-                    conn.close()
-                    
-                    yield json.dumps({'type': 'log', 'message': 'metadata.db cleared and vacuumed', 'level': 'info'}) + '\n'
-                else:
-                    yield json.dumps({'type': 'log', 'message': 'Creating new metadata.db...', 'level': 'info'}) + '\n'
-                    # Create minimal database
-                    conn = sqlite3.connect(str(metadata_db))
-                    cursor = conn.cursor()
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS books (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            title TEXT NOT NULL, sort TEXT, series TEXT, series_index REAL DEFAULT 1.0,
-                            last_modified DATETIME DEFAULT CURRENT_TIMESTAMP
-                        )
-                    ''')
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS authors (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, sort TEXT, link TEXT
-                        )
-                    ''')
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS series (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, sort TEXT
-                        )
-                    ''')
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS data (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT, book INTEGER, format TEXT, name TEXT,
-                            uncompressed_size INTEGER
-                        )
-                    ''')
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS books_authors_link (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT, book INTEGER, author INTEGER, ord INTEGER DEFAULT 0
-                        )
-                    ''')
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS books_series_link (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT, book INTEGER, series INTEGER, series_index REAL DEFAULT 1.0
-                        )
-                    ''')
-                    conn.commit()
-                    conn.close()
-                    yield json.dumps({'type': 'log', 'message': 'Created new metadata.db', 'level': 'info'}) + '\n'
+                conn = sqlite3.connect(str(metadata_db))
+                cursor = conn.cursor()
+                
+                # Get existing columns in books table
+                cursor.execute("PRAGMA table_info(books)")
+                existing_columns = [row[1] for row in cursor.fetchall()]
+                yield json.dumps({'type': 'log', 'message': f'Detected books columns: {existing_columns}', 'level': 'info'}) + '\n'
+                
+                # Check which tables exist
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = [row[0] for row in cursor.fetchall()]
+                yield json.dumps({'type': 'log', 'message': f'Existing tables: {tables}', 'level': 'info'}) + '\n'
+                
+                # Clear all data tables (only those that exist)
+                tables_to_clear = [
+                    'comments', 'books_series_link', 'books_authors_link', 'books_languages_link',
+                    'books_tags_link', 'books_publishers_link', 'books_identifiers', 'custom_columns_books',
+                    'data', 'authors', 'series', 'tags', 'languages', 'publishers', 'custom_columns', 'books'
+                ]
+                
+                for table in tables_to_clear:
+                    if table in tables:
+                        try:
+                            cursor.execute(f"DELETE FROM {table}")
+                        except:
+                            pass
+                
+                try:
+                    cursor.execute("DELETE FROM sqlite_sequence")
+                except:
+                    pass
+                
+                conn.commit()
+                conn.close()
+                
+                conn = sqlite3.connect(str(metadata_db))
+                conn.execute("VACUUM")
+                conn.close()
+                
+                yield json.dumps({'type': 'log', 'message': 'metadata.db cleared and vacuumed', 'level': 'info'}) + '\n'
 
                 # STEP 2: Import EPUBs
                 yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
@@ -848,6 +814,10 @@ def sync_calibre():
                 conn = sqlite3.connect(str(metadata_db))
                 cursor = conn.cursor()
                 cursor.execute("PRAGMA foreign_keys = ON")
+                
+                # Re-check columns after clearing (some might have been removed)
+                cursor.execute("PRAGMA table_info(books)")
+                books_columns = {row[1]: row[2] for row in cursor.fetchall()}
 
                 success_count = 0
                 error_count = 0
@@ -871,7 +841,7 @@ def sync_calibre():
                         
                         # Extract series index from title
                         series_index = 1.0
-                        match = re.search(r'(\d+)', book_title)
+                        match = re.search(r'(\d+(?:\.\d+)?)', book_title)
                         if match:
                             series_index = float(match.group(1))
                         
@@ -890,11 +860,25 @@ def sync_calibre():
                         
                         file_size = epub_dest.stat().st_size
                         
-                        # Insert book
-                        cursor.execute('''
-                            INSERT INTO books (id, title, sort, series, series_index, last_modified)
-                            VALUES (?, ?, ?, ?, ?, datetime('now'))
-                        ''', (book_id, book_title, book_title, series_name if series_name else None, series_index))
+                        # Insert book - only use columns that exist in this schema
+                        # Calibre standard columns: id, title, sort, author_sort, series_index, path, uuid, has_cover, last_modified
+                        # NOTE: series column was removed in Calibre 9, use books_series_link table instead
+                        book_columns = ['id', 'title', 'sort', 'author_sort', 'series_index', 'path', 'uuid', 'has_cover', 'last_modified']
+                        book_values = [book_id, book_title, book_title, 'Unknown', series_index, str(book_id), str(uuid.uuid4()), 0, '2000-01-01 00:00:00+00:00']
+                        
+                        # Filter to only existing columns
+                        insert_columns = []
+                        insert_values = []
+                        for col, val in zip(book_columns, book_values):
+                            if col in books_columns:
+                                insert_columns.append(col)
+                                insert_values.append(val)
+                        
+                        placeholders = ', '.join(['?' for _ in insert_columns])
+                        cursor.execute(f'''
+                            INSERT INTO books ({', '.join(insert_columns)})
+                            VALUES ({placeholders})
+                        ''', insert_values)
                         
                         # Insert data record
                         cursor.execute('''
@@ -916,7 +900,7 @@ def sync_calibre():
                             VALUES (?, ?, ?)
                         ''', (book_id, author_id, 0))
                         
-                        # Get or create series
+                        # Get or create series - ALWAYS use books_series_link (Calibre standard way)
                         if series_name:
                             cursor.execute("SELECT id FROM series WHERE name = ?", (series_name,))
                             row = cursor.fetchone()
