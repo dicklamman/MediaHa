@@ -12,7 +12,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     dos2unix /app/run.sh && \
     chmod a+x /app/run.sh && \
-    pip3 install --no-cache-dir Flask ebooklib beautifulsoup4 opencc mutagen musicbrainzngs requests dropbox waitress pykakasi
+    pip3 install --no-cache-dir Flask ebooklib beautifulsoup4 opencc mutagen musicbrainzngs requests dropbox waitress pykakasi PyMuPDF
 
 # Note: Calibre tools (calibredb) can be installed separately if needed.
 # The sync will work with direct database access even without calibredb.

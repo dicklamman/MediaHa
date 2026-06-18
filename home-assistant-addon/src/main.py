@@ -880,50 +880,31 @@ def sync_calibre():
             books_folder = calibre_path / 'books'
 
             try:
-                # STEP 1: Clear library
-                yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
-                yield json.dumps({'type': 'log', 'message': 'STEP 1: Clearing library', 'level': 'info'}) + '\n'
-                yield json.dumps({'type': 'log', 'message': '=' * 50, 'level': 'info'}) + '\n'
+                conn = sqlite3.connect(str(metadata_db))
+                cursor = conn.cursor()
 
-                if use_calibre:
-                    dbc = db(calibre_library_path)
-                    cache = dbc.new_api
-                    for book_id in cache.all_book_ids():
-                        try:
-                            cache.remove_books([book_id], do_import=True)
-                        except:
-                            pass
-                else:
-                    # Clear books folder
-                    if books_folder.exists():
-                        for item in books_folder.iterdir():
-                            try:
-                                if item.is_dir():
-                                    shutil.rmtree(item)
-                                else:
-                                    item.unlink()
-                            except:
-                                pass
+                # Find EPUB books to delete (keep non-EPUB books like comics)
+                cursor.execute("SELECT DISTINCT book FROM data WHERE format = 'EPUB'")
+                epub_book_ids = [b[0] for b in cursor.fetchall()]
 
-                    # Clear database tables
-                    conn = sqlite3.connect(str(metadata_db))
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT name FROM sqlite_master WHERE type='trigger'")
-                    for (trigger,) in cursor.fetchall():
-                        try:
-                            cursor.execute(f"DROP TRIGGER IF EXISTS {trigger}")
-                        except:
-                            pass
-                    tables = ['comments', 'books_series_link', 'books_authors_link', 'books_languages_link',
-                              'books_tags_link', 'books_publishers_link', 'books_identifiers', 'custom_columns_books',
-                              'data', 'authors', 'series', 'tags', 'languages', 'publishers', 'custom_columns', 'books']
-                    for table in tables:
-                        try:
-                            cursor.execute(f"DELETE FROM {table}")
-                        except:
-                            pass
+                if epub_book_ids:
+                    yield json.dumps({'type': 'log', 'message': f'Cleaning up {len(epub_book_ids)} old EPUB entries...', 'level': 'info'}) + '\n'
+                    # Delete links
+                    cursor.execute("DELETE FROM books_authors_link WHERE book IN (%s)" % ','.join('?' * len(epub_book_ids)), epub_book_ids)
+                    cursor.execute("DELETE FROM books_series_link WHERE book IN (%s)" % ','.join('?' * len(epub_book_ids)), epub_book_ids)
+                    cursor.execute("DELETE FROM data WHERE book IN (%s)" % ','.join('?' * len(epub_book_ids)), epub_book_ids)
+                    cursor.execute("DELETE FROM books WHERE id IN (%s)" % ','.join('?' * len(epub_book_ids)), epub_book_ids)
+                    # Delete book folders
+                    for bid in epub_book_ids:
+                        old_dir = books_folder / str(bid)
+                        if old_dir.exists():
+                            shutil.rmtree(old_dir)
+
+                # Recreate schema if needed
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='trigger'")
+                for (trigger,) in cursor.fetchall():
                     try:
-                        cursor.execute("DELETE FROM sqlite_sequence")
+                        cursor.execute(f"DROP TRIGGER IF EXISTS {trigger}")
                     except:
                         pass
 
@@ -1246,6 +1227,28 @@ def sync_comics():
             success_count = 0
             error_count = 0
 
+            # Delete existing books with Comics tag before resync
+            cursor.execute("SELECT id FROM tags WHERE name = 'Comics'")
+            row = cursor.fetchone()
+            if row:
+                comics_tag_id = row[0]
+                cursor.execute("SELECT book FROM books_tags_link WHERE tag = ?", (comics_tag_id,))
+                old_book_ids = [b[0] for b in cursor.fetchall()]
+                if old_book_ids:
+                    yield json.dumps({'type': 'log', 'message': f'Cleaning up {len(old_book_ids)} old entries...', 'level': 'info'}) + '\n'
+                    # Delete links
+                    cursor.execute("DELETE FROM books_tags_link WHERE tag = ?", (comics_tag_id,))
+                    cursor.execute("DELETE FROM books_authors_link WHERE book IN (%s)" % ','.join('?' * len(old_book_ids)), old_book_ids)
+                    cursor.execute("DELETE FROM books_series_link WHERE book IN (%s)" % ','.join('?' * len(old_book_ids)), old_book_ids)
+                    cursor.execute("DELETE FROM data WHERE book IN (%s)" % ','.join('?' * len(old_book_ids)), old_book_ids)
+                    cursor.execute("DELETE FROM books WHERE id IN (%s)" % ','.join('?' * len(old_book_ids)), old_book_ids)
+                    # Delete book folders
+                    for bid in old_book_ids:
+                        old_dir = books_folder / str(bid)
+                        if old_dir.exists():
+                            import shutil
+                            shutil.rmtree(old_dir)
+
             # Get max book ID
             cursor.execute("SELECT MAX(id) FROM books")
             max_book_id = cursor.fetchone()[0] or 0
@@ -1323,6 +1326,42 @@ def sync_comics():
                         dest_file = book_dir / original_name
                         shutil.copy2(chapter_file, dest_file)
 
+                        # Extract cover image from first page
+                        cover_extracted = False
+                        if file_format == 'CBZ':
+                            try:
+                                import zipfile
+                                with zipfile.ZipFile(chapter_file, 'r') as zf:
+                                    images = [f for f in zf.namelist() if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))]
+                                    if images:
+                                        first_img = sorted(images)[0]
+                                        img_data = zf.read(first_img)
+                                        cover_path = book_dir / 'cover.jpg'
+                                        with open(cover_path, 'wb') as cf:
+                                            cf.write(img_data)
+                                        cover_extracted = True
+                            except:
+                                pass
+                        elif file_format == 'PDF':
+                            try:
+                                import fitz  # PyMuPDF
+                                doc = fitz.open(chapter_file)
+                                if len(doc) > 0:
+                                    page = doc[0]
+                                    mat = fitz.Matrix(2, 2)  # 2x zoom for better quality
+                                    clip = page.rect
+                                    pix = page.get_pixmap(matrix=mat)
+                                    cover_path = book_dir / 'cover.jpg'
+                                    pix.save(str(cover_path))
+                                    cover_extracted = True
+                                doc.close()
+                            except:
+                                pass
+
+                        # Update has_cover flag
+                        if cover_extracted:
+                            cursor.execute('UPDATE books SET has_cover = 1 WHERE id = ?', (book_id,))
+
                         # Add format - use filename without extension for COPS
                         chapter_file = Path(file_path)
                         file_size = chapter_file.stat().st_size
@@ -1342,6 +1381,12 @@ def sync_comics():
 
             conn.commit()
             conn.close()
+
+            # Clean up empty folders in library
+            import shutil
+            for item in books_folder.iterdir():
+                if item.is_dir() and not any(item.iterdir()):
+                    shutil.rmtree(item)
 
             yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
             if error_count > 0:
