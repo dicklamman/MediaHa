@@ -3,10 +3,13 @@ const CalibreManager = {
     init() {
         this.libraryPathInput = document.getElementById('calibre-library-path');
         this.folderInput = document.getElementById('calibre-folder');
+        this.comicFolderInput = document.getElementById('comic-folder');
         this.clearCheckbox = document.getElementById('calibre-clear');
         this.saveBtn = document.getElementById('save-calibre-settings');
         this.syncBtn = document.getElementById('sync-calibre-btn');
+        this.syncComicBtn = document.getElementById('sync-comic-btn');
         this.logOutput = document.getElementById('calibre-log-output');
+        this.comicLogOutput = document.getElementById('comic-log-output');
 
         if (!this.libraryPathInput) return;
 
@@ -17,6 +20,9 @@ const CalibreManager = {
     bindEvents() {
         this.saveBtn.addEventListener('click', () => this.saveSettings());
         this.syncBtn.addEventListener('click', () => this.syncEpub());
+        if (this.syncComicBtn) {
+            this.syncComicBtn.addEventListener('click', () => this.syncComics());
+        }
     },
 
     async loadSettings() {
@@ -26,6 +32,7 @@ const CalibreManager = {
 
             if (data.calibre_library_path) this.libraryPathInput.value = data.calibre_library_path;
             if (data.epub_folder) this.folderInput.value = data.epub_folder;
+            if (data.comic_folder && this.comicFolderInput) this.comicFolderInput.value = data.comic_folder;
             if (data.clear_before_sync !== undefined) this.clearCheckbox.checked = data.clear_before_sync;
         } catch (error) {
             console.error('Failed to load Calibre settings:', error);
@@ -36,6 +43,7 @@ const CalibreManager = {
         const settings = {
             calibre_library_path: this.libraryPathInput.value.trim(),
             epub_folder: this.folderInput.value.trim(),
+            comic_folder: this.comicFolderInput ? this.comicFolderInput.value.trim() : '',
             clear_before_sync: this.clearCheckbox.checked
         };
 
@@ -144,6 +152,80 @@ const CalibreManager = {
 
         this.logOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
         this.logOutput.scrollTop = this.logOutput.scrollHeight;
+    },
+
+    async syncComics() {
+        if (!this.syncComicBtn || this.syncComicBtn.disabled) return;
+
+        if (!this.libraryPathInput.value.trim()) {
+            this.showLog('Please configure Calibre Library Path first!', 'error');
+            return;
+        }
+        if (!this.comicFolderInput || !this.comicFolderInput.value.trim()) {
+            this.showLog('Please configure Comic Source Folder Path first!', 'error');
+            return;
+        }
+
+        this.syncComicBtn.disabled = true;
+        this.syncComicBtn.innerHTML = '<span class="spinner"></span> Syncing...';
+        if (this.comicLogOutput) this.comicLogOutput.textContent = '';
+
+        this.showLog('Starting Comic sync to Calibre Library...', 'info');
+
+        try {
+            await this.saveSettings();
+
+            const response = await fetch('/api/comic/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.status === 401) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Sync failed');
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n').filter(line => line.trim());
+
+                for (const line of lines) {
+                    try {
+                        const data = JSON.parse(line);
+                        if (this.comicLogOutput) {
+                            this.showComicLog(data.message, data.level || 'info');
+                        }
+                    } catch (e) {}
+                }
+            }
+
+            this.showLog('=== Comic sync completed ===', 'success');
+        } catch (error) {
+            this.showLog('Comic sync failed: ' + error.message, 'error');
+        } finally {
+            this.syncComicBtn.disabled = false;
+            this.syncComicBtn.innerHTML = '<span class="material-icons" style="font-size: 20px; vertical-align: middle;">sync</span> Sync Comics to Calibre Library';
+        }
+    },
+
+    showComicLog(message, level = 'info') {
+        if (!this.comicLogOutput) return;
+        const timestamp = new Date().toLocaleTimeString();
+        const prefix = level === 'error' ? '❌' : level === 'success' ? '✅' : 'ℹ️';
+
+        this.comicLogOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+        this.comicLogOutput.scrollTop = this.comicLogOutput.scrollHeight;
     }
 };
 
