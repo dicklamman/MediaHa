@@ -1251,14 +1251,14 @@ def sync_comics():
             max_book_id = cursor.fetchone()[0] or 0
 
             # Group chapters by comic name (parent folder)
-            comics = {}  # comic_name -> list of (chapter_name, file_path, format, original_name)
+            comics = {}  # comic_name -> list of (original_name, file_path, file_format)
             for chapter_file in chapters:
                 comic_name = chapter_file.parent.name
                 original_name = chapter_file.name  # Keep original filename with extension
                 file_format = chapter_file.suffix[1:].upper()  # e.g., PDF, CBZ
                 if comic_name not in comics:
                     comics[comic_name] = []
-                comics[comic_name].append((original_name, str(chapter_file), file_format, original_name))
+                comics[comic_name].append((original_name, str(chapter_file), file_format))
 
             yield json.dumps({'type': 'log', 'message': f'Found {len(comics)} comic series', 'level': 'info'}) + '\n'
 
@@ -1282,7 +1282,7 @@ def sync_comics():
                     chapter_list.sort(key=lambda x: natural_sort_key(x[0]))
 
                     # Create each chapter as separate book in series
-                    for idx, (original_name, file_path, file_format, chapter_name) in enumerate(chapter_list):
+                    for idx, (original_name, file_path, file_format) in enumerate(chapter_list):
                         max_book_id += 1
                         book_id = max_book_id
 
@@ -1323,14 +1323,15 @@ def sync_comics():
                         dest_file = book_dir / original_name
                         shutil.copy2(chapter_file, dest_file)
 
-                        # Add format
+                        # Add format - use filename without extension for COPS
                         chapter_file = Path(file_path)
                         file_size = chapter_file.stat().st_size
+                        db_name = chapter_file.stem  # filename without extension
 
                         cursor.execute('''
                             INSERT INTO data (book, format, name, uncompressed_size)
                             VALUES (?, ?, ?, ?)
-                        ''', (book_id, file_format, original_name, file_size))
+                        ''', (book_id, file_format, db_name, file_size))
 
                     success_count += 1
                     yield json.dumps({'type': 'log', 'message': f'✓ {comic_name} ({len(chapter_list)} chapters)', 'level': 'success'}) + '\n'
