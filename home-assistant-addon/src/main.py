@@ -1173,6 +1173,7 @@ def sync_comics():
             from pathlib import Path
             import uuid
             import re
+            import sqlite3
 
             if os.path.exists(CALIBRE_CONFIG_PATH):
                 with open(CALIBRE_CONFIG_PATH, 'r') as f:
