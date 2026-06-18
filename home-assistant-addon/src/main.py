@@ -1295,7 +1295,7 @@ def sync_comics():
                         cursor.execute('''
                             INSERT INTO books (id, title, sort, author_sort, series_index, path, uuid, has_cover, last_modified)
                             VALUES (?, ?, ?, ?, ?, ?, ?, 0, '2000-01-01 00:00:00+00:00')
-                        ''', (book_id, f"{comic_name} - {chapter_name}", f"{comic_name} - {chapter_name}", 'Unknown', chapter_idx, f"books/{book_id}", uuid_str))
+                        ''', (book_id, f"{comic_name} - {Path(original_name).stem}", f"{comic_name} - {Path(original_name).stem}", 'Unknown', chapter_idx, f"books/{book_id}", uuid_str))
 
                         # Link to series
                         cursor.execute("INSERT OR IGNORE INTO books_series_link (book, series) VALUES (?, ?)", (book_id, series_id))
