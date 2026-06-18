@@ -1226,6 +1226,7 @@ def sync_comics():
             schema = """
                 CREATE TABLE IF NOT EXISTS languages (id INTEGER PRIMARY KEY, lang_code TEXT UNIQUE NOT NULL);
                 CREATE TABLE IF NOT EXISTS publishers (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, sort TEXT);
+                CREATE TABLE IF NOT EXISTS series (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, sort TEXT);
                 CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL);
                 CREATE TABLE IF NOT EXISTS identifiers (id INTEGER PRIMARY KEY, type TEXT, val TEXT);
                 CREATE TABLE IF NOT EXISTS books_identifiers (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, type TEXT, val TEXT);
@@ -1262,40 +1263,15 @@ def sync_comics():
 
             for comic_name, chapter_list in sorted(comics.items()):
                 try:
-                    max_book_id += 1
-                    book_id = max_book_id
-
-                    book_dir = books_folder / str(book_id)
-                    book_dir.mkdir(exist_ok=True)
-
-                    # Create metadata.opf for Calibre-Web
-                    from datetime import datetime
-                    uuid_str = str(uuid.uuid4())
                     safe_comic = re.sub(r'[<>:"/\\|?*]', '_', comic_name)
 
-                    # Store all chapters as linked files
-                    cursor.execute('''
-                        INSERT INTO books (id, title, sort, author_sort, series_index, path, uuid, has_cover, last_modified)
-                        VALUES (?, ?, ?, ?, 0, ?, ?, 0, '2000-01-01 00:00:00+00:00')
-                    ''', (book_id, comic_name, comic_name, 'Unknown', f"books/{book_id}", uuid_str))
-
-                    # Link tag for comics
-                    cursor.execute("SELECT id FROM tags WHERE name = 'Comics'")
+                    # Add or get series for this comic
+                    cursor.execute("SELECT id FROM series WHERE name = ?", (comic_name,))
                     row = cursor.fetchone()
-                    tag_id = row[0] if row else None
-                    if not tag_id:
-                        cursor.execute("INSERT INTO tags (name) VALUES ('Comics')")
-                        tag_id = cursor.lastrowid
-                    cursor.execute("INSERT OR IGNORE INTO books_tags_link (book, tag) VALUES (?, ?)", (book_id, tag_id))
-
-                    # Add author "Unknown" if not exists
-                    cursor.execute("SELECT id FROM authors WHERE name = 'Unknown'")
-                    row = cursor.fetchone()
-                    author_id = row[0] if row else None
-                    if not author_id:
-                        cursor.execute("INSERT INTO authors (name, sort) VALUES ('Unknown', 'Unknown')")
-                        author_id = cursor.lastrowid
-                    cursor.execute("INSERT OR IGNORE INTO books_authors_link (book, author) VALUES (?, ?)", (book_id, author_id))
+                    series_id = row[0] if row else None
+                    if not series_id:
+                        cursor.execute("INSERT INTO series (name, sort) VALUES (?, ?)", (comic_name, comic_name))
+                        series_id = cursor.lastrowid
 
                     # Sort chapters naturally
                     import re as regex_module
@@ -1304,8 +1280,41 @@ def sync_comics():
 
                     chapter_list.sort(key=lambda x: natural_sort_key(x[0]))
 
-                    # Add each chapter as a format entry
+                    # Create each chapter as separate book in series
                     for idx, (chapter_name, file_path, file_format) in enumerate(chapter_list):
+                        max_book_id += 1
+                        book_id = max_book_id
+
+                        book_dir = books_folder / str(book_id)
+                        book_dir.mkdir(exist_ok=True)
+
+                        uuid_str = str(uuid.uuid4())
+                        chapter_idx = idx + 1
+
+                        cursor.execute('''
+                            INSERT INTO books (id, title, sort, author_sort, series_index, series, path, uuid, has_cover, last_modified)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, '2000-01-01 00:00:00+00:00')
+                        ''', (book_id, f"{comic_name} - {chapter_name}", f"{comic_name} - {chapter_name}", 'Unknown', chapter_idx, series_id, f"books/{book_id}", uuid_str))
+
+                        # Link tag for comics
+                        cursor.execute("SELECT id FROM tags WHERE name = 'Comics'")
+                        row = cursor.fetchone()
+                        tag_id = row[0] if row else None
+                        if not tag_id:
+                            cursor.execute("INSERT INTO tags (name) VALUES ('Comics')")
+                            tag_id = cursor.lastrowid
+                        cursor.execute("INSERT OR IGNORE INTO books_tags_link (book, tag) VALUES (?, ?)", (book_id, tag_id))
+
+                        # Add author
+                        cursor.execute("SELECT id FROM authors WHERE name = 'Unknown'")
+                        row = cursor.fetchone()
+                        author_id = row[0] if row else None
+                        if not author_id:
+                            cursor.execute("INSERT INTO authors (name, sort) VALUES ('Unknown', 'Unknown')")
+                            author_id = cursor.lastrowid
+                        cursor.execute("INSERT OR IGNORE INTO books_authors_link (book, author) VALUES (?, ?)", (book_id, author_id))
+
+                        # Add format
                         chapter_file = Path(file_path)
                         file_size = chapter_file.stat().st_size
 
