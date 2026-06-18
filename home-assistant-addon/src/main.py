@@ -1318,6 +1318,11 @@ def sync_comics():
                             author_id = cursor.lastrowid
                         cursor.execute("INSERT OR IGNORE INTO books_authors_link (book, author) VALUES (?, ?)", (book_id, author_id))
 
+                        # Copy comic file to library
+                        import shutil
+                        dest_file = book_dir / chapter_file.name
+                        shutil.copy2(chapter_file, dest_file)
+
                         # Add format
                         chapter_file = Path(file_path)
                         file_size = chapter_file.stat().st_size
@@ -1325,7 +1330,7 @@ def sync_comics():
                         cursor.execute('''
                             INSERT INTO data (book, format, name, uncompressed_size)
                             VALUES (?, ?, ?, ?)
-                        ''', (book_id, file_format, chapter_name, file_size))
+                        ''', (book_id, file_format, chapter_file.name, file_size))
 
                     success_count += 1
                     yield json.dumps({'type': 'log', 'message': f'✓ {comic_name} ({len(chapter_list)} chapters)', 'level': 'success'}) + '\n'
