@@ -1170,6 +1170,10 @@ def sync_comics():
     """Sync comic files (PDF, CBZ) to Calibre library"""
     def generate():
         try:
+            from pathlib import Path
+            import uuid
+            import re
+
             if os.path.exists(CALIBRE_CONFIG_PATH):
                 with open(CALIBRE_CONFIG_PATH, 'r') as f:
                     config = json.load(f)
