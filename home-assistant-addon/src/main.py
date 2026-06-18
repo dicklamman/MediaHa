@@ -1233,6 +1233,7 @@ def sync_comics():
                 CREATE TABLE IF NOT EXISTS books_languages_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, lang_code INTEGER NOT NULL);
                 CREATE TABLE IF NOT EXISTS books_publishers_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, publisher INTEGER NOT NULL);
                 CREATE TABLE IF NOT EXISTS books_tags_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, tag INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS books_series_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, series INTEGER NOT NULL);
             """
             for stmt in schema.strip().split(';'):
                 stmt = stmt.strip()
@@ -1292,9 +1293,12 @@ def sync_comics():
                         chapter_idx = idx + 1
 
                         cursor.execute('''
-                            INSERT INTO books (id, title, sort, author_sort, series_index, series, path, uuid, has_cover, last_modified)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, '2000-01-01 00:00:00+00:00')
-                        ''', (book_id, f"{comic_name} - {chapter_name}", f"{comic_name} - {chapter_name}", 'Unknown', chapter_idx, series_id, f"books/{book_id}", uuid_str))
+                            INSERT INTO books (id, title, sort, author_sort, series_index, path, uuid, has_cover, last_modified)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, 0, '2000-01-01 00:00:00+00:00')
+                        ''', (book_id, f"{comic_name} - {chapter_name}", f"{comic_name} - {chapter_name}", 'Unknown', chapter_idx, f"books/{book_id}", uuid_str))
+
+                        # Link to series
+                        cursor.execute("INSERT OR IGNORE INTO books_series_link (book, series) VALUES (?, ?)", (book_id, series_id))
 
                         # Link tag for comics
                         cursor.execute("SELECT id FROM tags WHERE name = 'Comics'")
