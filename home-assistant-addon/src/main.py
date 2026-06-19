@@ -406,24 +406,56 @@ def fetch_book(book_id, format):
             except:
                 return False
         
-        # Check if local file exists
-        if not path_exists_quick(file_path):
-            file_path = calibre_path / filename
+        # Try multiple strategies to find the file
+        found_file = None
         
-        if not path_exists_quick(file_path):
-            if path_exists_quick(book_folder):
-                try:
-                    for f in book_folder.iterdir():
-                        if f.suffix.lower() == f'.{format_lower}':
-                            file_path = f
-                            break
-                except:
-                    pass
+        # Strategy 1: Exact path with extension
+        if path_exists_quick(file_path):
+            found_file = file_path
         
-        if not path_exists_quick(file_path):
-            return jsonify({'error': 'Book file not found', 'book_id': book_id, 'format': format, 'filename': filename, 'searched_paths': [str(book_folder / filename), str(calibre_path / filename)]}), 404
+        # Strategy 2: Check root Calibre folder (some setups store files there)
+        if not found_file:
+            root_file = calibre_path / filename
+            if path_exists_quick(root_file):
+                found_file = root_file
+        
+        # Strategy 3: Search book folder for any matching format file
+        if not found_file and path_exists_quick(book_folder):
+            for f in book_folder.iterdir():
+                # Check if file has the right extension
+                if f.suffix.lower() == f'.{format_lower}':
+                    found_file = f
+                    break
+                # Also check for files without extension that match the title
+                title_slug = ''.join(c for c in filename if c.isalnum() or c in ' -_').lower()
+                file_slug = ''.join(c for c in f.stem if c.isalnum() or c in ' -_').lower()
+                if format_lower in f.suffix.lower() or title_slug in file_slug or file_slug in title_slug:
+                    if f.suffix.lower() in ['.epub', '.mobi', '.pdf', '.azw', '.azw3']:
+                        found_file = f
+                        break
+        
+        # Strategy 4: Any file with matching extension in book folder
+        if not found_file and path_exists_quick(book_folder):
+            for f in book_folder.iterdir():
+                if f.suffix.lower() == f'.{format_lower}':
+                    found_file = f
+                    break
+        
+        if not found_file:
+            return jsonify({
+                'error': 'Book file not found',
+                'book_id': book_id,
+                'format': format,
+                'searched_filename': filename,
+                'book_folder': str(book_folder),
+                'folder_contents': [f.name for f in book_folder.iterdir()] if path_exists_quick(book_folder) else []
+            }), 404
 
-        response = send_from_directory(str(book_folder), filename)
+        file_path = found_file
+        file_folder = file_path.parent
+        filename = file_path.name
+
+        response = send_from_directory(str(file_folder), filename)
         if format_lower == 'epub':
             response.headers['Content-Type'] = 'application/epub+zip'
         elif format_lower == 'mobi':
