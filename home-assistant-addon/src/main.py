@@ -142,6 +142,10 @@ def load_auth_config():
 
 AUTH_USERNAME, AUTH_PASSWORD = load_auth_config()
 
+def check_auth(username, password):
+    """Check if username and password are valid"""
+    return username == AUTH_USERNAME and password == AUTH_PASSWORD
+
 app = Flask(__name__)
 app.secret_key = "mediaha-" + (AUTH_PASSWORD or "default-secret")
 
@@ -1406,6 +1410,10 @@ def sync_comics():
 @app.route('/opds')
 def opds_catalog():
     """OPDS catalog showing all books and comics"""
+    # Check authentication
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return Response('Authentication required', mimetype='text/plain', headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
     try:
         if os.path.exists(CALIBRE_CONFIG_PATH):
             with open(CALIBRE_CONFIG_PATH, 'r') as f:
