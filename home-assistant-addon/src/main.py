@@ -1412,26 +1412,14 @@ def opds_catalog():
     """OPDS catalog showing all books and comics"""
     # Check authentication via session or basic auth header
     authenticated = session.get("authenticated", False)
-    auth_header = None
     if not authenticated:
         auth = request.authorization
-        if auth:
-            if check_auth(auth.username, auth.password):
-                session["authenticated"] = True
-                authenticated = True
-        else:
-            auth_header = request.headers.get('Authorization', '')
+        if auth and check_auth(auth.username, auth.password):
+            session["authenticated"] = True
+            authenticated = True
 
     if not authenticated:
-        # Check if it's a browser (no OPDS client user agent)
-        user_agent = request.headers.get('User-Agent', '')
-        is_opds_client = any(ua in user_agent.lower() for ua in ['kobo', 'moon+', 'readera', 'bookmate', 'legado', 'tachiyomi', 'nikkei', 'marvin', 'acestream', 'yomu', 'pocketbook', 'fbreader', 'coolreader'])
-
-        if not is_opds_client and not auth_header.startswith('Basic '):
-            # Browser without auth: redirect to login
-            return redirect('/login.html?next=' + request.path)
-
-        # OPDS client or Basic Auth provided: return 401 to trigger browser/app dialog
+        # Return 401 to trigger Basic Auth dialog in OPDS apps
         return Response('Authentication required', status=401, mimetype='text/plain',
                        headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
     try:
