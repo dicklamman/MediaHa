@@ -409,32 +409,28 @@ def fetch_book(book_id, format):
         # Try multiple strategies to find the file
         found_file = None
         
-        # Strategy 1: Exact path with extension
+        # Strategy 1: Exact path in book folder
         if path_exists_quick(file_path):
             found_file = file_path
         
-        # Strategy 2: Check root Calibre folder (some setups store files there)
+        # Strategy 2: Exact path in root Calibre folder
         if not found_file:
             root_file = calibre_path / filename
             if path_exists_quick(root_file):
                 found_file = root_file
         
-        # Strategy 3: Search book folder for any matching format file
-        if not found_file and path_exists_quick(book_folder):
-            for f in book_folder.iterdir():
-                # Check if file has the right extension
-                if f.suffix.lower() == f'.{format_lower}':
-                    found_file = f
-                    break
-                # Also check for files without extension that match the title
-                title_slug = ''.join(c for c in filename if c.isalnum() or c in ' -_').lower()
-                file_slug = ''.join(c for c in f.stem if c.isalnum() or c in ' -_').lower()
-                if format_lower in f.suffix.lower() or title_slug in file_slug or file_slug in title_slug:
-                    if f.suffix.lower() in ['.epub', '.mobi', '.pdf', '.azw', '.azw3']:
-                        found_file = f
-                        break
+        # Strategy 3: Search entire Calibre library folder for file by name
+        if not found_file:
+            title_without_ext = os.path.splitext(filename)[0]
+            for f in calibre_path.iterdir():
+                if f.is_file():
+                    # Match by exact name or partial match
+                    if f.name == filename or f.stem == title_without_ext or title_without_ext in f.stem:
+                        if f.suffix.lower() == f'.{format_lower}':
+                            found_file = f
+                            break
         
-        # Strategy 4: Any file with matching extension in book folder
+        # Strategy 4: Search book folder for any matching format file
         if not found_file and path_exists_quick(book_folder):
             for f in book_folder.iterdir():
                 if f.suffix.lower() == f'.{format_lower}':
@@ -442,13 +438,20 @@ def fetch_book(book_id, format):
                     break
         
         if not found_file:
+            # List ALL files in Calibre root for debugging
+            all_files = [f.name for f in calibre_path.iterdir() if f.is_file()][:20]
+            all_dirs = [d.name for d in calibre_path.iterdir() if d.is_dir()][:20]
             return jsonify({
                 'error': 'Book file not found',
                 'book_id': book_id,
                 'format': format,
                 'searched_filename': filename,
+                'calibre_root': str(calibre_path),
                 'book_folder': str(book_folder),
-                'folder_contents': [f.name for f in book_folder.iterdir()] if path_exists_quick(book_folder) else []
+                'book_folder_exists': path_exists_quick(book_folder),
+                'book_folder_contents': [f.name for f in book_folder.iterdir()] if path_exists_quick(book_folder) else [],
+                'root_files_sample': all_files,
+                'root_dirs_sample': all_dirs
             }), 404
 
         file_path = found_file

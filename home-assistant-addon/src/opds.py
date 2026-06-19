@@ -475,33 +475,30 @@ def register_routes(app, check_auth):
             if not metadata_db.exists():
                 return Response('Not found: No metadata.db', status=404)
 
-            # Find cover file for this book
-            book_folder = calibre_path / str(book_id)
+            # Search in both book folder and root folder
+            search_folders = [calibre_path / str(book_id), calibre_path]
             
-            # If book folder doesn't exist, try to get cover from database
-            if not book_folder.exists():
-                # Try root folder
-                book_folder = calibre_path
-            
-            if book_folder.exists():
-                files = list(book_folder.iterdir())
-                for f in files:
-                    # Look for common cover file patterns
-                    name_lower = f.name.lower()
-                    # Skip non-image files
-                    if not f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
-                        continue
-                    # Priority patterns for cover files
-                    cover_patterns = ['cover', 'thumbnail', str(book_id)]
-                    name_stem = f.stem.lower()
-                    for pattern in cover_patterns:
-                        if pattern in name_stem:
-                            return send_from_directory(str(book_folder), f.name)
-                
-                # Fallback: first image file in folder (might be the cover)
-                for f in files:
-                    if f.suffix.lower() in ('.jpg', '.jpeg', '.png'):
-                        return send_from_directory(str(book_folder), f.name)
+            for folder in search_folders:
+                if folder.exists():
+                    files = list(folder.iterdir())
+                    for f in files:
+                        name_lower = f.name.lower()
+                        if not f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+                            continue
+                        # Cover patterns
+                        cover_patterns = ['cover', 'thumbnail']
+                        name_stem = f.stem.lower()
+                        for pattern in cover_patterns:
+                            if pattern in name_stem:
+                                return send_from_directory(str(folder), f.name)
+                        # Also check if filename is just the book_id
+                        if f.stem == str(book_id):
+                            return send_from_directory(str(folder), f.name)
+                    
+                    # Fallback: first image file
+                    for f in files:
+                        if f.suffix.lower() in ('.jpg', '.jpeg', '.png'):
+                            return send_from_directory(str(folder), f.name)
 
             return Response('Not found: No cover', status=404)
 
