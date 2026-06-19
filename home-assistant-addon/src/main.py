@@ -335,7 +335,7 @@ def fetch_book(book_id, format):
     book_path = books_folder / str(book_id)
 
     if not book_path.exists():
-        return jsonify({'error': 'Book not found'}), 404
+        return jsonify({'error': 'Book not found', 'debug': {'books_folder': str(books_folder), 'book_path': str(book_path), 'book_id': book_id}}), 404
 
     # Find the file with requested format
     format_lower = format.lower()

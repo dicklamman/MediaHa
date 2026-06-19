@@ -76,21 +76,28 @@ def register_routes(app, check_auth):
                 xml_parts.append('  <link rel="up" href="/opds" />')
 
                 if not series_id:
+                    # Show comic series - filter by Comics tag
                     cursor.execute("""
                         SELECT DISTINCT s.id, s.name
                         FROM series s
                         JOIN books_series_link bsl ON s.id = bsl.series
+                        JOIN books_tags_link btl ON bsl.book = btl.book
+                        JOIN tags t ON btl.tag = t.id
+                        WHERE t.name = 'Comics'
                         ORDER BY s.name
                     """)
                     for row in cursor.fetchall():
                         xml_parts.append(f'  <entry><title>{escape_xml(row["name"])}</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic&series={row["id"]}" /></entry>')
                 else:
+                    # Show comics in series - filter by Comics tag
                     cursor.execute("""
                         SELECT b.id, b.title, b.series_index, d.name as filename, d.format
                         FROM books b
                         JOIN books_series_link bsl ON b.id = bsl.book
+                        JOIN books_tags_link btl ON b.id = btl.book
+                        JOIN tags t ON btl.tag = t.id
                         JOIN data d ON b.id = d.book
-                        WHERE bsl.series = ?
+                        WHERE bsl.series = ? AND t.name = 'Comics'
                         ORDER BY b.series_index
                     """, (series_id,))
                     for row in cursor.fetchall():
@@ -102,19 +109,48 @@ def register_routes(app, check_auth):
                 xml_parts.append('  <link rel="start" href="/opds" />')
                 xml_parts.append('  <link rel="up" href="/opds" />')
 
-                cursor.execute("""
-                    SELECT b.id, b.title, a.name as author, d.name as filename
-                    FROM books b
-                    LEFT JOIN books_authors_link bal ON b.id = bal.book
-                    LEFT JOIN authors a ON bal.author = a.id
-                    JOIN data d ON b.id = d.book
-                    WHERE d.format = 'EPUB'
-                    ORDER BY b.title
-                """)
-                for row in cursor.fetchall():
-                    file_url = f'/fetch/{row["id"]}/epub'
-                    author = row["author"] if row["author"] else "Unknown"
-                    xml_parts.append(f'  <entry><title>{escape_xml(row["title"])}</title><author><name>{escape_xml(author)}</name></author><link type="application/epub+zip" href="{file_url}" /></entry>')
+                if not series_id:
+                    # Show book series
+                    cursor.execute("""
+                        SELECT DISTINCT s.id, s.name
+                        FROM series s
+                        JOIN books_series_link bsl ON s.id = bsl.series
+                        JOIN data d ON bsl.book = d.book
+                        WHERE d.format = 'EPUB'
+                        ORDER BY s.name
+                    """)
+                    for row in cursor.fetchall():
+                        xml_parts.append(f'  <entry><title>{escape_xml(row["name"])}</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=book&series={row["id"]}" /></entry>')
+
+                    # Also show standalone books (no series) with EPUB format
+                    cursor.execute("""
+                        SELECT b.id, b.title, a.name as author
+                        FROM books b
+                        LEFT JOIN books_series_link bsl ON b.id = bsl.book
+                        LEFT JOIN books_authors_link bal ON b.id = bal.book
+                        LEFT JOIN authors a ON bal.author = a.id
+                        JOIN data d ON b.id = d.book
+                        WHERE bsl.book IS NULL AND d.format = 'EPUB'
+                        ORDER BY b.title
+                    """)
+                    for row in cursor.fetchall():
+                        file_url = f'/fetch/{row["id"]}/epub'
+                        author = row["author"] if row["author"] else "Unknown"
+                        xml_parts.append(f'  <entry><title>{escape_xml(row["title"])}</title><author><name>{escape_xml(author)}</name></author><link type="application/epub+zip" href="{file_url}" /></entry>')
+                else:
+                    # Show books in series
+                    xml_parts.append('  <link rel="up" href="/opds?category=book" />')
+                    cursor.execute("""
+                        SELECT b.id, b.title, b.series_index, d.name as filename
+                        FROM books b
+                        JOIN books_series_link bsl ON b.id = bsl.book
+                        JOIN data d ON b.id = d.book
+                        WHERE bsl.series = ? AND d.format = 'EPUB'
+                        ORDER BY b.series_index
+                    """, (series_id,))
+                    for row in cursor.fetchall():
+                        file_url = f'/fetch/{row["id"]}/epub'
+                        xml_parts.append(f'  <entry><title>{escape_xml(row["title"])}</title><link type="application/epub+zip" href="{file_url}" /></entry>')
 
             xml_parts.append('</feed>')
             conn.close()
