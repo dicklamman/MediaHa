@@ -415,7 +415,7 @@ def register_routes(app, check_auth):
                 cursor.execute("""
                     SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
                            s.id as series_id, s.name as series_name,
-                           d.format, d.name as filename, d.uncompressed_size as file_size, d.mtime as modified
+                           d.format, d.name as filename, d.uncompressed_size as file_size
                     FROM books b
                     JOIN books_series_link bsl ON b.id = bsl.book
                     JOIN series s ON bsl.series = s.id
@@ -429,7 +429,7 @@ def register_routes(app, check_auth):
                 cursor.execute("""
                     SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
                            s.id as series_id, s.name as series_name,
-                           d.format, d.name as filename, d.uncompressed_size as file_size, d.mtime as modified
+                           d.format, d.name as filename, d.uncompressed_size as file_size
                     FROM books b
                     JOIN books_series_link bsl ON b.id = bsl.book
                     JOIN series s ON bsl.series = s.id
