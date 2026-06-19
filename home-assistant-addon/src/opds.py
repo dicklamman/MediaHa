@@ -89,6 +89,7 @@ def register_routes(app, check_auth):
             '    <updated>' + now + '</updated>',
             '    <id>' + entry_uuid + '</id>',
             '    <content type="text/html">' + series_content + '</content>',
+            '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image"/>',
             '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>'
         ]
         
@@ -476,14 +477,26 @@ def register_routes(app, check_auth):
 
             # Find cover file (jpg/png) for this book
             book_folder = calibre_path / str(book_id)
+            
+            # Priority order for cover files in Calibre
+            cover_patterns = [
+                str(book_id),  # e.g., "114.jpg" or "114.png"
+                'cover',
+                'Cover',
+                'cover_big',
+                'thumbnail',
+            ]
+            
             if book_folder.exists():
                 for f in book_folder.iterdir():
-                    name_lower = f.name.lower()
-                    if name_lower.endswith(('.jpg', '.jpeg', '.png')) and 'cover' in name_lower:
-                        return send_from_directory(str(book_folder), f.name)
-
-            # Fallback: check for any jpg/png in book folder
-            if book_folder.exists():
+                    if f.suffix.lower() in ('.jpg', '.jpeg', '.png'):
+                        name_without_ext = f.stem.lower()
+                        # Check if filename contains any cover pattern
+                        for pattern in cover_patterns:
+                            if pattern.lower() in name_without_ext:
+                                return send_from_directory(str(book_folder), f.name)
+                
+                # Fallback: first image file found
                 for f in book_folder.iterdir():
                     if f.suffix.lower() in ('.jpg', '.jpeg', '.png'):
                         return send_from_directory(str(book_folder), f.name)

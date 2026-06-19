@@ -371,6 +371,8 @@ def fetch_book(book_id, format):
             return jsonify({'error': f'Format {format} not found for book {book_id}'}), 404
 
         filename = row[0]
+        if not os.path.splitext(filename)[1]:
+            filename = filename + '.' + format.lower()
         book_folder = calibre_path / str(book_id)
         file_path = book_folder / filename
         format_lower = format.lower()
