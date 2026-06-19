@@ -63,6 +63,10 @@ def register_routes(app, check_auth):
             # Use relative URLs for OPDS - Yomu app can't resolve external domains
             xml_parts = ['<?xml version="1.0" encoding="UTF-8"?>', '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="https://tools.ietf.org/html/rfc4946">', '  <title>MediaHa Library</title>']
 
+            conn = sqlite3.connect(str(metadata_db), timeout=30)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
             if not category:
                 xml_parts.append('  <link rel="start" href="/opds" />')
                 xml_parts.append('  <entry><title>Books</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=book" /></entry>')
