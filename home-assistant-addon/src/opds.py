@@ -6,7 +6,7 @@ from flask import request, Response, session
 from pathlib import Path
 import json
 
-CALIBRE_CONFIG_PATH = '/data/calibre_config.json'
+CALIBRE_CONFIG_PATH = '/data/calibre_options.json' if os.path.exists('/data') else os.path.join(os.path.dirname(__file__), '../config/calibre_options.json')
 
 def escape_xml(text):
     """Escape XML special characters"""
