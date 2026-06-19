@@ -355,7 +355,12 @@ def fetch_book(book_id, format):
             return jsonify({'error': 'Calibre library not configured'}), 400
 
         calibre_path = Path(calibre_library)
-        metadata_db = calibre_path / 'metadata.db'
+        
+        # Handle Calibre's folder structure: library/books/{book_id}/
+        if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
+            calibre_path = calibre_path / 'books'
+        
+        metadata_db = Path(calibre_library) / 'metadata.db'
 
         if not metadata_db.exists():
             return jsonify({'error': 'metadata.db not found', 'path': str(metadata_db)}), 500

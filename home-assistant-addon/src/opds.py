@@ -155,7 +155,10 @@ def register_routes(app, check_auth):
                               mimetype='application/xml')
 
             calibre_path = Path(calibre_library_path)
-            metadata_db = calibre_path / 'metadata.db'
+            # Handle Calibre's folder structure: library/books/{book_id}/
+            if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
+                calibre_path = calibre_path / 'books'
+            metadata_db = Path(calibre_library_path) / 'metadata.db'
 
             if not metadata_db.exists():
                 return Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
@@ -231,7 +234,10 @@ def register_routes(app, check_auth):
                               mimetype='application/xml')
 
             calibre_path = Path(calibre_library_path)
-            metadata_db = calibre_path / 'metadata.db'
+            # Handle Calibre's folder structure: library/books/{book_id}/
+            if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
+                calibre_path = calibre_path / 'books'
+            metadata_db = Path(calibre_library_path) / 'metadata.db'
 
             if not metadata_db.exists():
                 return Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
@@ -304,7 +310,10 @@ def register_routes(app, check_auth):
                               mimetype='application/xml')
 
             calibre_path = Path(calibre_library_path)
-            metadata_db = calibre_path / 'metadata.db'
+            # Handle Calibre's folder structure: library/books/{book_id}/
+            if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
+                calibre_path = calibre_path / 'books'
+            metadata_db = Path(calibre_library_path) / 'metadata.db'
 
             if not metadata_db.exists():
                 return Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
@@ -378,7 +387,10 @@ def register_routes(app, check_auth):
                               mimetype='application/xml')
 
             calibre_path = Path(calibre_library_path)
-            metadata_db = calibre_path / 'metadata.db'
+            # Handle Calibre's folder structure: library/books/{book_id}/
+            if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
+                calibre_path = calibre_path / 'books'
+            metadata_db = Path(calibre_library_path) / 'metadata.db'
 
             if not metadata_db.exists():
                 return Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
@@ -470,7 +482,12 @@ def register_routes(app, check_auth):
                 return Response('Not found: No library path', status=404)
 
             calibre_path = Path(calibre_library_path)
-            metadata_db = calibre_path / 'metadata.db'
+            
+            # Handle Calibre's folder structure: library/books/{book_id}/
+            if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
+                calibre_path = calibre_path / 'books'
+            
+            metadata_db = Path(calibre_library_path) / 'metadata.db'
 
             if not metadata_db.exists():
                 return Response('Not found: No metadata.db', status=404)
