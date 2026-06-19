@@ -95,7 +95,7 @@ def register_routes(app, check_auth):
                     """, (series_id,))
                     for row in cursor.fetchall():
                         ext = row["format"].lower() if row["format"] else "pdf"
-                        file_url = f'/library/books/{row["id"]}/{row["filename"]}.{ext}'
+                        file_url = f'/fetch/{row["id"]}/{ext}'
                         xml_parts.append(f'  <entry><title>{escape_xml(row["title"])}</title><link type="application/{ext}" href="{file_url}" /></entry>')
 
             elif category == 'book':
@@ -112,7 +112,7 @@ def register_routes(app, check_auth):
                     ORDER BY b.title
                 """)
                 for row in cursor.fetchall():
-                    file_url = f'/library/books/{row["id"]}/{row["filename"]}.epub'
+                    file_url = f'/fetch/{row["id"]}/epub'
                     author = row["author"] if row["author"] else "Unknown"
                     xml_parts.append(f'  <entry><title>{escape_xml(row["title"])}</title><author><name>{escape_xml(author)}</name></author><link type="application/epub+zip" href="{file_url}" /></entry>')
 
