@@ -43,13 +43,19 @@ def register_routes(app, check_auth):
                 with open(CALIBRE_CONFIG_PATH, 'r') as f:
                     config = json.load(f)
             else:
-                config = {}
+                return Response(f'<?xml version="1.0"?><opds><error>Config not found at {CALIBRE_CONFIG_PATH}</error></opds>',
+                              mimetype='application/xml')
 
-            calibre_path = Path(config.get('calibre_library_path', ''))
+            calibre_library_path = config.get('calibre_library_path', '')
+            if not calibre_library_path:
+                return Response('<?xml version="1.0"?><opds><error>Calibre library path not configured</error></opds>',
+                              mimetype='application/xml')
+
+            calibre_path = Path(calibre_library_path)
             metadata_db = calibre_path / 'metadata.db'
 
             if not metadata_db.exists():
-                return Response('<?xml version="1.0"?><opds><error>Calibre not configured</error></opds>',
+                return Response(f'<?xml version="1.0"?><opds><error>metadata.db not found at {metadata_db}</error></opds>',
                               mimetype='application/xml')
 
             conn = sqlite3.connect(str(metadata_db))
