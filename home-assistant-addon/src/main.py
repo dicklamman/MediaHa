@@ -1057,27 +1057,27 @@ def sync_calibre():
                     except:
                         pass
 
-                    # Create schema for COPS compatibility (HA COPS needs these tables)
-                    schema = """
-                        CREATE TABLE IF NOT EXISTS languages (id INTEGER PRIMARY KEY, lang_code TEXT UNIQUE NOT NULL);
-                        CREATE TABLE IF NOT EXISTS publishers (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, sort TEXT);
-                        CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL);
-                        CREATE TABLE IF NOT EXISTS identifiers (id INTEGER PRIMARY KEY, type TEXT, val TEXT);
-                        CREATE TABLE IF NOT EXISTS books_identifiers (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, type TEXT, val TEXT);
-                        CREATE TABLE IF NOT EXISTS books_languages_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, lang_code INTEGER NOT NULL);
-                        CREATE TABLE IF NOT EXISTS books_publishers_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, publisher INTEGER NOT NULL);
-                        CREATE TABLE IF NOT EXISTS books_tags_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, tag INTEGER NOT NULL);
-                    """
-                    for stmt in schema.strip().split(';'):
-                        stmt = stmt.strip()
-                        if stmt and not stmt.startswith('--'):
-                            try:
-                                cursor.execute(stmt)
-                            except:
-                                pass
+                # Create schema for COPS compatibility (HA COPS needs these tables)
+                schema = """
+                    CREATE TABLE IF NOT EXISTS languages (id INTEGER PRIMARY KEY, lang_code TEXT UNIQUE NOT NULL);
+                    CREATE TABLE IF NOT EXISTS publishers (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, sort TEXT);
+                    CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL);
+                    CREATE TABLE IF NOT EXISTS identifiers (id INTEGER PRIMARY KEY, type TEXT, val TEXT);
+                    CREATE TABLE IF NOT EXISTS books_identifiers (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, type TEXT, val TEXT);
+                    CREATE TABLE IF NOT EXISTS books_languages_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, lang_code INTEGER NOT NULL);
+                    CREATE TABLE IF NOT EXISTS books_publishers_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, publisher INTEGER NOT NULL);
+                    CREATE TABLE IF NOT EXISTS books_tags_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, tag INTEGER NOT NULL);
+                """
+                for stmt in schema.strip().split(';'):
+                    stmt = stmt.strip()
+                    if stmt and not stmt.startswith('--'):
+                        try:
+                            cursor.execute(stmt)
+                        except:
+                            pass
 
-                    conn.commit()
-                    conn.close()
+                conn.commit()
+                conn.close()
 
                 yield json.dumps({'type': 'log', 'message': 'Library cleared', 'level': 'info'}) + '\n'
 
@@ -1321,27 +1321,13 @@ def sync_comics():
 
             comic_path = Path(comic_folder)
             calibre_path = Path(calibre_library_path)
-
-            if not comic_path.exists() or not calibre_path.exists():
-                yield json.dumps({'type': 'error', 'message': 'Folder not found'}) + '\n'
-                return
-
-            # Find all comic chapters (pdf, cbz files)
-            comic_extensions = {'.pdf', '.cbz', '.cbr', '.cb7'}
-            chapters = []
-            for ext in comic_extensions:
-                chapters.extend(comic_path.rglob(f"*{ext}"))
-
-            total = len(chapters)
-            if total == 0:
-                yield json.dumps({'type': 'error', 'message': 'No comic files found'}) + '\n'
-                return
-
-            yield json.dumps({'type': 'log', 'message': f'Found {total} comic chapters', 'level': 'info'}) + '\n'
-            yield json.dumps({'type': 'log', 'message': f'Calibre library: {calibre_library_path}', 'level': 'info'}) + '\n'
-
-            metadata_db = calibre_path / 'metadata.db'
-            books_folder = calibre_path / 'books'
+            
+            # Handle Calibre's folder structure: library/books/{book_id}/
+            if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
+                calibre_path = calibre_path / 'books'
+            
+            metadata_db = Path(calibre_library_path) / 'metadata.db'
+            books_folder = calibre_path
             conn = sqlite3.connect(str(metadata_db))
             cursor = conn.cursor()
 
