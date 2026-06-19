@@ -55,9 +55,9 @@ def register_routes(app, check_auth):
         entry_uuid = 'urn:uuid:' + (uuid_row["uuid"] if uuid_row and uuid_row["uuid"] else str(book_id))
         
         # Get series info
-        series_name = book_row.get("series_name", "")
-        series_index = book_row.get("series_index")
-        series_id = book_row.get("series_id")
+        series_name = book_row["series_name"] if "series_name" in book_row.keys() else ""
+        series_index = book_row["series_index"] if "series_index" in book_row.keys() else None
+        series_id = book_row["series_id"] if "series_id" in book_row.keys() else None
         series_content = ''
         series_link = ''
         if series_name and series_index:
@@ -66,20 +66,21 @@ def register_routes(app, check_auth):
             series_link = '  <link href="/opds/series/' + str(series_id) + '/' + series_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Book ' + str(int(series_index)) + ' in the ' + escape_xml(series_name) + ' series"/>'
         
         # Get author info
-        author_name = book_row.get("author_name", "")
-        author_id = book_row.get("author_id")
+        author_name = book_row["author_name"] if "author_name" in book_row.keys() else ""
+        author_id = book_row["author_id"] if "author_id" in book_row.keys() else None
         author_content = ''
         if author_name:
             author_slug = slugify(author_name)
             author_content = '<author><name>' + escape_xml(author_name) + '</name><uri>/opds/authors/' + str(author_id if author_id else '0') + '/' + author_slug + '</uri></author>'
         
         # Get metadata
-        issued = book_row.get("pubdate", "")[:10] if book_row.get("pubdate") else now[:10]
-        language = book_row.get("language", "en")  # Default to 'en' if not found
-        ext = book_row.get("format", "epub").lower()
+        pubdate = book_row["pubdate"] if "pubdate" in book_row.keys() else ""
+        issued = pubdate[:10] if pubdate else now[:10]
+        language = "en"  # Default to 'en' if not found
+        ext = book_row["format"] if "format" in book_row.keys() else "epub"
+        ext = ext.lower()
         file_url = '/fetch/' + str(book_id) + '/' + ext
-        file_length = book_row.get("file_size", 0)
-        file_modified = book_row.get("modified", "")[:19] + '+00:00' if book_row.get("modified") else now
+        file_length = book_row["file_size"] if "file_size" in book_row.keys() and book_row["file_size"] else 0
         
         # Build entry
         entry = [
@@ -94,7 +95,7 @@ def register_routes(app, check_auth):
         # Add acquisition link with metadata
         acq_link = '    <link href="' + file_url + '" type="application/' + ext + '+zip" rel="http://opds-spec.org/acquisition" title="' + ext.upper() + '"'
         if file_length:
-            acq_link += ' length="' + str(file_length) + '" dcterms:modified="' + file_modified + '"'
+            acq_link += ' length="' + str(file_length) + '"'
         acq_link += '/>'
         entry.append(acq_link)
         
