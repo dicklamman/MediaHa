@@ -89,48 +89,24 @@ def register_routes(app, check_auth):
 
                 elif category == 'comic':
                     # Comics: show series
-                    if not series_id:
-                        yield '  <link rel="start" href="/opds" />\n'
-                        yield '  <link rel="up" href="/opds" />\n'
+                    yield '  <link rel="start" href="/opds" />\n'
+                    yield '  <link rel="up" href="/opds" />\n'
 
+                    if not series_id:
+                        # List all series
                         cursor.execute("""
                             SELECT DISTINCT s.id, s.name
                             FROM series s
                             JOIN books_series_link bsl ON s.id = bsl.series
-                            LEFT JOIN books_tags_link btl ON bsl.book = btl.book
-                            LEFT JOIN tags t ON btl.tag = t.id AND t.name = 'Comics'
-                            WHERE t.id IS NOT NULL
                             ORDER BY s.name
                         """)
-                        series_count = 0
                         for row in cursor.fetchall():
-                            series_count += 1
                             yield '  <entry>\n'
                             yield f'    <title>{escape_xml(row["name"])}</title>\n'
                             yield f'    <link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic&series={row["id"]}" />\n'
                             yield '  </entry>\n'
-                        if series_count == 0:
-                            # No series with Comics tag - show all series
-                            cursor.execute("""
-                                SELECT DISTINCT s.id, s.name
-                                FROM series s
-                                JOIN books_series_link bsl ON s.id = bsl.series
-                                ORDER BY s.name
-                            """)
-                            for row in cursor.fetchall():
-                                yield '  <entry>\n'
-                                yield f'    <title>{escape_xml(row["name"])}</title>\n'
-                                yield f'    <link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic&series={row["id"]}" />\n'
-                                yield '  </entry>\n'
                     else:
                         # Show books in series
-                        cursor.execute("SELECT name FROM series WHERE id = ?", (series_id,))
-                        series_row = cursor.fetchone()
-                        series_name = series_row["name"] if series_row else "Unknown"
-
-                        yield '  <link rel="start" href="/opds" />\n'
-                        yield '  <link rel="up" href="/opds?category=comic" />\n'
-
                         cursor.execute("""
                             SELECT b.id, b.title, b.series_index, d.name as filename, d.format
                             FROM books b
