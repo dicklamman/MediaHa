@@ -470,7 +470,9 @@ def fetch_book(book_id, format):
             response.headers['Content-Type'] = 'application/x-mobipocket-ebook'
         elif format_lower == 'pdf':
             response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        # Use ASCII-safe filename for Content-Disposition header
+        safe_filename = filename.encode('ascii', 'replace').decode('ascii').replace('?', '_')
+        response.headers['Content-Disposition'] = f'attachment; filename="{safe_filename}"'
         return response
     except Exception as e:
         import traceback
