@@ -37,7 +37,7 @@ def register_routes(app, check_auth):
             '  <title>' + escape_xml(title) + '</title>',
             '  <id>' + feed_id + '</id>',
             '  <updated>' + now + '</updated>',
-            '  <icon>favicon.ico</icon>',
+            '  <icon>/media/books/book.png</icon>',
             '  <link href="/opds" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
             '  <link href="' + self_path + '" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="self"/>',
             '  <link href="/opds/search" type="application/opensearchdescription+xml" rel="search" title="Search here"/>'
@@ -176,7 +176,7 @@ def register_routes(app, check_auth):
                 JOIN data d ON b.id = d.book WHERE d.format = 'EPUB'
             """)
             book_count = cursor.fetchone()["cnt"]
-            xml_parts.append('  <entry><title>Books</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:nav:books</id><content type="text">' + str(book_count) + ' books</content><link href="/opds/books" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(book_count) + '"/></entry>')
+            xml_parts.append('  <entry><title>Books</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:nav:books</id><content type="text">' + str(book_count) + ' books</content><icon>/media/books/book.png</icon><link href="/opds/books" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(book_count) + '"/></entry>')
 
             # Comics entry with count
             cursor.execute("""
@@ -186,7 +186,7 @@ def register_routes(app, check_auth):
                 WHERE t.name = 'Comics'
             """)
             comic_count = cursor.fetchone()["cnt"]
-            xml_parts.append('  <entry><title>Comics</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:nav:comics</id><content type="text">' + str(comic_count) + ' comics</content><link href="/opds/comics" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(comic_count) + '"/></entry>')
+            xml_parts.append('  <entry><title>Comics</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:nav:comics</id><content type="text">' + str(comic_count) + ' comics</content><icon>/media/books/comic.png</icon><link href="/opds/comics" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(comic_count) + '"/></entry>')
 
             xml_parts.append('</feed>')
             conn.close()
