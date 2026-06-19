@@ -12,6 +12,7 @@ import sqlite3
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from utils.epub_converter import convert_to_hk_traditional_chinese
+from opds import register_routes as register_opds_routes
 
 def extract_epub_metadata(epub_path):
     """
@@ -149,6 +150,9 @@ def check_auth(username, password):
 app = Flask(__name__)
 app.secret_key = "mediaha-" + (AUTH_PASSWORD or "default-secret")
 
+# Register OPDS routes
+register_opds_routes(app, check_auth)
+
 MEDIA_DIR = '/media'
 
 
@@ -161,7 +165,7 @@ def enforce_login():
     path = request.path
 
     # Public paths
-    if path in ("/api/login", "/api/auth/status", "/health", "/login.html", "/favicon.ico", "/opds", "/api/opds-debug"):
+    if path in ("/api/login", "/api/auth/status", "/health", "/login.html", "/favicon.ico", "/opds"):
         return
 
     # Allow GET for calibre settings (for loading form on tab switch)
@@ -1405,192 +1409,6 @@ def sync_comics():
             yield json.dumps({'type': 'error', 'message': f'Sync failed: {str(e)}\n{traceback.format_exc()}'}) + '\n'
 
     return app.response_class(generate(), mimetype='application/json')
-
-
-@app.route('/api/opds-debug', methods=['GET', 'POST'])
-def opds_debug():
-    """Debug endpoint to test OPDS auth"""
-    import base64
-    auth_header = request.headers.get('Authorization', '')
-    result = {
-        'session_auth': session.get('authenticated', False),
-        'expected_user': AUTH_USERNAME,
-        'expected_pass': AUTH_PASSWORD,
-        'auth_header': auth_header[:50] if auth_header else None,
-    }
-    if auth_header.startswith('Basic '):
-        try:
-            encoded = auth_header[6:]
-            decoded = base64.b64decode(encoded).decode('utf-8')
-            result['decoded'] = decoded
-        except:
-            result['decode_error'] = True
-    return jsonify(result)
-
-
-@app.route('/opds')
-def opds_catalog():
-    """OPDS catalog showing all books and comics"""
-    import base64
-    import logging
-    logger = logging.getLogger()
-
-    # Check authentication via session or basic auth header
-    authenticated = session.get("authenticated", False)
-    if not authenticated:
-        # Try Basic Auth header
-        auth_header = request.headers.get('Authorization', '')
-        if auth_header.startswith('Basic '):
-            try:
-                encoded = auth_header[6:]
-                decoded = base64.b64decode(encoded).decode('utf-8')
-                username, password = decoded.split(':', 1)
-                if check_auth(username, password):
-                    session["authenticated"] = True
-                    authenticated = True
-            except Exception as e:
-                logger.error(f"OPDS Auth error: {e}")
-
-        # Try URL parameters (some OPDS apps use this)
-        if not authenticated:
-            url_user = request.args.get('user') or request.args.get('username')
-            url_pass = request.args.get('pass') or request.args.get('password')
-            if url_user and url_pass:
-                if check_auth(url_user, url_pass):
-                    session["authenticated"] = True
-                    authenticated = True
-
-    if not authenticated:
-        # Return 401 to trigger Basic Auth dialog in OPDS apps
-        return Response('Authentication required', status=401, mimetype='text/plain',
-                       headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
-    try:
-        if os.path.exists(CALIBRE_CONFIG_PATH):
-            with open(CALIBRE_CONFIG_PATH, 'r') as f:
-                config = json.load(f)
-        else:
-            config = {}
-
-        calibre_path = Path(config.get('calibre_library_path', ''))
-        metadata_db = calibre_path / 'metadata.db'
-
-        if not metadata_db.exists():
-            return Response('<?xml version="1.0"?><opds><error>Calibre not configured</error></opds>',
-                          mimetype='application/xml')
-
-        conn = sqlite3.connect(str(metadata_db))
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-
-        # Get category parameter (book/comic)
-        category = request.args.get('category', '').lower()
-        series_id = request.args.get('series', '')
-
-        def generate_opds():
-            yield '<?xml version="1.0" encoding="UTF-8"?>\n'
-            yield '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="https://tools.ietf.org/html/rfc4946">\n'
-            yield '  <title>MediaHa Library</title>\n'
-
-            if not category:
-                # Root: show categories
-                yield '  <link rel="start" href="/opds" />\n'
-
-                # Books category
-                yield '  <entry>\n'
-                yield '    <title>Books</title>\n'
-                yield '    <link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=book" />\n'
-                yield '  </entry>\n'
-
-                # Comics category
-                yield '  <entry>\n'
-                yield '    <title>Comics</title>\n'
-                yield '    <link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic" />\n'
-                yield '  </entry>\n'
-
-            elif category == 'comic':
-                # Comics: show series
-                if not series_id:
-                    yield '  <link rel="start" href="/opds" />\n'
-                    yield '  <link rel="up" href="/opds" />\n'
-
-                    cursor.execute("""
-                        SELECT DISTINCT s.id, s.name
-                        FROM series s
-                        JOIN books_series_link bsl ON s.id = bsl.series
-                        JOIN books_tags_link btl ON bsl.book = btl.book
-                        JOIN tags t ON btl.tag = t.id
-                        WHERE t.name = 'Comics'
-                        ORDER BY s.name
-                    """)
-                    for row in cursor.fetchall():
-                        yield '  <entry>\n'
-                        yield f'    <title>{escape_xml(row["name"])}</title>\n'
-                        yield f'    <link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic&series={row["id"]}" />\n'
-                        yield '  </entry>\n'
-                else:
-                    # Show books in series
-                    cursor.execute("SELECT name FROM series WHERE id = ?", (series_id,))
-                    series_row = cursor.fetchone()
-                    series_name = series_row["name"] if series_row else "Unknown"
-
-                    yield '  <link rel="start" href="/opds" />\n'
-                    yield f'  <link rel="up" href="/opds?category=comic" />\n'
-                    yield f'  <title>{escape_xml(series_name)}</title>\n'
-
-                    cursor.execute("""
-                        SELECT b.id, b.title, b.series_index, d.name as filename, d.format
-                        FROM books b
-                        JOIN books_series_link bsl ON b.id = bsl.book
-                        JOIN data d ON b.id = d.book
-                        WHERE bsl.series = ? AND d.format != 'EPUB'
-                        ORDER BY b.series_index
-                    """, (series_id,))
-                    for row in cursor.fetchall():
-                        file_url = f'/library/books/{row["id"]}/{row["filename"]}.{row["format"].lower()}'
-                        yield '  <entry>\n'
-                        yield f'    <title>{escape_xml(row["title"])}</title>\n'
-                        yield f'    <link type="application/{row["format"].lower()}" href="{file_url}" />\n'
-                        yield '  </entry>\n'
-
-            elif category == 'book':
-                # Books: show all EPUB books
-                yield '  <link rel="start" href="/opds" />\n'
-                yield '  <link rel="up" href="/opds" />\n'
-
-                cursor.execute("""
-                    SELECT b.id, b.title, a.name as author, d.name as filename
-                    FROM books b
-                    JOIN books_authors_link bal ON b.id = bal.book
-                    JOIN authors a ON bal.author = a.id
-                    JOIN data d ON b.id = d.book
-                    WHERE d.format = 'EPUB'
-                    ORDER BY b.title
-                """)
-                for row in cursor.fetchall():
-                    file_url = f'/library/books/{row["id"]}/{row["filename"]}.epub'
-                    author = row["author"] or "Unknown"
-                    yield '  <entry>\n'
-                    yield f'    <title>{escape_xml(row["title"])}</title>\n'
-                    yield f'    <author><name>{escape_xml(author)}</name></author>\n'
-                    yield f'    <link type="application/epub+zip" href="{file_url}" />\n'
-                    yield '  </entry>\n'
-
-            yield '</feed>'
-
-        conn.close()
-        return Response(generate_opds(), mimetype='application/atom+xml; charset=utf-8')
-
-    except Exception as e:
-        import traceback
-        return Response(f'<?xml version="1.0"?><opds><error>{escape_xml(str(e))}</error></opds>',
-                        mimetype='application/xml')
-
-
-def escape_xml(text):
-    """Escape XML special characters"""
-    if not text:
-        return ''
-    return str(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&apos;')
 
 
 @app.route('/api/alist/run', methods=['POST'])
