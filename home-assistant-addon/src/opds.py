@@ -59,9 +59,19 @@ def register_routes(app, check_auth):
 
             category = request.args.get('category', '').lower()
             series_id = request.args.get('series', '')
+            # Convert series_id to int for SQL queries
+            series_id_int = int(series_id) if series_id and series_id.isdigit() else None
 
             # Use relative URLs for OPDS - Yomu app can't resolve external domains
-            xml_parts = ['<?xml version="1.0" encoding="UTF-8"?>', '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="https://tools.ietf.org/html/rfc4946">', '  <title>MediaHa Library</title>']
+            # Build self href for this feed
+            if category and series_id:
+                self_href = f'/opds?category={category}&series={series_id}'
+            elif category:
+                self_href = f'/opds?category={category}'
+            else:
+                self_href = '/opds'
+
+            xml_parts = ['<?xml version="1.0" encoding="UTF-8"?>', '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="https://tools.ietf.org/html/rfc4946">', f'  <link rel="self" href="{self_href}" type="application/atom+xml;profile=opds-catalog;kind=navigation" />', '  <title>MediaHa Library</title>']
 
             conn = sqlite3.connect(str(metadata_db), timeout=30)
             conn.row_factory = sqlite3.Row
@@ -69,8 +79,8 @@ def register_routes(app, check_auth):
 
             if not category:
                 xml_parts.append('  <link rel="start" href="/opds" />')
-                xml_parts.append('  <entry><title>Books</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=book" /></entry>')
-                xml_parts.append('  <entry><title>Comics</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic" /></entry>')
+                xml_parts.append('  <entry><id>nav-books</id><title>Books</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=book" /></entry>')
+                xml_parts.append('  <entry><id>nav-comics</id><title>Comics</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic" /></entry>')
 
             elif category == 'comic':
                 xml_parts.append('  <link rel="start" href="/opds" />')
@@ -88,7 +98,7 @@ def register_routes(app, check_auth):
                         ORDER BY s.name
                     """)
                     for row in cursor.fetchall():
-                        xml_parts.append(f'  <entry><title>{escape_xml(row["name"])}</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic&series={row["id"]}" /></entry>')
+                        xml_parts.append(f'  <entry><id>series-{row["id"]}</id><title>{escape_xml(row["name"])}</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic&series={row["id"]}" /></entry>')
                 else:
                     # Show comics in series - filter by Comics tag
                     xml_parts.append('  <link rel="up" href="/opds?category=comic" />')
@@ -101,12 +111,12 @@ def register_routes(app, check_auth):
                         JOIN data d ON b.id = d.book
                         WHERE bsl.series = ? AND t.name = 'Comics'
                         ORDER BY b.series_index
-                    """, (series_id,))
+                    """, (series_id_int,))
                     for row in cursor.fetchall():
                         ext = row["format"].lower() if row["format"] else "pdf"
                         file_url = f'/fetch/{row["id"]}/{ext}'
                         title = escape_xml(row["title"])
-                        xml_parts.append(f'  <entry><title>{title}</title><link rel="http://opds-spec.org/acquisition" type="application/{ext}+zip" href="{file_url}" /></entry>')
+                        xml_parts.append(f'  <entry><id>book-{row["id"]}</id><title>{title}</title><link rel="http://opds-spec.org/acquisition" type="application/{ext}+zip" href="{file_url}" /></entry>')
 
             elif category == 'book':
                 xml_parts.append('  <link rel="start" href="/opds" />')
@@ -123,7 +133,7 @@ def register_routes(app, check_auth):
                         ORDER BY s.name
                     """)
                     for row in cursor.fetchall():
-                        xml_parts.append(f'  <entry><title>{escape_xml(row["name"])}</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=book&series={row["id"]}" /></entry>')
+                        xml_parts.append(f'  <entry><id>series-{row["id"]}</id><title>{escape_xml(row["name"])}</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=book&series={row["id"]}" /></entry>')
 
                     # Also show standalone books (no series) with EPUB format
                     cursor.execute("""
@@ -140,10 +150,9 @@ def register_routes(app, check_auth):
                         file_url = f'/fetch/{row["id"]}/epub'
                         author = row["author"] if row["author"] else "Unknown"
                         title = escape_xml(row["title"])
-                        xml_parts.append(f'  <entry><title>{title}</title><author><name>{escape_xml(author)}</name></author><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="{file_url}" /></entry>')
+                        xml_parts.append(f'  <entry><id>book-{row["id"]}</id><title>{title}</title><author><name>{escape_xml(author)}</name></author><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="{file_url}" /></entry>')
                 else:
                     # Show books in series
-                    xml_parts.append('  <link rel="up" href="/opds?category=book" />')
                     cursor.execute("""
                         SELECT b.id, b.title, b.series_index, d.name as filename
                         FROM books b
@@ -151,11 +160,11 @@ def register_routes(app, check_auth):
                         JOIN data d ON b.id = d.book
                         WHERE bsl.series = ? AND d.format = 'EPUB'
                         ORDER BY b.series_index
-                    """, (series_id,))
+                    """, (series_id_int,))
                     for row in cursor.fetchall():
                         file_url = f'/fetch/{row["id"]}/epub'
                         title = escape_xml(row["title"])
-                        xml_parts.append(f'  <entry><title>{title}</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="{file_url}" /></entry>')
+                        xml_parts.append(f'  <entry><id>book-{row["id"]}</id><title>{title}</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="{file_url}" /></entry>')
 
             xml_parts.append('</feed>')
             conn.close()
