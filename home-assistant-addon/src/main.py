@@ -1332,12 +1332,30 @@ def sync_comics():
             comic_path = Path(comic_folder)
             calibre_path = Path(calibre_library_path)
             
+            if not comic_path.exists():
+                yield json.dumps({'type': 'error', 'message': 'Comic folder not found'}) + '\n'
+                return
+            
+            # Find all comic chapters (pdf, cbz files)
+            comic_extensions = {'.pdf', '.cbz', '.cbr', '.cb7'}
+            chapters = []
+            for ext in comic_extensions:
+                chapters.extend(comic_path.rglob(f"*{ext}"))
+            
+            total = len(chapters)
+            if total == 0:
+                yield json.dumps({'type': 'error', 'message': 'No comic files found'}) + '\n'
+                return
+            
+            yield json.dumps({'type': 'log', 'message': f'Found {total} comic chapters', 'level': 'info'}) + '\n'
+            
             # Handle Calibre's folder structure: library/books/{book_id}/
             if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
                 calibre_path = calibre_path / 'books'
             
             metadata_db = Path(calibre_library_path) / 'metadata.db'
             books_folder = calibre_path
+            books_folder.mkdir(parents=True, exist_ok=True)
             conn = sqlite3.connect(str(metadata_db))
             cursor = conn.cursor()
 
