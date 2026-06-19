@@ -75,7 +75,7 @@ def register_routes(app, check_auth):
         
         # Get metadata
         issued = book_row.get("pubdate", "")[:10] if book_row.get("pubdate") else now[:10]
-        language = book_row.get("lang", "en")
+        language = book_row.get("language", "en")  # Default to 'en' if not found
         ext = book_row.get("format", "epub").lower()
         file_url = '/fetch/' + str(book_id) + '/' + ext
         file_length = book_row.get("file_size", 0)
@@ -413,7 +413,7 @@ def register_routes(app, check_auth):
             # Get books in series
             if is_comic:
                 cursor.execute("""
-                    SELECT b.id, b.title, b.series_index, b.pubdate, b.lang, b.uuid,
+                    SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
                            s.id as series_id, s.name as series_name,
                            d.format, d.name as filename, d.uncompressed_size as file_size, d.last_modified as modified
                     FROM books b
@@ -427,7 +427,7 @@ def register_routes(app, check_auth):
                 """, (series_id,))
             else:
                 cursor.execute("""
-                    SELECT b.id, b.title, b.series_index, b.pubdate, b.lang, b.uuid,
+                    SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
                            s.id as series_id, s.name as series_name,
                            d.format, d.name as filename, d.uncompressed_size as file_size, d.last_modified as modified
                     FROM books b
