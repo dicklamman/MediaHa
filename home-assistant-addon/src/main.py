@@ -1018,15 +1018,15 @@ def sync_calibre():
             except ImportError:
                 yield json.dumps({'type': 'log', 'message': 'Calibre library not available, using direct SQL', 'level': 'info'}) + '\n'
 
-            metadata_db = Path(calibre_library) / 'metadata.db'
-            
             # Handle Calibre's folder structure: library/books/{book_id}/
-            calibre_path = Path(calibre_library)
+            calibre_path = Path(calibre_library_path)
             if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
                 books_folder = calibre_path / 'books'
                 # metadata_db stays at original path
             else:
                 books_folder = calibre_path / 'books'
+            
+            metadata_db = Path(calibre_library_path) / 'metadata.db'
             
             # Ensure books folder exists
             books_folder.mkdir(parents=True, exist_ok=True)
