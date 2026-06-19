@@ -1022,7 +1022,10 @@ def sync_calibre():
             books_folder = calibre_path / 'books'
 
             try:
-                conn = sqlite3.connect(str(metadata_db))
+                # Use WAL mode and longer timeout to prevent locking
+                conn = sqlite3.connect(str(metadata_db), timeout=30)
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA busy_timeout=30000")
                 cursor = conn.cursor()
 
                 # Find EPUB books to delete (keep non-EPUB books like comics)
@@ -1036,11 +1039,15 @@ def sync_calibre():
                     cursor.execute("DELETE FROM books_series_link WHERE book IN (%s)" % ','.join('?' * len(epub_book_ids)), epub_book_ids)
                     cursor.execute("DELETE FROM data WHERE book IN (%s)" % ','.join('?' * len(epub_book_ids)), epub_book_ids)
                     cursor.execute("DELETE FROM books WHERE id IN (%s)" % ','.join('?' * len(epub_book_ids)), epub_book_ids)
+                    conn.commit()
                     # Delete book folders
                     for bid in epub_book_ids:
                         old_dir = books_folder / str(bid)
                         if old_dir.exists():
-                            shutil.rmtree(old_dir)
+                            try:
+                                shutil.rmtree(old_dir)
+                            except:
+                                pass
 
                 # Recreate schema if needed
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='trigger'")
