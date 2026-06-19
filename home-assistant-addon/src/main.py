@@ -319,52 +319,120 @@ def download_file():
 @app.route('/fetch/<int:book_id>/<format>', methods=['GET'])
 def fetch_book(book_id, format):
     """Serve book files for OPDS/Calibre-Web readers (COPS/Yomu)"""
-    # Check authentication for OPDS readers
-    authenticated = session.get("authenticated", False)
-    if not authenticated:
-        auth_header = request.headers.get('Authorization', '')
-        if auth_header.startswith('Basic '):
-            try:
-                encoded = auth_header[6:]
-                decoded = base64.b64decode(encoded).decode('utf-8')
-                username, password = decoded.split(':', 1)
-                if check_auth(username, password):
-                    session["authenticated"] = True
-                    authenticated = True
-            except:
-                pass
+    import threading
+    import queue as Queue
     
-    if not authenticated:
-        resp = jsonify({'error': 'Authentication required'})
-        resp.headers['WWW-Authenticate'] = 'Basic realm="MediaHa"'
-        return resp, 401
+    try:
+        # Check authentication for OPDS readers
+        authenticated = session.get("authenticated", False)
+        if not authenticated:
+            auth_header = request.headers.get('Authorization', '')
+            if auth_header.startswith('Basic '):
+                try:
+                    encoded = auth_header[6:]
+                    decoded = base64.b64decode(encoded).decode('utf-8')
+                    username, password = decoded.split(':', 1)
+                    if check_auth(username, password):
+                        session["authenticated"] = True
+                        authenticated = True
+                except:
+                    pass
+        
+        if not authenticated:
+            resp = jsonify({'error': 'Authentication required'})
+            resp.headers['WWW-Authenticate'] = 'Basic realm="MediaHa"'
+            return resp, 401
 
-    calibre_library = request.args.get('calibre_library')
-    if not calibre_library:
-        config_path = CALIBRE_CONFIG_PATH
-        if os.path.exists(config_path):
-            with open(config_path, 'r') as f:
-                config = json.load(f)
-                calibre_library = config.get('calibre_library_path', '')
+        calibre_library = request.args.get('calibre_library')
+        if not calibre_library:
+            config_path = CALIBRE_CONFIG_PATH
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                    calibre_library = config.get('calibre_library_path', '')
 
-    if not calibre_library:
-        return jsonify({'error': 'Calibre library not configured'}), 400
+        if not calibre_library:
+            return jsonify({'error': 'Calibre library not configured'}), 400
 
-    books_folder = Path(calibre_library) / 'books'
-    book_path = books_folder / str(book_id)
+        calibre_path = Path(calibre_library)
+        metadata_db = calibre_path / 'metadata.db'
 
-    if not book_path.exists():
-        return jsonify({'error': 'Book not found', 'debug': {'books_folder': str(books_folder), 'book_path': str(book_path), 'book_id': book_id}}), 404
+        if not metadata_db.exists():
+            return jsonify({'error': 'metadata.db not found', 'path': str(metadata_db)}), 500
 
-    # Find the file with requested format
-    format_lower = format.lower()
-    for f in os.listdir(book_path):
-        if f.lower().endswith(f'.{format_lower}'):
-            response = send_from_directory(str(book_path), f)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
+        # Get file path from Calibre database
+        conn = sqlite3.connect(str(metadata_db), timeout=5)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, format FROM data WHERE book = ? AND format = ?", (book_id, format.upper()))
+        row = cursor.fetchone()
+        conn.close()
 
-    return jsonify({'error': f'Format {format} not found for book {book_id}'}), 404
+        if not row:
+            return jsonify({'error': f'Format {format} not found for book {book_id}'}), 404
+
+        filename = row[0]
+        book_folder = calibre_path / str(book_id)
+        file_path = book_folder / filename
+        format_lower = format.lower()
+
+        # Try Alist streaming first if configured (for network/cloud storage)
+        alist_config_path = ALIST_CONFIG_PATH
+        if os.path.exists(alist_config_path):
+            try:
+                with open(alist_config_path, 'r') as f:
+                    alist_config = json.load(f)
+                    alist_url = alist_config.get('alist_url')
+                    username = alist_config.get('username', 'admin')
+                    password = alist_config.get('password', '')
+                    if alist_url:
+                        from utils.alist_strm import get_alist_token, get_file_sign
+                        token = get_alist_token(alist_url, username, password)
+                        remote_path = str(book_folder / filename)
+                        sign = get_file_sign(alist_url, remote_path, token)
+                        if sign:
+                            stream_url = f"{alist_url.rstrip('/')}/d{remote_path}?sign={sign}"
+                            return redirect(stream_url)
+                        else:
+                            return jsonify({'error': 'Alist sign not available', 'alist_url': alist_url, 'remote_path': remote_path}), 500
+            except Exception as e:
+                pass  # Fall through to local file
+
+        def path_exists_quick(p):
+            try:
+                return p.exists()
+            except:
+                return False
+        
+        # Check if local file exists
+        if not path_exists_quick(file_path):
+            file_path = calibre_path / filename
+        
+        if not path_exists_quick(file_path):
+            if path_exists_quick(book_folder):
+                try:
+                    for f in book_folder.iterdir():
+                        if f.suffix.lower() == f'.{format_lower}':
+                            file_path = f
+                            break
+                except:
+                    pass
+        
+        if not path_exists_quick(file_path):
+            return jsonify({'error': 'Book file not found', 'book_id': book_id, 'format': format, 'filename': filename, 'searched_paths': [str(book_folder / filename), str(calibre_path / filename)]}), 404
+
+        response = send_from_directory(str(book_folder), filename)
+        if format_lower == 'epub':
+            response.headers['Content-Type'] = 'application/epub+zip'
+        elif format_lower == 'mobi':
+            response.headers['Content-Type'] = 'application/x-mobipocket-ebook'
+        elif format_lower == 'pdf':
+            response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'type': type(e).__name__}), 500
 
 
 @app.route('/api/rename', methods=['POST'])

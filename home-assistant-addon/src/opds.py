@@ -63,7 +63,7 @@ def register_routes(app, check_auth):
             # Get base URL for absolute links
             base_url = request.host_url.rstrip('/')
 
-            conn = sqlite3.connect(str(metadata_db))
+            conn = sqlite3.connect(str(metadata_db), timeout=30)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
@@ -107,7 +107,8 @@ def register_routes(app, check_auth):
                     for row in cursor.fetchall():
                         ext = row["format"].lower() if row["format"] else "pdf"
                         file_url = f'{base_url}/fetch/{row["id"]}/{ext}'
-                        xml_parts.append(f'  <entry><title>{escape_xml(row["title"])}</title><link type="application/{ext}+zip" href="{file_url}" /></entry>')
+                        title = escape_xml(row["title"])
+                        xml_parts.append(f'  <entry><title>{title}</title><link rel="http://opds-spec.org/acquisition" type="application/{ext}+zip" href="{file_url}" /></entry>')
 
             elif category == 'book':
                 xml_parts.append(f'  <link rel="start" href="{base_url}/opds" />')
@@ -140,7 +141,8 @@ def register_routes(app, check_auth):
                     for row in cursor.fetchall():
                         file_url = f'{base_url}/fetch/{row["id"]}/epub'
                         author = row["author"] if row["author"] else "Unknown"
-                        xml_parts.append(f'  <entry><title>{escape_xml(row["title"])}</title><author><name>{escape_xml(author)}</name></author><link type="application/epub+zip" href="{file_url}" /></entry>')
+                        title = escape_xml(row["title"])
+                        xml_parts.append(f'  <entry><title>{title}</title><author><name>{escape_xml(author)}</name></author><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="{file_url}" /></entry>')
                 else:
                     # Show books in series
                     xml_parts.append(f'  <link rel="up" href="{base_url}/opds?category=book" />')
@@ -154,7 +156,8 @@ def register_routes(app, check_auth):
                     """, (series_id,))
                     for row in cursor.fetchall():
                         file_url = f'{base_url}/fetch/{row["id"]}/epub'
-                        xml_parts.append(f'  <entry><title>{escape_xml(row["title"])}</title><link type="application/epub+zip" href="{file_url}" /></entry>')
+                        title = escape_xml(row["title"])
+                        xml_parts.append(f'  <entry><title>{title}</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="{file_url}" /></entry>')
 
             xml_parts.append('</feed>')
             conn.close()
