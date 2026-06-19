@@ -20,7 +20,6 @@ def register_routes(app, check_auth):
     @app.route('/opds')
     def opds_catalog():
         """OPDS catalog showing all books and comics"""
-        # Check authentication via session or basic auth header
         authenticated = session.get("authenticated", False)
         if not authenticated:
             auth_header = request.headers.get('Authorization', '')
@@ -43,115 +42,87 @@ def register_routes(app, check_auth):
                 with open(CALIBRE_CONFIG_PATH, 'r') as f:
                     config = json.load(f)
             else:
-                return Response(f'<?xml version="1.0"?><opds><error>Config not found at {CALIBRE_CONFIG_PATH}</error></opds>',
+                return Response(f'<?xml version="1.0"?><opds><error>Config not found</error></opds>',
                               mimetype='application/xml')
 
             calibre_library_path = config.get('calibre_library_path', '')
             if not calibre_library_path:
-                return Response('<?xml version="1.0"?><opds><error>Calibre library path not configured</error></opds>',
+                return Response('<?xml version="1.0"?><opds><error>Calibre path not set</error></opds>',
                               mimetype='application/xml')
 
             calibre_path = Path(calibre_library_path)
             metadata_db = calibre_path / 'metadata.db'
 
             if not metadata_db.exists():
-                return Response(f'<?xml version="1.0"?><opds><error>metadata.db not found at {metadata_db}</error></opds>',
+                return Response(f'<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
                               mimetype='application/xml')
+
+            category = request.args.get('category', '').lower()
+            series_id = request.args.get('series', '')
 
             conn = sqlite3.connect(str(metadata_db))
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
-            # Get category parameter (book/comic)
-            category = request.args.get('category', '').lower()
-            series_id = request.args.get('series', '')
+            xml_parts = ['<?xml version="1.0" encoding="UTF-8"?>', '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="https://tools.ietf.org/html/rfc4946">', '  <title>MediaHa Library</title>']
 
-            def generate_opds():
-                yield '<?xml version="1.0" encoding="UTF-8"?>\n'
-                yield '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="https://tools.ietf.org/html/rfc4946">\n'
-                yield '  <title>MediaHa Library</title>\n'
+            if not category:
+                xml_parts.append('  <link rel="start" href="/opds" />')
+                xml_parts.append('  <entry><title>Books</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=book" /></entry>')
+                xml_parts.append('  <entry><title>Comics</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic" /></entry>')
 
-                if not category:
-                    # Root: show categories
-                    yield '  <link rel="start" href="/opds" />\n'
+            elif category == 'comic':
+                xml_parts.append('  <link rel="start" href="/opds" />')
+                xml_parts.append('  <link rel="up" href="/opds" />')
 
-                    # Books category
-                    yield '  <entry>\n'
-                    yield '    <title>Books</title>\n'
-                    yield '    <link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=book" />\n'
-                    yield '  </entry>\n'
-
-                    # Comics category
-                    yield '  <entry>\n'
-                    yield '    <title>Comics</title>\n'
-                    yield '    <link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic" />\n'
-                    yield '  </entry>\n'
-
-                elif category == 'comic':
-                    # Comics: show series
-                    yield '  <link rel="start" href="/opds" />\n'
-                    yield '  <link rel="up" href="/opds" />\n'
-
-                    if not series_id:
-                        # List all series
-                        cursor.execute("""
-                            SELECT DISTINCT s.id, s.name
-                            FROM series s
-                            JOIN books_series_link bsl ON s.id = bsl.series
-                            ORDER BY s.name
-                        """)
-                        for row in cursor.fetchall():
-                            yield '  <entry>\n'
-                            yield f'    <title>{escape_xml(row["name"])}</title>\n'
-                            yield f'    <link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic&series={row["id"]}" />\n'
-                            yield '  </entry>\n'
-                    else:
-                        # Show books in series
-                        cursor.execute("""
-                            SELECT b.id, b.title, b.series_index, d.name as filename, d.format
-                            FROM books b
-                            JOIN books_series_link bsl ON b.id = bsl.book
-                            JOIN data d ON b.id = d.book
-                            WHERE bsl.series = ?
-                            ORDER BY b.series_index
-                        """, (series_id,))
-                        for row in cursor.fetchall():
-                            ext = row["format"].lower() if row["format"] else "pdf"
-                            file_url = f'/library/books/{row["id"]}/{row["filename"]}.{ext}'
-                            yield '  <entry>\n'
-                            yield f'    <title>{escape_xml(row["title"])}</title>\n'
-                            yield f'    <link type="application/{ext}" href="{file_url}" />\n'
-                            yield '  </entry>\n'
-
-                elif category == 'book':
-                    # Books: show all EPUB books
-                    yield '  <link rel="start" href="/opds" />\n'
-                    yield '  <link rel="up" href="/opds" />\n'
-
+                if not series_id:
                     cursor.execute("""
-                        SELECT b.id, b.title, a.name as author, d.name as filename
-                        FROM books b
-                        LEFT JOIN books_authors_link bal ON b.id = bal.book
-                        LEFT JOIN authors a ON bal.author = a.id
-                        JOIN data d ON b.id = d.book
-                        WHERE d.format = 'EPUB'
-                        ORDER BY b.title
+                        SELECT DISTINCT s.id, s.name
+                        FROM series s
+                        JOIN books_series_link bsl ON s.id = bsl.series
+                        ORDER BY s.name
                     """)
                     for row in cursor.fetchall():
-                        file_url = f'/library/books/{row["id"]}/{row["filename"]}.epub'
-                        author = row["author"] if row["author"] else "Unknown"
-                        yield '  <entry>\n'
-                        yield f'    <title>{escape_xml(row["title"])}</title>\n'
-                        yield f'    <author><name>{escape_xml(author)}</name></author>\n'
-                        yield f'    <link type="application/epub+zip" href="{file_url}" />\n'
-                        yield '  </entry>\n'
+                        xml_parts.append(f'  <entry><title>{escape_xml(row["name"])}</title><link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/opds?category=comic&series={row["id"]}" /></entry>')
+                else:
+                    cursor.execute("""
+                        SELECT b.id, b.title, b.series_index, d.name as filename, d.format
+                        FROM books b
+                        JOIN books_series_link bsl ON b.id = bsl.book
+                        JOIN data d ON b.id = d.book
+                        WHERE bsl.series = ?
+                        ORDER BY b.series_index
+                    """, (series_id,))
+                    for row in cursor.fetchall():
+                        ext = row["format"].lower() if row["format"] else "pdf"
+                        file_url = f'/library/books/{row["id"]}/{row["filename"]}.{ext}'
+                        xml_parts.append(f'  <entry><title>{escape_xml(row["title"])}</title><link type="application/{ext}" href="{file_url}" /></entry>')
 
-                yield '</feed>'
+            elif category == 'book':
+                xml_parts.append('  <link rel="start" href="/opds" />')
+                xml_parts.append('  <link rel="up" href="/opds" />')
 
+                cursor.execute("""
+                    SELECT b.id, b.title, a.name as author, d.name as filename
+                    FROM books b
+                    LEFT JOIN books_authors_link bal ON b.id = bal.book
+                    LEFT JOIN authors a ON bal.author = a.id
+                    JOIN data d ON b.id = d.book
+                    WHERE d.format = 'EPUB'
+                    ORDER BY b.title
+                """)
+                for row in cursor.fetchall():
+                    file_url = f'/library/books/{row["id"]}/{row["filename"]}.epub'
+                    author = row["author"] if row["author"] else "Unknown"
+                    xml_parts.append(f'  <entry><title>{escape_xml(row["title"])}</title><author><name>{escape_xml(author)}</name></author><link type="application/epub+zip" href="{file_url}" /></entry>')
+
+            xml_parts.append('</feed>')
             conn.close()
-            return Response(generate_opds(), mimetype='application/atom+xml; charset=utf-8')
+
+            return Response('\n'.join(xml_parts), mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
             import traceback
+            traceback.print_exc()
             return Response(f'<?xml version="1.0"?><opds><error>{escape_xml(str(e))}</error></opds>',
                             mimetype='application/xml')
