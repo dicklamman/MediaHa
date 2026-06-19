@@ -161,7 +161,7 @@ def enforce_login():
     path = request.path
 
     # Public paths
-    if path in ("/api/login", "/api/auth/status", "/health", "/login.html", "/favicon.ico"):
+    if path in ("/api/login", "/api/auth/status", "/health", "/login.html", "/favicon.ico", "/opds", "/api/opds-debug"):
         return
 
     # Allow GET for calibre settings (for loading form on tab switch)
