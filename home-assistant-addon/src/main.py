@@ -1407,16 +1407,58 @@ def sync_comics():
     return app.response_class(generate(), mimetype='application/json')
 
 
+@app.route('/api/opds-debug', methods=['GET', 'POST'])
+def opds_debug():
+    """Debug endpoint to test OPDS auth"""
+    import base64
+    auth_header = request.headers.get('Authorization', '')
+    result = {
+        'session_auth': session.get('authenticated', False),
+        'expected_user': AUTH_USERNAME,
+        'expected_pass': AUTH_PASSWORD,
+        'auth_header': auth_header[:50] if auth_header else None,
+    }
+    if auth_header.startswith('Basic '):
+        try:
+            encoded = auth_header[6:]
+            decoded = base64.b64decode(encoded).decode('utf-8')
+            result['decoded'] = decoded
+        except:
+            result['decode_error'] = True
+    return jsonify(result)
+
+
 @app.route('/opds')
 def opds_catalog():
     """OPDS catalog showing all books and comics"""
+    import base64
+    import logging
+    logger = logging.getLogger()
+
     # Check authentication via session or basic auth header
     authenticated = session.get("authenticated", False)
     if not authenticated:
-        auth = request.authorization
-        if auth and check_auth(auth.username, auth.password):
-            session["authenticated"] = True
-            authenticated = True
+        # Try Basic Auth header
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Basic '):
+            try:
+                encoded = auth_header[6:]
+                decoded = base64.b64decode(encoded).decode('utf-8')
+                username, password = decoded.split(':', 1)
+                if check_auth(username, password):
+                    session["authenticated"] = True
+                    authenticated = True
+            except Exception as e:
+                logger.error(f"OPDS Auth error: {e}")
+
+        # Try URL parameters (some OPDS apps use this)
+        if not authenticated:
+            url_user = request.args.get('user') or request.args.get('username')
+            url_pass = request.args.get('pass') or request.args.get('password')
+            if url_user and url_pass:
+                if check_auth(url_user, url_pass):
+                    session["authenticated"] = True
+                    authenticated = True
 
     if not authenticated:
         # Return 401 to trigger Basic Auth dialog in OPDS apps
