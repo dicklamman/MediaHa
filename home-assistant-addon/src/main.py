@@ -393,8 +393,10 @@ def fetch_book(book_id, format):
                             if sign:
                                 stream_url = f"{alist_url.rstrip('/')}/d{remote_path}?sign={sign}"
                                 return redirect(stream_url)
-                        except Exception as e:
+                        except Exception:
                             pass  # Fall through to local file if Alist fails
+            except Exception:
+                pass  # Fall through to local file if Alist fails
 
         def path_exists_quick(p):
             try:
