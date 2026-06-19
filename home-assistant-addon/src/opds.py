@@ -89,7 +89,7 @@ def register_routes(app, check_auth):
             '    <updated>' + now + '</updated>',
             '    <id>' + entry_uuid + '</id>',
             '    <content type="text/html">' + series_content + '</content>',
-            '    <link href="/images/icons/icon144.png" type="image/png" rel="http://opds-spec.org/image/thumbnail"/>'
+            '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>'
         ]
         
         # Add acquisition link with metadata
@@ -452,3 +452,45 @@ def register_routes(app, check_auth):
             traceback.print_exc()
             return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
                             mimetype='application/xml')
+
+    @app.route('/opds/cover/<int:book_id>')
+    def opds_cover(book_id):
+        """Serve book cover images for OPDS readers"""
+        from flask import send_from_directory
+        try:
+            if os.path.exists(CALIBRE_CONFIG_PATH):
+                with open(CALIBRE_CONFIG_PATH, 'r') as f:
+                    config = json.load(f)
+            else:
+                return Response('Not found', status=404)
+
+            calibre_library_path = config.get('calibre_library_path', '')
+            if not calibre_library_path:
+                return Response('Not found', status=404)
+
+            calibre_path = Path(calibre_library_path)
+            metadata_db = calibre_path / 'metadata.db'
+
+            if not metadata_db.exists():
+                return Response('Not found', status=404)
+
+            # Find cover file (jpg/png) for this book
+            book_folder = calibre_path / str(book_id)
+            if book_folder.exists():
+                for f in book_folder.iterdir():
+                    name_lower = f.name.lower()
+                    if name_lower.endswith(('.jpg', '.jpeg', '.png')) and 'cover' in name_lower:
+                        return send_from_directory(str(book_folder), f.name)
+
+            # Fallback: check for any jpg/png in book folder
+            if book_folder.exists():
+                for f in book_folder.iterdir():
+                    if f.suffix.lower() in ('.jpg', '.jpeg', '.png'):
+                        return send_from_directory(str(book_folder), f.name)
+
+            return Response('Not found', status=404)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response('Error', status=500)

@@ -385,17 +385,16 @@ def fetch_book(book_id, format):
                     username = alist_config.get('username', 'admin')
                     password = alist_config.get('password', '')
                     if alist_url:
-                        from utils.alist_strm import get_alist_token, get_file_sign
-                        token = get_alist_token(alist_url, username, password)
-                        remote_path = str(book_folder / filename)
-                        sign = get_file_sign(alist_url, remote_path, token)
-                        if sign:
-                            stream_url = f"{alist_url.rstrip('/')}/d{remote_path}?sign={sign}"
-                            return redirect(stream_url)
-                        else:
-                            return jsonify({'error': 'Alist sign not available', 'alist_url': alist_url, 'remote_path': remote_path}), 500
-            except Exception as e:
-                pass  # Fall through to local file
+                        try:
+                            from utils.alist_strm import get_alist_token, get_file_sign
+                            token = get_alist_token(alist_url, username, password)
+                            remote_path = str(book_folder / filename)
+                            sign = get_file_sign(alist_url, remote_path, token)
+                            if sign:
+                                stream_url = f"{alist_url.rstrip('/')}/d{remote_path}?sign={sign}"
+                                return redirect(stream_url)
+                        except Exception as e:
+                            pass  # Fall through to local file if Alist fails
 
         def path_exists_quick(p):
             try:
