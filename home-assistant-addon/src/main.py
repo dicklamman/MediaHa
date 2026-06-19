@@ -319,9 +319,28 @@ def download_file():
 @app.route('/fetch/<int:book_id>/<format>', methods=['GET'])
 def fetch_book(book_id, format):
     """Serve book files for OPDS/Calibre-Web readers (COPS/Yomu)"""
+    # Check authentication for OPDS readers
+    authenticated = session.get("authenticated", False)
+    if not authenticated:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Basic '):
+            try:
+                encoded = auth_header[6:]
+                decoded = base64.b64decode(encoded).decode('utf-8')
+                username, password = decoded.split(':', 1)
+                if check_auth(username, password):
+                    session["authenticated"] = True
+                    authenticated = True
+            except:
+                pass
+    
+    if not authenticated:
+        resp = jsonify({'error': 'Authentication required'})
+        resp.headers['WWW-Authenticate'] = 'Basic realm="MediaHa"'
+        return resp, 401
+
     calibre_library = request.args.get('calibre_library')
     if not calibre_library:
-        # Try to get from config
         config_path = CALIBRE_CONFIG_PATH
         if os.path.exists(config_path):
             with open(config_path, 'r') as f:
@@ -341,7 +360,9 @@ def fetch_book(book_id, format):
     format_lower = format.lower()
     for f in os.listdir(book_path):
         if f.lower().endswith(f'.{format_lower}'):
-            return send_from_directory(str(book_path), f)
+            response = send_from_directory(str(book_path), f)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
 
     return jsonify({'error': f'Format {format} not found for book {book_id}'}), 404
 
