@@ -1,4 +1,5 @@
-const DropboxManager = {
+// Dropbox Module
+export const dropbox = {
     init() {
         this.appKeyInput = document.getElementById('dropbox-app-key');
         this.appSecretInput = document.getElementById('dropbox-app-secret');
@@ -136,5 +137,5 @@ document.addEventListener('DOMContentLoaded', async () => {
         return; // Stop initialization if not authenticated
     }
 
-    DropboxManager.init();
+    dropbox.init();
 });

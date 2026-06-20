@@ -113,5 +113,15 @@
     <script src="/js/ui.js" type="module"></script>
     <script src="/js/fileBrowser.js" type="module"></script>
     <script src="/js/mediaPreview.js" type="module"></script>
+    <script type="module">
+        import { fileBrowser } from '/js/fileBrowser.js';
+        import { mediaPreview } from '/js/mediaPreview.js';
+
+        // Initialize file browser for EPUB page
+        document.addEventListener('DOMContentLoaded', () => {
+            fileBrowser.setBasePath('eBook');
+            mediaPreview.init();
+        });
+    </script>
 </body>
 </html>

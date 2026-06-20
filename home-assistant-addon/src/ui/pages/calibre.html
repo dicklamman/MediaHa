@@ -93,5 +93,12 @@
     <script src="/js/api.js" type="module"></script>
     <script src="/js/ui.js" type="module"></script>
     <script src="/js/calibre-web.js" type="module"></script>
+    <script type="module">
+        import { calibreWeb } from '/js/calibre-web.js';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            calibreWeb.init();
+        });
+    </script>
 </body>
 </html>

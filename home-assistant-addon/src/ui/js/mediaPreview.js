@@ -1,4 +1,13 @@
 export const mediaPreview = {
+    init() {
+        // Set up context menu and preview functionality
+        this.setupContextMenu();
+    },
+
+    setupContextMenu() {
+        // Context menu setup will be handled by file browser
+    },
+
     open(file) {
         const previewModal = document.getElementById('preview-modal');
         const previewContent = document.getElementById('preview-content');

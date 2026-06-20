@@ -1,5 +1,5 @@
 // Calibre Library Sync Module
-const CalibreManager = {
+export const calibreWeb = {
     init() {
         this.libraryPathInput = document.getElementById('calibre-library-path');
         this.folderInput = document.getElementById('calibre-folder');
@@ -231,10 +231,10 @@ const CalibreManager = {
 
 // Make loadSettings available for tab switch
 window.loadCalibreSettings = function() {
-    CalibreManager.loadSettings();
+    calibreWeb.loadSettings();
 };
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    CalibreManager.init();
+    calibreWeb.init();
 });

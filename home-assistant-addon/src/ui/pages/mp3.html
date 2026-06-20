@@ -170,5 +170,14 @@
     <script src="/js/ui.js" type="module"></script>
     <script src="/js/fileBrowser.js" type="module"></script>
     <script src="/js/mp3Player.js" type="module"></script>
+    <script type="module">
+        import { fileBrowser } from '/js/fileBrowser.js';
+        import { mp3Player } from '/js/mp3Player.js';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fileBrowser.setBasePath('music');
+            mp3Player.init();
+        });
+    </script>
 </body>
 </html>

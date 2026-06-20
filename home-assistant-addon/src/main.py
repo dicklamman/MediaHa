@@ -71,38 +71,49 @@ def enforce_login():
     """Require login for all HTML pages and API endpoints."""
     path = request.path
 
-    # Public paths
-    if path in ("/api/login", "/api/auth/status", "/health", "/login.html", "/favicon.ico", "/opds"):
-        return
-
-    if path == "/api/calibre/settings" and request.method == 'GET':
-        return
-
-    if path in ("/js/login.js", "/login.js"):
-        return
-
-    if path.endswith(".js"):
-        if not session.get("authenticated"):
-            return jsonify({"error": "Unauthorized"}), 401
-        return
-
+    # Static assets that don't require auth (CSS, images, fonts)
     static_exts = (
         ".css", ".png", ".jpg", ".jpeg", ".gif",
         ".svg", ".ico", ".woff", ".woff2", ".ttf", ".map"
     )
-    if path.startswith("/static/") or any(path.endswith(ext) for ext in static_exts):
+    if any(path.endswith(ext) for ext in static_exts):
         return
 
+    # Public paths that don't require auth
+    public_paths = (
+        "/", "/login.html", "/login.js", "/favicon.ico",
+        "/api/login", "/api/auth/status", "/health", "/opds"
+    )
+    if path in public_paths or path.startswith("/static/"):
+        return
+
+    # Allow JS files through (will be checked by session later if needed)
+    if path.endswith(".js"):
+        return
+
+    # Allow pages folder content (they need auth check below)
+    is_page = path.startswith("/pages/") or path.endswith(".html")
+
+    # Allow calibre settings GET (for loading form)
+    if path == "/api/calibre/settings" and request.method == 'GET':
+        return
+
+    # Allow fetch endpoints for OPDS readers
+    if path.startswith("/fetch/"):
+        return
+
+    # Check authentication for pages and API endpoints
+    if is_page or path.startswith("/api"):
+        if session.get("authenticated"):
+            return
+        return redirect("/login.html")
+
+    # Allow authenticated users through
     if session.get("authenticated"):
         return
 
-    if path.startswith("/api") or path == "/convert":
-        return jsonify({"error": "Unauthorized"}), 401
-
-    if path.startswith("/fetch/") or path.startswith("/fetch?"):
-        return
-
-    if path == "/" or path.endswith(".html"):
+    # Default: redirect to login
+    if path == "/":
         return redirect("/login.html")
 
     return jsonify({"error": "Unauthorized"}), 401

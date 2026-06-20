@@ -1,5 +1,5 @@
+// File Browser Module
 import { api } from './api.js';
-import { ui } from './ui.js';
 
 export const fileBrowser = {
     currentPath: 'eBook',

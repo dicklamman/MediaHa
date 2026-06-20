@@ -100,5 +100,14 @@
     <script src="/js/ui.js" type="module"></script>
     <script src="/js/alist.js" type="module"></script>
     <script src="/js/videoPlayer.js" type="module"></script>
+    <script type="module">
+        import { alist } from '/js/alist.js';
+        import { videoPlayer } from '/js/videoPlayer.js';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            alist.init();
+            videoPlayer.init();
+        });
+    </script>
 </body>
 </html>

@@ -74,5 +74,12 @@
     <script src="/js/api.js" type="module"></script>
     <script src="/js/ui.js" type="module"></script>
     <script src="/js/dropbox.js" type="module"></script>
+    <script type="module">
+        import { dropbox } from '/js/dropbox.js';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            dropbox.init();
+        });
+    </script>
 </body>
 </html>
