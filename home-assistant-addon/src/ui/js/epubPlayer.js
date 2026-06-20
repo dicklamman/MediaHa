@@ -7,7 +7,12 @@ export const epubPlayer = {
         const prevPageBtn = document.getElementById('prev-page');
         const nextPageBtn = document.getElementById('next-page');
 
-        if (closePreviewBtn) closePreviewBtn.addEventListener('click', () => this.close());
+        if (closePreviewBtn) {
+            closePreviewBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.close();
+            });
+        }
         if (prevPageBtn) prevPageBtn.addEventListener('click', () => { if (this.rendition) this.rendition.prev(); });
         if (nextPageBtn) nextPageBtn.addEventListener('click', () => { if (this.rendition) this.rendition.next(); });
 

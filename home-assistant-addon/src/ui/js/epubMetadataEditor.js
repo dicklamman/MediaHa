@@ -1,5 +1,8 @@
 // EPUB Metadata Editor Module
 
+// Store current file path globally for the save button
+window.currentEpubFile = null;
+
 export const epubMetadataEditor = {
     currentFile: null,
 
@@ -7,6 +10,9 @@ export const epubMetadataEditor = {
         this.currentFile = file;
         const modal = document.getElementById('epub-metadata-modal');
         if (!modal) return;
+
+        // Store file path globally for save button
+        window.currentEpubFile = file.path;
 
         // Load metadata
         this.loadMetadata(api);
@@ -68,6 +74,7 @@ export const epubMetadataEditor = {
             modal.classList.add('hidden');
         }
         this.currentFile = null;
+        window.currentEpubFile = null;
 
         // Clear form
         const fields = ['epub-title', 'epub-creator', 'epub-publisher', 'epub-language',
@@ -78,29 +85,3 @@ export const epubMetadataEditor = {
         });
     }
 };
-
-// Initialize event listeners when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    const closeBtn = document.getElementById('close-epub-metadata');
-    const cancelBtn = document.getElementById('cancel-epub-metadata');
-    const saveBtn = document.getElementById('save-epub-metadata');
-
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            epubMetadataEditor.close();
-        });
-    }
-
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => {
-            epubMetadataEditor.close();
-        });
-    }
-
-    if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
-            // Use global api variable from main.js
-            epubMetadataEditor.saveMetadata(window.api || api);
-        });
-    }
-});

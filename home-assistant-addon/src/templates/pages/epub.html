@@ -5,13 +5,6 @@
 <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
 {% endblock %}
 
-{% block page_header %}
-<header class="page-header">
-    <h2 class="page-title">EPUB Converter</h2>
-    <p class="page-subtitle">Convert and manage your EPUB books</p>
-</header>
-{% endblock %}
-
 {% block page_content %}
 <div class="breadcrumb" id="breadcrumb-container">
     <span class="crumb" id="root-crumb">/media/eBook</span>
@@ -35,11 +28,71 @@
     import { fileBrowser } from '/js/fileBrowser.js';
     import { mediaPreview } from '/js/mediaPreview.js';
     import { epubPlayer } from '/js/epubPlayer.js';
+    import { ui } from '/js/ui.js';
 
     document.addEventListener('DOMContentLoaded', () => {
         fileBrowser.setBasePath('eBook');
         mediaPreview.init();
         epubPlayer.init();
+
+        // EPUB Metadata Editor event listeners
+        const closeBtn = document.getElementById('close-epub-metadata');
+        const cancelBtn = document.getElementById('cancel-epub-metadata');
+        const saveBtn = document.getElementById('save-epub-metadata');
+        const modal = document.getElementById('epub-metadata-modal');
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                modal.classList.add('hidden');
+            });
+        }
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                modal.classList.add('hidden');
+            });
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const metadata = {
+                    title: document.getElementById('epub-title').value,
+                    creator: document.getElementById('epub-creator').value,
+                    publisher: document.getElementById('epub-publisher').value,
+                    language: document.getElementById('epub-language').value,
+                    description: document.getElementById('epub-description').value,
+                    identifier: document.getElementById('epub-identifier').value,
+                    date: document.getElementById('epub-date').value,
+                    rights: document.getElementById('epub-rights').value,
+                    subjects: document.getElementById('epub-subjects').value.split(',').map(s => s.trim()).filter(s => s)
+                };
+
+                try {
+                    const response = await fetch('/api/epub/metadata', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ file_name: window.currentEpubFile, ...metadata })
+                    });
+                    if (response.ok) {
+                        ui.showResultMessage('success', 'Metadata saved successfully');
+                        modal.classList.add('hidden');
+                    } else {
+                        const data = await response.json();
+                        ui.showResultMessage('error', data.error || 'Failed to save metadata');
+                    }
+                } catch (error) {
+                    ui.showResultMessage('error', 'Failed to save metadata: ' + error.message);
+                }
+            });
+        }
+
+        // Intercept context menu for EPUB files to load metadata
+        const originalHideContextMenu = ui.hideContextMenu;
+        ui.hideContextMenu = function() {
+            originalHideContextMenu();
+        };
     });
 </script>
 {% endblock %}
