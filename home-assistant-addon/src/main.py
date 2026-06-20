@@ -56,6 +56,10 @@ app = Flask(__name__,
             static_url_path='/static')
 app.secret_key = "mediaha-" + (AUTH_PASSWORD or "default-secret")
 
+# Session configuration
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 
 # =============================================================================
 # Configuration Paths
@@ -109,7 +113,9 @@ def enforce_login():
 
     # Block unauthenticated API access (except public ones handled above)
     if path.startswith("/api"):
-        return jsonify({"error": "Unauthorized"}), 401
+        if not session.get("authenticated"):
+            return jsonify({"error": "Unauthorized"}), 401
+        return
 
 
 # =============================================================================
