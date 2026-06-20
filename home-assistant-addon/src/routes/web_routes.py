@@ -4,6 +4,27 @@ import os
 from flask import send_from_directory, redirect, session, render_template
 
 
+# Shared navigation items
+NAV_ITEMS = [
+    ('home', 'home', 'Home', '/pages/home'),
+    ('epub', 'menu_book', 'EPUB Converter', '/pages/epub'),
+    ('mp3', 'library_music', 'MP3 Converter', '/pages/mp3'),
+    ('music-player', 'music_note', 'Music Player', '/pages/music-player'),
+    ('alist-video', 'movie', 'AList Video', '/pages/alist-video'),
+    ('alist', 'link', 'AList to STRM', '/pages/alist'),
+    ('dropbox', 'cloud', 'Dropbox Sync', '/pages/dropbox'),
+    ('calibre', 'library_books', 'Calibre Web Sync', '/pages/calibre')
+]
+
+
+def render_page(template_name, page_id, page_title):
+    """Helper to render page templates with common context."""
+    return render_template(template_name,
+                          nav_items=NAV_ITEMS,
+                          page_id=page_id,
+                          page_title=page_title)
+
+
 def register_web_routes(app):
     """Register web routes."""
     # Use absolute path based on this file's location
@@ -47,7 +68,7 @@ def register_web_routes(app):
     def index():
         """Serve home page or login based on auth state."""
         if session.get("authenticated"):
-            return render_template('pages/home.html')
+            return render_page('pages/home.html', 'home', 'Dashboard')
         return send_from_directory(ui_folder, 'login.html')
 
     @app.route('/pages/home')
@@ -55,62 +76,62 @@ def register_web_routes(app):
         """Serve the home page."""
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
-        return render_template('pages/home.html')
+        return render_page('pages/home.html', 'home', 'Dashboard')
 
     @app.route('/pages/epub')
     def epub():
         """Serve the EPUB page."""
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
-        return render_template('pages/epub.html')
+        return render_page('pages/epub.html', 'epub', 'EPUB Converter')
 
     @app.route('/pages/mp3')
     def mp3():
         """Serve the MP3 page."""
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
-        return render_template('pages/mp3.html')
+        return render_page('pages/mp3.html', 'mp3', 'MP3 Converter')
 
     @app.route('/pages/music-player')
     def music_player():
         """Serve the music player page."""
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
-        return render_template('pages/music-player.html')
+        return render_page('pages/music-player.html', 'music-player', 'Music Player')
 
     @app.route('/pages/alist-video')
     def alist_video():
         """Serve the AList video page."""
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
-        return render_template('pages/alist-video.html')
+        return render_page('pages/alist-video.html', 'alist-video', 'AList Video')
 
     @app.route('/pages/alist')
     def alist():
         """Serve the AList STRM page."""
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
-        return render_template('pages/alist.html')
+        return render_page('pages/alist.html', 'alist', 'AList to STRM')
 
     @app.route('/pages/dropbox')
     def dropbox():
         """Serve the Dropbox page."""
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
-        return render_template('pages/dropbox.html')
+        return render_page('pages/dropbox.html', 'dropbox', 'Dropbox Sync')
 
     @app.route('/pages/calibre')
     def calibre():
         """Serve the Calibre page."""
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
-        return render_template('pages/calibre.html')
+        return render_page('pages/calibre.html', 'calibre', 'Calibre Library Sync')
 
     @app.route('/login.html')
     def login_page():
         """Serve the login page if not authenticated."""
         if session.get("authenticated"):
-            return render_template('pages/home.html')
+            return render_page('pages/home.html', 'home', 'Dashboard')
         return send_from_directory(ui_folder, 'login.html')
 
     # =========================================
