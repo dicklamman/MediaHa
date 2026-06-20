@@ -130,6 +130,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    const menuEditEpubMetadata = document.getElementById('menu-edit-epub-metadata');
+    if (menuEditEpubMetadata) {
+        menuEditEpubMetadata.addEventListener('click', async () => {
+            ui.hideContextMenu();
+            const selectedFile = fileBrowser.selectedFile;
+            if (selectedFile && selectedFile.name.toLowerCase().endsWith('.epub')) {
+                const { epubMetadataEditor } = await import('./epubMetadataEditor.js');
+                epubMetadataEditor.open(selectedFile, api);
+            }
+        });
+    }
+
     // Initial load
     fileBrowser.loadFiles('');
 });

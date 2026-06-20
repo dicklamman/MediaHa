@@ -1,5 +1,6 @@
 // File Browser Module
 import { api } from './api.js';
+import { ui } from './ui.js';
 
 export const fileBrowser = {
     currentPath: 'eBook',
@@ -221,6 +222,16 @@ export const fileBrowser = {
                             menuEditAss.style.display = 'block';
                         } else {
                             menuEditAss.style.display = 'none';
+                        }
+                    }
+
+                    // Show/hide EPUB metadata edit option
+                    const menuEditEpubMetadata = document.getElementById('menu-edit-epub-metadata');
+                    if (menuEditEpubMetadata) {
+                        if (item.name.toLowerCase().endsWith('.epub')) {
+                            menuEditEpubMetadata.style.display = 'block';
+                        } else {
+                            menuEditEpubMetadata.style.display = 'none';
                         }
                     }
                 }

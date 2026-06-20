@@ -149,6 +149,9 @@ register_subtitle_routes(app)
 from routes.calibre_routes import register_calibre_routes
 register_calibre_routes(app)
 
+from routes.epub_routes import register_epub_routes
+register_epub_routes(app)
+
 
 # =============================================================================
 # Entry Point

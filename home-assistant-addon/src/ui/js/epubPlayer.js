@@ -53,7 +53,8 @@ export const epubPlayer = {
         this.rendition = this.book.renderTo(previewContent, {
             width: "100%",
             height: "100%",
-            spread: "none"
+            spread: "none",
+            method: "continuous"
         });
         
         this.updateTheme(currentTheme);

@@ -2,8 +2,15 @@
 
 export const ui = {
     initTheme() {
+        // Ensure localStorage has a default theme to prevent flash
+        if (!localStorage.getItem('theme')) {
+            localStorage.setItem('theme', 'light');
+        }
+
         const themeToggle = document.getElementById('theme-toggle');
         const savedTheme = localStorage.getItem('theme') || 'light';
+
+        // Apply theme before first paint
         document.documentElement.setAttribute('data-theme', savedTheme);
         this.updateThemeToggleIcon(savedTheme);
 

@@ -181,5 +181,35 @@ export const api = {
         }
 
         return { success: true };
+    },
+
+    // EPUB Metadata
+    async getEpubMetadata(fileName) {
+        const response = await fetch('/api/epub/metadata?file_name=' + encodeURIComponent(fileName));
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to load EPUB metadata');
+        }
+        return await response.json();
+    },
+    async saveEpubMetadata(fileName, metadata) {
+        const response = await fetch('/api/epub/metadata', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_name: fileName, ...metadata })
+        });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to save EPUB metadata');
+        }
+        return await response.json();
     }
 };

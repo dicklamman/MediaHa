@@ -50,6 +50,59 @@
         <button class="menu-item" id="menu-rename">Rename</button>
         <button class="menu-item" id="menu-convert">Convert to 繁體</button>
         <button class="menu-item" id="menu-edit-ass">Edit Subtitle (ASS)</button>
+        <button class="menu-item" id="menu-edit-epub-metadata">Edit Metadata (EPUB)</button>
+    </div>
+
+    <!-- EPUB Metadata Editor Modal -->
+    <div id="epub-metadata-modal" class="modal-overlay hidden">
+        <div class="modal-content metadata-modal">
+            <div class="modal-header">
+                <h3>Edit EPUB Metadata</h3>
+                <button id="close-epub-metadata" class="modal-close">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="epub-title">Title</label>
+                    <input type="text" id="epub-title" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="epub-creator">Author</label>
+                    <input type="text" id="epub-creator" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="epub-publisher">Publisher</label>
+                    <input type="text" id="epub-publisher" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="epub-language">Language</label>
+                    <input type="text" id="epub-language" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="epub-description">Description</label>
+                    <textarea id="epub-description" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="epub-identifier">Identifier (ISBN/UUID)</label>
+                    <input type="text" id="epub-identifier" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="epub-date">Date</label>
+                    <input type="text" id="epub-date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="epub-rights">Rights</label>
+                    <input type="text" id="epub-rights" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="epub-subjects">Subjects (comma-separated)</label>
+                    <input type="text" id="epub-subjects" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-epub-metadata" class="btn btn-secondary">Cancel</button>
+                <button id="save-epub-metadata" class="btn btn-primary">Save</button>
+            </div>
+        </div>
     </div>
     {% endblock %}
 

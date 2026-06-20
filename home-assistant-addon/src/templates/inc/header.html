@@ -13,6 +13,13 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    <script>
+        // Prevent theme flash by setting theme before render
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
     <div class="liquid-bg" aria-hidden="true"></div>
 
     <button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-label="Toggle Navigation">
