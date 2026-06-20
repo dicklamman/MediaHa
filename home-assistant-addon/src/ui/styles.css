@@ -960,17 +960,28 @@ body {
     margin-bottom: var(--space-xl);
 }
 
+.page-card {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-xl);
+    box-shadow: var(--glass-shadow);
+    margin-bottom: var(--space-xl);
+}
+
 .page-title {
     font-size: var(--font-size-3xl);
     font-weight: 700;
-    color: var(--color-text);
+    color: #0f172a;
     margin: 0 0 var(--space-sm) 0;
     letter-spacing: -0.025em;
 }
 
 .page-subtitle {
     font-size: var(--font-size-base);
-    color: var(--color-text-secondary);
+    color: #475569;
 }
 
 /* ================================================

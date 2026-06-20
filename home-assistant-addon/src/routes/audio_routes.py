@@ -6,7 +6,7 @@ import re
 import urllib.request
 import json
 import requests
-from flask import request
+from flask import request, jsonify, session
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC
 
@@ -19,6 +19,9 @@ def register_audio_routes(app):
 
     @app.route('/api/metadata', methods=['GET'])
     def get_metadata():
+        if not session.get("authenticated"):
+            return jsonify({'error': 'Unauthorized'}), 401
+
         file_name = request.args.get('file_name')
         if not file_name:
             return jsonify({'error': 'No file name provided'}), 400
@@ -74,6 +77,9 @@ def register_audio_routes(app):
 
     @app.route('/api/metadata', methods=['POST'])
     def update_metadata():
+        if not session.get("authenticated"):
+            return jsonify({'error': 'Unauthorized'}), 401
+
         data = request.json
         file_name = data.get('file_name')
         if not file_name:

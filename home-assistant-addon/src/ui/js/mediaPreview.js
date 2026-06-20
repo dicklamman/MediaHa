@@ -1,7 +1,9 @@
 export const mediaPreview = {
     init() {
-        // Set up context menu and preview functionality
-        this.setupContextMenu();
+        const closeBtn = document.getElementById('close-preview');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.close());
+        }
     },
 
     setupContextMenu() {
@@ -12,7 +14,7 @@ export const mediaPreview = {
         const previewModal = document.getElementById('preview-modal');
         const previewContent = document.getElementById('preview-content');
         const previewTitle = document.getElementById('preview-title');
-        
+
         if (!previewModal || !previewContent || !previewTitle) {
             console.error('Preview modal elements not found');
             return;
@@ -27,10 +29,10 @@ export const mediaPreview = {
         previewTitle.textContent = file.name;
         previewModal.classList.remove('hidden');
         previewContent.innerHTML = '<div style="padding:20px;text-align:center;"><span class="spinner"></span> Loading preview...</div>';
-        
+
         const fileUrl = '/api/download?file_name=' + encodeURIComponent(file.path);
         const ext = file.name.toLowerCase().split('.').pop();
-        
+
         const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(ext);
         const isText = ['lrc', 'txt', 'md', 'json'].includes(ext);
 
@@ -48,5 +50,12 @@ export const mediaPreview = {
         } else {
             previewContent.innerHTML = `<div style="padding:20px;text-align:center;">No preview available for this file type.</div>`;
         }
+    },
+
+    close() {
+        const previewModal = document.getElementById('preview-modal');
+        const previewContent = document.getElementById('preview-content');
+        if (previewModal) previewModal.classList.add('hidden');
+        if (previewContent) previewContent.innerHTML = '';
     }
 };
