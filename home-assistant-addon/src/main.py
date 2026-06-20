@@ -68,23 +68,23 @@ DROPBOX_CONFIG_PATH = os.path.join(CONFIG_DIR, 'dropbox_options.json')
 
 @app.before_request
 def enforce_login():
-    """Require login for API endpoints and protected routes."""
+    """Require login for API endpoints. Routes handle page auth."""
     path = request.path
 
-    # Skip auth for static assets
+    # Allow all static assets through
     static_exts = (".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2", ".ttf", ".map")
     if any(path.endswith(ext) for ext in static_exts):
         return
 
-    # Skip auth for public paths
+    # Allow public paths
     if path in ("/", "/login.html", "/login.js", "/favicon.ico", "/api/login", "/api/auth/status", "/health", "/opds"):
         return
 
-    # Skip auth for static folder
+    # Allow static folder
     if path.startswith("/static/"):
         return
 
-    # Allow JS files without auth
+    # Allow JS files
     if path.endswith(".js"):
         return
 
@@ -96,7 +96,7 @@ def enforce_login():
     if path.startswith("/fetch/"):
         return
 
-    # Block unauthenticated API access
+    # Block unauthenticated API access (except public ones handled above)
     if path.startswith("/api"):
         return jsonify({"error": "Unauthorized"}), 401
 
