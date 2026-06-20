@@ -24,75 +24,32 @@
 <script src="/js/fileBrowser.js" type="module"></script>
 <script src="/js/mediaPreview.js" type="module"></script>
 <script src="/js/epubPlayer.js" type="module"></script>
+<script src="/js/epubMetadataEditor.js" type="module"></script>
 <script type="module">
     import { fileBrowser } from '/js/fileBrowser.js';
     import { mediaPreview } from '/js/mediaPreview.js';
     import { epubPlayer } from '/js/epubPlayer.js';
-    import { ui } from '/js/ui.js';
+    import { epubMetadataEditor } from '/js/epubMetadataEditor.js';
+    import { api } from '/js/api.js';
 
     document.addEventListener('DOMContentLoaded', () => {
         fileBrowser.setBasePath('eBook');
         mediaPreview.init();
         epubPlayer.init();
+        epubMetadataEditor.api = api;
 
-        // EPUB Metadata Editor event listeners
-        const closeBtn = document.getElementById('close-epub-metadata');
-        const cancelBtn = document.getElementById('cancel-epub-metadata');
-        const saveBtn = document.getElementById('save-epub-metadata');
-        const modal = document.getElementById('epub-metadata-modal');
-
-        if (closeBtn) {
-            closeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                modal.classList.add('hidden');
-            });
-        }
-
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', () => {
-                modal.classList.add('hidden');
-            });
-        }
-
-        if (saveBtn) {
-            saveBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const metadata = {
-                    title: document.getElementById('epub-title').value,
-                    creator: document.getElementById('epub-creator').value,
-                    publisher: document.getElementById('epub-publisher').value,
-                    language: document.getElementById('epub-language').value,
-                    description: document.getElementById('epub-description').value,
-                    identifier: document.getElementById('epub-identifier').value,
-                    date: document.getElementById('epub-date').value,
-                    rights: document.getElementById('epub-rights').value,
-                    subjects: document.getElementById('epub-subjects').value.split(',').map(s => s.trim()).filter(s => s)
-                };
-
-                try {
-                    const response = await fetch('/api/epub/metadata', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ file_name: window.currentEpubFile, ...metadata })
-                    });
-                    if (response.ok) {
-                        ui.showResultMessage('success', 'Metadata saved successfully');
-                        modal.classList.add('hidden');
-                    } else {
-                        const data = await response.json();
-                        ui.showResultMessage('error', data.error || 'Failed to save metadata');
-                    }
-                } catch (error) {
-                    ui.showResultMessage('error', 'Failed to save metadata: ' + error.message);
+        // EPUB Metadata Editor menu click handler
+        const menuEditEpubMetadata = document.getElementById('menu-edit-epub-metadata');
+        if (menuEditEpubMetadata) {
+            menuEditEpubMetadata.addEventListener('click', async () => {
+                const { ui } = await import('/js/ui.js');
+                ui.hideContextMenu();
+                const selectedFile = fileBrowser.selectedFile;
+                if (selectedFile && selectedFile.name.toLowerCase().endsWith('.epub')) {
+                    epubMetadataEditor.open(selectedFile, api);
                 }
             });
         }
-
-        // Intercept context menu for EPUB files to load metadata
-        const originalHideContextMenu = ui.hideContextMenu;
-        ui.hideContextMenu = function() {
-            originalHideContextMenu();
-        };
     });
 </script>
 {% endblock %}
