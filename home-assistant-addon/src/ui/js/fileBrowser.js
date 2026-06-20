@@ -60,14 +60,15 @@ export const fileBrowser = {
         this.currentPath = dir;
         this.updateBreadcrumb();
         const fileBrowserEl = document.getElementById('file-browser');
-        if(fileBrowserEl) fileBrowserEl.innerHTML = '<div style="padding:10px;">Loading...</div>';
+        if(fileBrowserEl) fileBrowserEl.innerHTML = '<div style="padding:10px;text-align:center;color:#666;">Loading from /media/' + dir + '...</div>';
         try {
             const items = await api.getFiles(dir);
             console.log('Loaded files:', items);
+            console.log('Items count:', items.length);
             this.renderFiles(items);
         } catch (err) {
             console.error('Error loading files:', err);
-            if(fileBrowserEl) fileBrowserEl.innerHTML = '<div style="padding:10px;color:red">Error loading files. Ensure /media exists!</div>';
+            if(fileBrowserEl) fileBrowserEl.innerHTML = '<div style="padding:10px;color:red">Error: ' + err.message + '</div>';
         }
     },
 
@@ -91,8 +92,8 @@ export const fileBrowser = {
             fileBrowserEl.appendChild(upDiv);
         }
 
-        if (items.length === 0 && this.currentPath === '') {
-            fileBrowserEl.innerHTML += '<div style="padding:10px;color:#888;">No files found here.</div>';
+        if (items.length === 0) {
+            fileBrowserEl.innerHTML += '<div style="padding:20px;color:#888;text-align:center;">No files found in this folder.</div>';
             return;
         }
 
