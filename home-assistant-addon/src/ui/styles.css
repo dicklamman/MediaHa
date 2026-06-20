@@ -2936,3 +2936,56 @@ rt {
         --glass-bg-strong: #1e293b;
     }
 }
+
+/* ================================================
+   Dashboard Cards
+   ================================================ */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-lg);
+}
+
+.dashboard-card {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-xl);
+    box-shadow: var(--glass-shadow);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--glass-shadow-lg);
+    background: var(--glass-bg-strong);
+}
+
+.dashboard-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: var(--space-md);
+    color: var(--color-primary);
+}
+
+.dashboard-card h3 {
+    margin: 0 0 var(--space-xs) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.dashboard-card p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+}

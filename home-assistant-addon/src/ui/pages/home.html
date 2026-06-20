@@ -29,14 +29,14 @@
         </div>
         <nav class="sidebar-nav">
             <ul>
-                <li id="nav-home" class="active"><a href="home.html"><span class="nav-icon material-icons">home</span>Home</a></li>
-                <li id="nav-epub"><a href="epub.html"><span class="nav-icon material-icons">menu_book</span>EPUB Converter</a></li>
-                <li id="nav-mp3"><a href="mp3.html"><span class="nav-icon material-icons">library_music</span>MP3 Converter</a></li>
-                <li id="nav-music-player"><a href="music-player.html"><span class="nav-icon material-icons">music_note</span>Music Player</a></li>
-                <li id="nav-alist-video"><a href="alist-video.html"><span class="nav-icon material-icons">movie</span>AList Video</a></li>
-                <li id="nav-alist"><a href="alist.html"><span class="nav-icon material-icons">link</span>AList to STRM</a></li>
-                <li id="nav-dropbox"><a href="dropbox.html"><span class="nav-icon material-icons">cloud</span>Dropbox Sync</a></li>
-                <li id="nav-calibre"><a href="calibre.html"><span class="nav-icon material-icons">library_books</span>Calibre Web Sync</a></li>
+                <li id="nav-home" class="active"><a href="/home.html"><span class="nav-icon material-icons">home</span>Home</a></li>
+                <li id="nav-epub"><a href="/pages/epub.html"><span class="nav-icon material-icons">menu_book</span>EPUB Converter</a></li>
+                <li id="nav-mp3"><a href="/pages/mp3.html"><span class="nav-icon material-icons">library_music</span>MP3 Converter</a></li>
+                <li id="nav-music-player"><a href="/pages/music-player.html"><span class="nav-icon material-icons">music_note</span>Music Player</a></li>
+                <li id="nav-alist-video"><a href="/pages/alist-video.html"><span class="nav-icon material-icons">movie</span>AList Video</a></li>
+                <li id="nav-alist"><a href="/pages/alist.html"><span class="nav-icon material-icons">link</span>AList to STRM</a></li>
+                <li id="nav-dropbox"><a href="/pages/dropbox.html"><span class="nav-icon material-icons">cloud</span>Dropbox Sync</a></li>
+                <li id="nav-calibre"><a href="/pages/calibre.html"><span class="nav-icon material-icons">library_books</span>Calibre Web Sync</a></li>
             </ul>
         </nav>
     </aside>
@@ -47,69 +47,49 @@
         </header>
 
         <div class="dashboard-grid">
-            <div class="dashboard-card" onclick="location.href='epub.html'">
+            <div class="dashboard-card" onclick="location.href='/pages/epub.html'">
                 <span class="material-icons dashboard-icon">menu_book</span>
                 <h3>EPUB Converter</h3>
                 <p>Convert and manage your EPUB books</p>
             </div>
 
-            <div class="dashboard-card" onclick="location.href='mp3.html'">
+            <div class="dashboard-card" onclick="location.href='/pages/mp3.html'">
                 <span class="material-icons dashboard-icon">library_music</span>
                 <h3>MP3 Converter</h3>
                 <p>Enhance music metadata and covers</p>
             </div>
 
-            <div class="dashboard-card" onclick="location.href='music-player.html'">
+            <div class="dashboard-card" onclick="location.href='/pages/music-player.html'">
                 <span class="material-icons dashboard-icon">music_note</span>
                 <h3>Music Player</h3>
                 <p>Listen to your music collection</p>
             </div>
 
-            <div class="dashboard-card" onclick="location.href='alist-video.html'">
+            <div class="dashboard-card" onclick="location.href='/pages/alist-video.html'">
                 <span class="material-icons dashboard-icon">movie</span>
                 <h3>AList Video</h3>
                 <p>Browse and play videos from AList</p>
             </div>
 
-            <div class="dashboard-card" onclick="location.href='alist.html'">
+            <div class="dashboard-card" onclick="location.href='/pages/alist.html'">
                 <span class="material-icons dashboard-icon">link</span>
                 <h3>AList to STRM</h3>
                 <p>Generate STRM files for Jellyfin</p>
             </div>
 
-            <div class="dashboard-card" onclick="location.href='dropbox.html'">
+            <div class="dashboard-card" onclick="location.href='/pages/dropbox.html'">
                 <span class="material-icons dashboard-icon">cloud</span>
                 <h3>Dropbox Sync</h3>
                 <p>Sync files from Dropbox</p>
             </div>
 
-            <div class="dashboard-card" onclick="location.href='calibre.html'">
+            <div class="dashboard-card" onclick="location.href='/pages/calibre.html'">
                 <span class="material-icons dashboard-icon">library_books</span>
                 <h3>Calibre Web Sync</h3>
                 <p>Sync books and comics to Calibre</p>
             </div>
         </div>
     </main>
-
-    <button id="mini-player-toggle-btn" class="mini-player-toggle-btn hidden">🎵</button>
-    <div id="mini-player" class="mini-player hidden">
-        <div class="mini-player-content">
-            <img id="mini-cover" src="" alt="Album Art" class="mini-cover" />
-            <div class="mini-info">
-                <div id="mini-title" class="mini-title">No track</div>
-                <div id="mini-artist" class="mini-artist">-</div>
-            </div>
-            <div class="mini-controls">
-                <button id="mini-prev" class="mini-btn">⏮️</button>
-                <button id="mini-play-pause" class="mini-btn mini-btn-play">▶️</button>
-                <button id="mini-next" class="mini-btn">⏭️</button>
-            </div>
-            <div class="mini-progress-container">
-                <input type="range" id="mini-progress" class="mini-progress-bar" min="0" max="100" value="0">
-            </div>
-            <button id="mini-close" class="mini-close">✕</button>
-        </div>
-    </div>
 
     <script src="/js/api.js" type="module"></script>
     <script src="/js/ui.js" type="module"></script>
