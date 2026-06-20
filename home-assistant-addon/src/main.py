@@ -68,33 +68,27 @@ DROPBOX_CONFIG_PATH = os.path.join(CONFIG_DIR, 'dropbox_options.json')
 
 @app.before_request
 def enforce_login():
-    """Require login for all HTML pages and API endpoints."""
+    """Require login for API endpoints and protected routes."""
     path = request.path
 
-    # Static assets that don't require auth (CSS, images, fonts)
-    static_exts = (
-        ".css", ".png", ".jpg", ".jpeg", ".gif",
-        ".svg", ".ico", ".woff", ".woff2", ".ttf", ".map"
-    )
+    # Skip auth for static assets
+    static_exts = (".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2", ".ttf", ".map")
     if any(path.endswith(ext) for ext in static_exts):
         return
 
-    # Public paths that don't require auth
-    public_paths = (
-        "/", "/login.html", "/login.js", "/favicon.ico",
-        "/api/login", "/api/auth/status", "/health", "/opds"
-    )
-    if path in public_paths or path.startswith("/static/"):
+    # Skip auth for public paths
+    if path in ("/", "/login.html", "/login.js", "/favicon.ico", "/api/login", "/api/auth/status", "/health", "/opds"):
         return
 
-    # Allow JS files through (will be checked by session later if needed)
+    # Skip auth for static folder
+    if path.startswith("/static/"):
+        return
+
+    # Allow JS files without auth
     if path.endswith(".js"):
         return
 
-    # Allow pages folder content (they need auth check below)
-    is_page = path.startswith("/pages/") or path.endswith(".html")
-
-    # Allow calibre settings GET (for loading form)
+    # Allow calibre settings GET
     if path == "/api/calibre/settings" and request.method == 'GET':
         return
 
@@ -102,21 +96,9 @@ def enforce_login():
     if path.startswith("/fetch/"):
         return
 
-    # Check authentication for pages and API endpoints
-    if is_page or path.startswith("/api"):
-        if session.get("authenticated"):
-            return
-        return redirect("/login.html")
-
-    # Allow authenticated users through
-    if session.get("authenticated"):
-        return
-
-    # Default: redirect to login
-    if path == "/":
-        return redirect("/login.html")
-
-    return jsonify({"error": "Unauthorized"}), 401
+    # Block unauthenticated API access
+    if path.startswith("/api"):
+        return jsonify({"error": "Unauthorized"}), 401
 
 
 # =============================================================================
