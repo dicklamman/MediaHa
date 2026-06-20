@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Web routes for UI serving."""
 import os
-from flask import send_from_directory, redirect, session, make_response
+from flask import send_from_directory, redirect, session
 
 
 def register_web_routes(app):
@@ -25,6 +25,13 @@ def register_web_routes(app):
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
         return send_from_directory(pages_folder, 'home.html')
+
+    @app.route('/login.html')
+    def login_page():
+        """Serve the login page if not authenticated."""
+        if session.get("authenticated"):
+            return send_from_directory(pages_folder, 'home.html')
+        return send_from_directory(ui_folder, 'login.html')
 
     @app.route('/<path:filename>')
     def serve_ui(filename):

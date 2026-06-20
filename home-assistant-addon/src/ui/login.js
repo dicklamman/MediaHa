@@ -1,19 +1,4 @@
-// Check if already authenticated - redirect to main app
-async function checkAuthStatus() {
-    try {
-        const response = await fetch('/api/auth/status');
-        if (response.ok) {
-            const data = await response.json();
-            if (data.authenticated) {
-                window.location.href = '/';
-                return false;
-            }
-        }
-    } catch (e) {
-        // Ignore errors, show login page
-    }
-    return true;
-}
+// Login page - server handles auth redirect
 
 document.addEventListener('DOMContentLoaded', async () => {
     const form = document.getElementById('login-form');
@@ -21,10 +6,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const submitBtn = form?.querySelector('.auth-submit');
 
     if (!form) return;
-
-    // If already authenticated, redirect to main app
-    const canShowLogin = await checkAuthStatus();
-    if (!canShowLogin) return;
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
