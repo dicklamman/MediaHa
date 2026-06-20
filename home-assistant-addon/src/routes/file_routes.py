@@ -5,7 +5,7 @@ import base64
 import json
 import sqlite3
 from pathlib import Path
-from flask import jsonify, request, send_from_directory, redirect
+from flask import jsonify, request, send_from_directory, redirect, session
 
 
 MEDIA_DIR = '/media'

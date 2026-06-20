@@ -23,37 +23,6 @@
 {% endblock %}
 
 {% block page_modals %}
-<!-- Context Menu -->
-<div id="context-menu" class="hidden">
-    <button class="menu-item" id="menu-preview">Preview Book</button>
-    <button class="menu-item" id="menu-rename">Rename</button>
-    <button class="menu-item" id="menu-convert">Convert to 繁體 (Traditional)</button>
-    <button class="menu-item" id="menu-edit-ass">Edit Subtitle (ASS)</button>
-</div>
-
-<!-- Preview Modal -->
-<div id="preview-modal" class="hidden">
-    <div id="preview-header">
-        <div style="display: flex; gap: var(--space-sm);">
-            <button id="prev-page" class="btn btn-secondary">← Prev</button>
-            <button id="next-page" class="btn btn-secondary">Next →</button>
-        </div>
-        <div style="font-weight: 600;" id="preview-title">Preview</div>
-        <button id="close-preview" class="modal-close">✕</button>
-    </div>
-    <div id="preview-content"></div>
-</div>
-
-<!-- Image Preview Modal -->
-<div id="image-preview-modal" class="hidden">
-    <div id="image-preview-header">
-        <div style="font-weight: 600;" id="image-preview-title">Cover Preview</div>
-        <button id="close-image-preview" class="modal-close">✕</button>
-    </div>
-    <div id="image-preview-content">
-        <img id="image-preview-img" src="" alt="Cover">
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_scripts %}

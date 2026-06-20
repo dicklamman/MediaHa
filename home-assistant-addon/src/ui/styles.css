@@ -1597,6 +1597,8 @@ body {
     display: flex;
     gap: var(--space-sm);
     margin-top: var(--space-sm);
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 .btn-run-modern {
