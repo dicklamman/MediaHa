@@ -55,9 +55,9 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/alist.js') }}" type="module"></script>
+<script src="/js/alist.js" type="module"></script>
 <script type="module">
-    import { alist } from '/static/js/alist.js';
+    import { alist } from '/js/alist.js';
 
     document.addEventListener('DOMContentLoaded', () => {
         alist.init();

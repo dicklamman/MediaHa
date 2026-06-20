@@ -121,11 +121,11 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/fileBrowser.js') }}" type="module"></script>
-<script src="{{ url_for('static', filename='js/mp3Player.js') }}" type="module"></script>
+<script src="/js/fileBrowser.js" type="module"></script>
+<script src="/js/mp3Player.js" type="module"></script>
 <script type="module">
-    import { fileBrowser } from '/static/js/fileBrowser.js';
-    import { mp3Player } from '/static/js/mp3Player.js';
+    import { fileBrowser } from '/js/fileBrowser.js';
+    import { mp3Player } from '/js/mp3Player.js';
 
     document.addEventListener('DOMContentLoaded', () => {
         fileBrowser.setBasePath('music');

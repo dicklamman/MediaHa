@@ -45,9 +45,9 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/dropbox.js') }}" type="module"></script>
+<script src="/js/dropbox.js" type="module"></script>
 <script type="module">
-    import { dropbox } from '/static/js/dropbox.js';
+    import { dropbox } from '/js/dropbox.js';
 
     document.addEventListener('DOMContentLoaded', () => {
         dropbox.init();

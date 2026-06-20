@@ -59,9 +59,9 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/musicPlayer.js') }}" type="module"></script>
+<script src="/js/musicPlayer.js" type="module"></script>
 <script type="module">
-    import { musicPlayer } from '/static/js/musicPlayer.js';
+    import { musicPlayer } from '/js/musicPlayer.js';
 
     document.addEventListener('DOMContentLoaded', () => {
         musicPlayer.init();

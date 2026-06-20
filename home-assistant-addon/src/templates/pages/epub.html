@@ -68,11 +68,11 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/fileBrowser.js') }}" type="module"></script>
-<script src="{{ url_for('static', filename='js/mediaPreview.js') }}" type="module"></script>
+<script src="/js/fileBrowser.js" type="module"></script>
+<script src="/js/mediaPreview.js" type="module"></script>
 <script type="module">
-    import { fileBrowser } from '/static/js/fileBrowser.js';
-    import { mediaPreview } from '/static/js/mediaPreview.js';
+    import { fileBrowser } from '/js/fileBrowser.js';
+    import { mediaPreview } from '/js/mediaPreview.js';
 
     document.addEventListener('DOMContentLoaded', () => {
         fileBrowser.setBasePath('eBook');

@@ -64,9 +64,9 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/calibre-web.js') }}" type="module"></script>
+<script src="/js/calibre-web.js" type="module"></script>
 <script type="module">
-    import { calibreWeb } from '/static/js/calibre-web.js';
+    import { calibreWeb } from '/js/calibre-web.js';
 
     document.addEventListener('DOMContentLoaded', () => {
         calibreWeb.init();
