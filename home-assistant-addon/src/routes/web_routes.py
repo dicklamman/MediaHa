@@ -19,6 +19,8 @@ NAV_ITEMS = [
 
 def render_page(template_name, page_id, page_title):
     """Helper to render page templates with common context."""
+    if not session.get("authenticated"):
+        return redirect('/login.html', code=302)
     return render_template(template_name,
                           nav_items=NAV_ITEMS,
                           page_id=page_id,
