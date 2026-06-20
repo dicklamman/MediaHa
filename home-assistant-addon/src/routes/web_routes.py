@@ -19,11 +19,6 @@ def register_web_routes(app):
             return send_from_directory(pages_folder, 'home.html')
         return send_from_directory(ui_folder, 'login.html')
 
-    @app.route('/login.html')
-    def login():
-        """Serve the login page."""
-        return send_from_directory(ui_folder, 'login.html')
-
     @app.route('/home.html')
     def home():
         """Serve the home page."""
