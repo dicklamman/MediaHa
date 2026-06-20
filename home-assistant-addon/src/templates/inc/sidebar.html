@@ -1,22 +1,22 @@
 {# Shared sidebar template #}
-    <aside class="sidebar">
-        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode"></button>
+<aside class="sidebar">
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode"></button>
 
-        <div class="sidebar-header">
-            <h1 class="sidebar-title">MediaHa</h1>
-            <p class="sidebar-subtitle">Media Converter</p>
-        </div>
+    <div class="sidebar-header">
+        <h1 class="sidebar-title">MediaHa</h1>
+        <p class="sidebar-subtitle">Media Converter</p>
+    </div>
 
-        <nav class="sidebar-nav">
-            <ul>
-                {% for id, icon, label, href in nav_items %}
-                <li id="nav-{{ id }}" {{ 'class="active"' if page_id == id else '' }}>
-                    <a href="{{ href }}">
-                        <span class="nav-icon material-icons">{{ icon }}</span>
-                        {{ label }}
-                    </a>
-                </li>
-                {% endfor %}
-            </ul>
-        </nav>
-    </aside>
+    <nav class="sidebar-nav">
+        <ul>
+            {% for id, icon, label, href in nav_items %}
+            <li id="nav-{{ id }}" class="{{ 'active' if page_id == id else '' }}">
+                <a href="{{ href }}">
+                    <span class="nav-icon material-icons">{{ icon }}</span>
+                    {{ label }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </nav>
+</aside>
