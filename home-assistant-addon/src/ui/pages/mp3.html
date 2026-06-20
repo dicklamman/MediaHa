@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP3 Converter - MediaHa</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+    <div class="liquid-bg" aria-hidden="true"></div>
+
+    <button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-label="Toggle Navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <aside class="sidebar">
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode"></button>
+
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">MediaHa</h1>
+            <p class="sidebar-subtitle">Media Converter</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <ul>
+                <li id="nav-home"><a href="index.html"><span class="nav-icon material-icons">home</span>Home</a></li>
+                <li id="nav-epub"><a href="epub.html"><span class="nav-icon material-icons">menu_book</span>EPUB Converter</a></li>
+                <li id="nav-mp3" class="active"><a href="mp3.html"><span class="nav-icon material-icons">library_music</span>MP3 Converter</a></li>
+                <li id="nav-music-player"><a href="music-player.html"><span class="nav-icon material-icons">music_note</span>Music Player</a></li>
+                <li id="nav-alist-video"><a href="alist-video.html"><span class="nav-icon material-icons">movie</span>AList Video</a></li>
+                <li id="nav-alist"><a href="alist.html"><span class="nav-icon material-icons">link</span>AList to STRM</a></li>
+                <li id="nav-dropbox"><a href="dropbox.html"><span class="nav-icon material-icons">cloud</span>Dropbox Sync</a></li>
+                <li id="nav-calibre"><a href="calibre.html"><span class="nav-icon material-icons">library_books</span>Calibre Web Sync</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="main-wrapper">
+        <header class="page-header">
+            <h2 class="page-title">MP3 Converter</h2>
+        </header>
+
+        <div class="breadcrumb" id="breadcrumb-container">
+            <span class="crumb" id="root-crumb">/media/Music</span>
+            <span id="dynamic-crumbs"></span>
+        </div>
+
+        <div class="file-browser" id="file-browser"></div>
+    </main>
+
+    <button id="mini-player-toggle-btn" class="mini-player-toggle-btn hidden">🎵</button>
+    <div id="mini-player" class="mini-player hidden">
+        <div class="mini-player-content">
+            <img id="mini-cover" src="" alt="Album Art" class="mini-cover" />
+            <div class="mini-info">
+                <div id="mini-title" class="mini-title">No track</div>
+                <div id="mini-artist" class="mini-artist">-</div>
+            </div>
+            <div class="mini-controls">
+                <button id="mini-prev" class="mini-btn">⏮️</button>
+                <button id="mini-play-pause" class="mini-btn mini-btn-play">▶️</button>
+                <button id="mini-next" class="mini-btn">⏭️</button>
+            </div>
+            <div class="mini-progress-container">
+                <input type="range" id="mini-progress" class="mini-progress-bar" min="0" max="100" value="0">
+            </div>
+            <button id="mini-close" class="mini-close">✕</button>
+        </div>
+    </div>
+
+    <div id="mp3-modal" class="hidden">
+        <div id="mp3-header">
+            <div style="font-weight: 600;" id="mp3-title">Music Player</div>
+            <button id="close-mp3" class="modal-close">✕</button>
+        </div>
+        <div id="mp3-content">
+            <div id="mp3-top-layout">
+                <img id="mp3-cover" src="" alt="Album Art" />
+                <div id="mp3-o3ics"></div>
+            </div>
+            <audio id="mp3-audio" controls></audio>
+
+            <div id="lrc-editor" class="hidden">
+                <div class="lrc-editor-header">
+                    <h4>LRC Timeline Editor</h4>
+                    <div class="lrc-editor-actions">
+                        <button id="save-lrc-btn" class="btn btn-primary">Confirm</button>
+                        <button id="cancel-lrc-btn" class="btn btn-secondary">Cancel</button>
+                    </div>
+                </div>
+                <div class="lrc-editor-controls">
+                    <label>Offset (seconds):</label>
+                    <input type="number" id="lrc-offset-input" value="0" step="0.1" min="-100" max="100">
+                    <button id="lrc-add-btn" class="btn btn-sm btn-success">+ Add</button>
+                    <button id="lrc-subtract-btn" class="btn btn-sm btn-danger">- Subtract</button>
+                </div>
+                <div id="lrc-editor-preview" class="lrc-editor-preview"></div>
+            </div>
+
+            <div class="metadata-section">
+                <div class="metadata-header">
+                    <h3 class="metadata-title">Metadata</h3>
+                    <div class="metadata-actions">
+                        <button id="edit-lrc-btn" class="btn btn-info">Edit LRC</button>
+                        <button id="auto-enhance-btn" class="btn btn-success">Auto Enhance</button>
+                        <button id="confirm-enhance-btn" class="btn btn-primary hidden">Confirm</button>
+                        <button id="cancel-enhance-btn" class="btn btn-secondary hidden">Cancel</button>
+                        <button id="edit-metadata-btn" class="btn btn-secondary">Edit</button>
+                        <button id="cancel-metadata-btn" class="btn btn-secondary hidden">Cancel</button>
+                        <button id="save-metadata-btn" class="btn btn-primary hidden">Save</button>
+                    </div>
+                </div>
+
+                <div id="metadata-display">
+                    <p><strong>Title:</strong> <span id="meta-disp-title">-</span></p>
+                    <p><strong>Artist:</strong> <span id="meta-disp-artist">-</span></p>
+                    <p><strong>Album:</strong> <span id="meta-disp-album">-</span></p>
+                </div>
+
+                <div id="enhance-preview" class="hidden"></div>
+
+                <div id="metadata-editor" class="hidden">
+                    <div class="form-group">
+                        <label class="form-label">Title</label>
+                        <input type="text" id="meta-input-title" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Artist</label>
+                        <input type="text" id="meta-input-artist" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Album</label>
+                        <input type="text" id="meta-input-album" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cover Image</label>
+                        <div class="cover-upload-container">
+                            <div class="cover-preview-container">
+                                <img id="editor-cover-preview" src="" alt="Cover Preview" class="hidden">
+                                <div id="editor-cover-placeholder" class="cover-placeholder">No cover</div>
+                            </div>
+                            <div class="cover-upload-controls">
+                                <button id="upload-cover-btn" class="btn btn-sm btn-secondary">Upload File</button>
+                                <input type="file" id="cover-file-input" accept="image/*" style="display: none;">
+                                <button id="url-cover-btn" class="btn btn-sm btn-secondary">From URL</button>
+                                <input type="text" id="cover-url-input" class="form-input" placeholder="Paste image URL..." style="display: none; margin-top: 8px;">
+                                <button id="apply-url-cover-btn" class="btn btn-sm btn-primary hidden" style="margin-top: 4px;">Apply URL</button>
+                                <button id="remove-cover-btn" class="btn btn-sm btn-danger hidden" style="margin-top: 4px;">Remove Cover</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Lyrics (.lrc)</label>
+                        <textarea id="meta-input-o3ics" class="form-input form-textarea"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/fileBrowser.js"></script>
+    <script src="js/mp3Player.js"></script>
+</body>
+</html>

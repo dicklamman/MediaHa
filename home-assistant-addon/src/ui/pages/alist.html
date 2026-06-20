@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AList to STRM - MediaHa</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+    <div class="liquid-bg" aria-hidden="true"></div>
+
+    <button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-label="Toggle Navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <aside class="sidebar">
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode"></button>
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">MediaHa</h1>
+            <p class="sidebar-subtitle">Media Converter</p>
+        </div>
+        <nav class="sidebar-nav">
+            <ul>
+                <li id="nav-home"><a href="index.html"><span class="nav-icon material-icons">home</span>Home</a></li>
+                <li id="nav-epub"><a href="epub.html"><span class="nav-icon material-icons">menu_book</span>EPUB Converter</a></li>
+                <li id="nav-mp3"><a href="mp3.html"><span class="nav-icon material-icons">library_music</span>MP3 Converter</a></li>
+                <li id="nav-music-player"><a href="music-player.html"><span class="nav-icon material-icons">music_note</span>Music Player</a></li>
+                <li id="nav-alist-video"><a href="alist-video.html"><span class="nav-icon material-icons">movie</span>AList Video</a></li>
+                <li id="nav-alist" class="active"><a href="alist.html"><span class="nav-icon material-icons">link</span>AList to STRM</a></li>
+                <li id="nav-dropbox"><a href="dropbox.html"><span class="nav-icon material-icons">cloud</span>Dropbox Sync</a></li>
+                <li id="nav-calibre"><a href="calibre.html"><span class="nav-icon material-icons">library_books</span>Calibre Web Sync</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="main-wrapper">
+        <header class="page-header">
+            <h2 class="page-title">AList to STRM</h2>
+        </header>
+
+        <div class="modern-form">
+            <div class="form-group-modern">
+                <label class="form-label-modern">AList URL</label>
+                <input type="text" id="alist-url" class="form-control-modern" placeholder="http://192.168.1.100:5244">
+            </div>
+            <div class="form-group-modern">
+                <label class="form-label-modern">Public Domain</label>
+                <input type="text" id="alist-domain" class="form-control-modern" placeholder="https://alist.example.com">
+            </div>
+            <div class="form-group-modern">
+                <label class="form-label-modern">Remote Path</label>
+                <input type="text" id="alist-remote" class="form-control-modern" placeholder="/OneDriveShare">
+            </div>
+            <div class="form-group-modern">
+                <label class="form-label-modern">Local Path</label>
+                <input type="text" id="alist-local" class="form-control-modern" placeholder="/media/alist">
+            </div>
+            <div class="form-group-modern">
+                <label class="form-label-modern">Username</label>
+                <input type="text" id="alist-user" class="form-control-modern" placeholder="admin">
+            </div>
+            <div class="form-group-modern">
+                <label class="form-label-modern">Password</label>
+                <input type="password" id="alist-pass" class="form-control-modern" placeholder="password">
+            </div>
+            <div class="form-actions-modern">
+                <button id="save-alist" class="btn-save-modern">Save Settings</button>
+                <button id="run-alist" class="btn-run-modern">Run Generator</button>
+            </div>
+            <div id="alist-status"></div>
+        </div>
+
+        <div id="alist-log" class="log-output"></div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/alist.js"></script>
+</body>
+</html>

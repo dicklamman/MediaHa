@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPUB Converter - MediaHa</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+    <div class="liquid-bg" aria-hidden="true"></div>
+
+    <button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-label="Toggle Navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <aside class="sidebar">
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode"></button>
+
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">MediaHa</h1>
+            <p class="sidebar-subtitle">Media Converter</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <ul>
+                <li id="nav-home"><a href="index.html"><span class="nav-icon material-icons">home</span>Home</a></li>
+                <li id="nav-epub" class="active"><a href="epub.html"><span class="nav-icon material-icons">menu_book</span>EPUB Converter</a></li>
+                <li id="nav-mp3"><a href="mp3.html"><span class="nav-icon material-icons">library_music</span>MP3 Converter</a></li>
+                <li id="nav-music-player"><a href="music-player.html"><span class="nav-icon material-icons">music_note</span>Music Player</a></li>
+                <li id="nav-alist-video"><a href="alist-video.html"><span class="nav-icon material-icons">movie</span>AList Video</a></li>
+                <li id="nav-alist"><a href="alist.html"><span class="nav-icon material-icons">link</span>AList to STRM</a></li>
+                <li id="nav-dropbox"><a href="dropbox.html"><span class="nav-icon material-icons">cloud</span>Dropbox Sync</a></li>
+                <li id="nav-calibre"><a href="calibre.html"><span class="nav-icon material-icons">library_books</span>Calibre Web Sync</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="main-wrapper">
+        <header class="page-header">
+            <h2 class="page-title">EPUB Converter</h2>
+        </header>
+
+        <div class="breadcrumb" id="breadcrumb-container">
+            <span class="crumb" id="root-crumb">/media/eBook</span>
+            <span id="dynamic-crumbs"></span>
+        </div>
+
+        <div class="file-browser" id="file-browser"></div>
+        <div id="result"></div>
+    </main>
+
+    <button id="mini-player-toggle-btn" class="mini-player-toggle-btn hidden">🎵</button>
+    <div id="mini-player" class="mini-player hidden">
+        <div class="mini-player-content">
+            <img id="mini-cover" src="" alt="Album Art" class="mini-cover" />
+            <div class="mini-info">
+                <div id="mini-title" class="mini-title">No track</div>
+                <div id="mini-artist" class="mini-artist">-</div>
+            </div>
+            <div class="mini-controls">
+                <button id="mini-prev" class="mini-btn">⏮️</button>
+                <button id="mini-play-pause" class="mini-btn mini-btn-play">▶️</button>
+                <button id="mini-next" class="mini-btn">⏭️</button>
+            </div>
+            <div class="mini-progress-container">
+                <input type="range" id="mini-progress" class="mini-progress-bar" min="0" max="100" value="0">
+            </div>
+            <button id="mini-close" class="mini-close">✕</button>
+        </div>
+    </div>
+
+    <div id="context-menu" class="hidden">
+        <button class="menu-item" id="menu-preview">Preview Book</button>
+        <button class="menu-item" id="menu-rename">Rename</button>
+        <button class="menu-item" id="menu-convert">Convert to 繁體 (Traditional)</button>
+        <button class="menu-item" id="menu-edit-ass">Edit Subtitle (ASS)</button>
+    </div>
+
+    <div id="preview-modal" class="hidden">
+        <div id="preview-header">
+            <div style="display: flex; gap: var(--space-sm);">
+                <button id="prev-page" class="btn btn-secondary">← Prev</button>
+                <button id="next-page" class="btn btn-secondary">Next →</button>
+            </div>
+            <div style="font-weight: 600;" id="preview-title">Preview</div>
+            <button id="close-preview" class="modal-close">✕</button>
+        </div>
+        <div id="preview-content"></div>
+    </div>
+
+    <div id="image-preview-modal" class="hidden">
+        <div id="image-preview-header">
+            <div style="font-weight: 600;" id="image-preview-title">Cover Preview</div>
+            <button id="close-image-preview" class="modal-close">✕</button>
+        </div>
+        <div id="image-preview-content">
+            <img id="image-preview-img" src="" alt="Cover">
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/fileBrowser.js"></script>
+    <script src="js/mediaPreview.js"></script>
+</body>
+</html>
