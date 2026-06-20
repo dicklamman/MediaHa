@@ -95,6 +95,10 @@ def enforce_login():
     if path.endswith(".js"):
         return
 
+    # Allow pages (they have their own auth checks)
+    if path.startswith("/pages/"):
+        return
+
     # Allow calibre settings GET
     if path == "/api/calibre/settings" and request.method == 'GET':
         return
