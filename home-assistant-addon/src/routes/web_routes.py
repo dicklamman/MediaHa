@@ -134,13 +134,6 @@ def register_web_routes(app):
             return redirect('/pages/home', code=302)
         return send_from_directory(ui_folder, 'login.html')
 
-    @app.route('/login')
-    def login():
-        """Redirect /login to /login.html."""
-        if session.get("authenticated"):
-            return redirect('/pages/home', code=302)
-        return redirect('/login.html', code=302)
-
     # =========================================
     # Legacy HTML pages (fallback)
     # =========================================
