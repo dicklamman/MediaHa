@@ -131,8 +131,15 @@ def register_web_routes(app):
     def login_page():
         """Serve the login page if not authenticated."""
         if session.get("authenticated"):
-            return render_page('pages/home.html', 'home', 'Dashboard')
+            return redirect('/pages/home', code=302)
         return send_from_directory(ui_folder, 'login.html')
+
+    @app.route('/login')
+    def login():
+        """Redirect /login to /login.html."""
+        if session.get("authenticated"):
+            return redirect('/pages/home', code=302)
+        return redirect('/login.html', code=302)
 
     # =========================================
     # Legacy HTML pages (fallback)

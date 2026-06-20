@@ -23,7 +23,10 @@ export const ui = {
     updateThemeToggleIcon(theme) {
         const themeToggle = document.getElementById('theme-toggle');
         if (themeToggle) {
-            themeToggle.textContent = theme === 'dark' ? '\u2600' : '\u263D';
+            const icon = themeToggle.querySelector('.theme-toggle-icon');
+            if (icon) {
+                icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+            }
         }
     },
 
