@@ -17,9 +17,24 @@ export const epubPlayer = {
     open(file) {
         if (!file || file.type === 'folder') return;
 
+        // Wait for ePub to be available
+        if (typeof window.ePub !== 'function') {
+            console.error('ePub library not loaded');
+            const previewContent = document.getElementById('preview-content');
+            if (previewContent) {
+                previewContent.innerHTML = '<div style="padding:20px;text-align:center;color:red;">EPUB library not loaded. Please refresh the page.</div>';
+            }
+            return;
+        }
+
         const previewModal = document.getElementById('preview-modal');
         const previewContent = document.getElementById('preview-content');
         const previewTitle = document.getElementById('preview-title');
+
+        if (!previewModal || !previewContent || !previewTitle) {
+            console.error('Preview modal elements not found');
+            return;
+        }
 
         const prevPageBtn = document.getElementById('prev-page');
         const nextPageBtn = document.getElementById('next-page');

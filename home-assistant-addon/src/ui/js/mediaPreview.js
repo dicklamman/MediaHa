@@ -13,6 +13,11 @@ export const mediaPreview = {
         const previewContent = document.getElementById('preview-content');
         const previewTitle = document.getElementById('preview-title');
         
+        if (!previewModal || !previewContent || !previewTitle) {
+            console.error('Preview modal elements not found');
+            return;
+        }
+
         const prevPageBtn = document.getElementById('prev-page');
         const nextPageBtn = document.getElementById('next-page');
 

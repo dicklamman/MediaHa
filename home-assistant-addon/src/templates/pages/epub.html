@@ -57,15 +57,20 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
 <script src="/js/fileBrowser.js" type="module"></script>
 <script src="/js/mediaPreview.js" type="module"></script>
+<script src="/js/epubPlayer.js" type="module"></script>
 <script type="module">
     import { fileBrowser } from '/js/fileBrowser.js';
     import { mediaPreview } from '/js/mediaPreview.js';
+    import { epubPlayer } from '/js/epubPlayer.js';
 
     document.addEventListener('DOMContentLoaded', () => {
         fileBrowser.setBasePath('eBook');
         mediaPreview.init();
+        epubPlayer.init();
     });
 </script>
 {% endblock %}
