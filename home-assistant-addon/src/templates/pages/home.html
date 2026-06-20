@@ -1,0 +1,53 @@
+{% extends "inc/base.html" %}
+
+{% block page_header %}
+<header class="page-header">
+    <h2 class="page-title">Dashboard</h2>
+</header>
+{% endblock %}
+
+{% block page_content %}
+<div class="dashboard-grid">
+    <div class="dashboard-card" onclick="location.href='/pages/epub'">
+        <span class="material-icons dashboard-icon">menu_book</span>
+        <h3>EPUB Converter</h3>
+        <p>Convert and manage your EPUB books</p>
+    </div>
+
+    <div class="dashboard-card" onclick="location.href='/pages/mp3'">
+        <span class="material-icons dashboard-icon">library_music</span>
+        <h3>MP3 Converter</h3>
+        <p>Enhance music metadata and covers</p>
+    </div>
+
+    <div class="dashboard-card" onclick="location.href='/pages/music-player'">
+        <span class="material-icons dashboard-icon">music_note</span>
+        <h3>Music Player</h3>
+        <p>Listen to your music collection</p>
+    </div>
+
+    <div class="dashboard-card" onclick="location.href='/pages/alist-video'">
+        <span class="material-icons dashboard-icon">movie</span>
+        <h3>AList Video</h3>
+        <p>Browse and play videos from AList</p>
+    </div>
+
+    <div class="dashboard-card" onclick="location.href='/pages/alist'">
+        <span class="material-icons dashboard-icon">link</span>
+        <h3>AList to STRM</h3>
+        <p>Generate STRM files for Jellyfin</p>
+    </div>
+
+    <div class="dashboard-card" onclick="location.href='/pages/dropbox'">
+        <span class="material-icons dashboard-icon">cloud</span>
+        <h3>Dropbox Sync</h3>
+        <p>Sync files from Dropbox</p>
+    </div>
+
+    <div class="dashboard-card" onclick="location.href='/pages/calibre'">
+        <span class="material-icons dashboard-icon">library_books</span>
+        <h3>Calibre Web Sync</h3>
+        <p>Sync books and comics to Calibre</p>
+    </div>
+</div>
+{% endblock %}

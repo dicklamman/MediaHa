@@ -1,0 +1,56 @@
+{% extends "inc/base.html" %}
+
+{% set page_title = "Dropbox Sync" %}
+{% set page_id = "dropbox" %}
+
+{% block page_header %}
+<header class="page-header">
+    <h2 class="page-title">Dropbox Sync</h2>
+    <p class="page-subtitle">Sync files from Dropbox</p>
+</header>
+{% endblock %}
+
+{% block page_content %}
+<div class="dashboard-grid" style="margin-bottom: var(--space-xl);">
+    <div class="dashboard-card" style="opacity: 0.8;">
+        <span class="material-icons dashboard-icon">cloud</span>
+        <h3>Dropbox Sync</h3>
+        <p>Sync your files from Dropbox</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="form-group">
+        <label for="dropbox-app-key" class="form-label">Dropbox App Key</label>
+        <input type="text" id="dropbox-app-key" class="form-input" placeholder="e.g. dbqe0tw...">
+    </div>
+    <div class="form-group">
+        <label for="dropbox-app-secret" class="form-label">Dropbox App Secret</label>
+        <input type="password" id="dropbox-app-secret" class="form-input" placeholder="e.g. nt1if1...">
+    </div>
+    <div class="form-group mb-md">
+        <label for="dropbox-refresh-token" class="form-label">Refresh Token</label>
+        <input type="password" id="dropbox-refresh-token" class="form-input" placeholder="Enter your long refresh token">
+    </div>
+    <button id="save-dropbox-settings" class="btn btn-primary">Save Settings</button>
+
+    <div class="mt-md" style="display: flex; gap: var(--space-md); margin: var(--space-lg) 0;">
+        <button id="sync-ebook-btn" class="btn btn-primary" style="flex: 1; font-weight: 600; padding: var(--space-md);">Sync eBook</button>
+        <button id="sync-music-btn" class="btn btn-primary" style="flex: 1; font-weight: 600; padding: var(--space-md); background: #ab47bc;">Sync Music</button>
+    </div>
+
+    <h3 style="margin-bottom: var(--space-sm);">Sync Logs</h3>
+    <pre id="dropbox-log-output" class="log-output"></pre>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/dropbox.js') }}" type="module"></script>
+<script type="module">
+    import { dropbox } from '/static/js/dropbox.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        dropbox.init();
+    });
+</script>
+{% endblock %}

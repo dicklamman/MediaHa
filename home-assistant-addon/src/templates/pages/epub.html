@@ -1,0 +1,82 @@
+{% extends "inc/base.html" %}
+
+{% set page_title = "EPUB Converter" %}
+{% set page_id = "epub" %}
+
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+{% endblock %}
+
+{% block page_header %}
+<header class="page-header">
+    <h2 class="page-title">EPUB Converter</h2>
+    <p class="page-subtitle">Convert and manage your EPUB books</p>
+</header>
+{% endblock %}
+
+{% block page_content %}
+<div class="dashboard-grid" style="margin-bottom: var(--space-xl);">
+    <div class="dashboard-card" style="opacity: 0.8;">
+        <span class="material-icons dashboard-icon">menu_book</span>
+        <h3>EPUB Converter</h3>
+        <p>Browse and convert EPUB files</p>
+    </div>
+</div>
+
+<div class="breadcrumb" id="breadcrumb-container">
+    <span class="crumb" id="root-crumb">/media/eBook</span>
+    <span id="dynamic-crumbs"></span>
+</div>
+
+<div class="file-browser" id="file-browser"></div>
+<div id="result"></div>
+{% endblock %}
+
+{% block page_modals %}
+<!-- Context Menu -->
+<div id="context-menu" class="hidden">
+    <button class="menu-item" id="menu-preview">Preview Book</button>
+    <button class="menu-item" id="menu-rename">Rename</button>
+    <button class="menu-item" id="menu-convert">Convert to 繁體 (Traditional)</button>
+    <button class="menu-item" id="menu-edit-ass">Edit Subtitle (ASS)</button>
+</div>
+
+<!-- Preview Modal -->
+<div id="preview-modal" class="hidden">
+    <div id="preview-header">
+        <div style="display: flex; gap: var(--space-sm);">
+            <button id="prev-page" class="btn btn-secondary">← Prev</button>
+            <button id="next-page" class="btn btn-secondary">Next →</button>
+        </div>
+        <div style="font-weight: 600;" id="preview-title">Preview</div>
+        <button id="close-preview" class="modal-close">✕</button>
+    </div>
+    <div id="preview-content"></div>
+</div>
+
+<!-- Image Preview Modal -->
+<div id="image-preview-modal" class="hidden">
+    <div id="image-preview-header">
+        <div style="font-weight: 600;" id="image-preview-title">Cover Preview</div>
+        <button id="close-image-preview" class="modal-close">✕</button>
+    </div>
+    <div id="image-preview-content">
+        <img id="image-preview-img" src="" alt="Cover">
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/fileBrowser.js') }}" type="module"></script>
+<script src="{{ url_for('static', filename='js/mediaPreview.js') }}" type="module"></script>
+<script type="module">
+    import { fileBrowser } from '/static/js/fileBrowser.js';
+    import { mediaPreview } from '/static/js/mediaPreview.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fileBrowser.setBasePath('eBook');
+        mediaPreview.init();
+    });
+</script>
+{% endblock %}

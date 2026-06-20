@@ -46,7 +46,14 @@ AUTH_USERNAME, AUTH_PASSWORD = load_auth_config()
 
 from flask import Flask, request, jsonify, redirect, session
 
-app = Flask(__name__)
+# Get the directory where this file is located
+src_dir = os.path.dirname(os.path.abspath(__file__))
+base_dir = os.path.dirname(src_dir)
+
+app = Flask(__name__,
+            template_folder=os.path.join(src_dir, 'templates'),
+            static_folder=os.path.join(base_dir, 'ui'),
+            static_url_path='/static')
 app.secret_key = "mediaha-" + (AUTH_PASSWORD or "default-secret")
 
 

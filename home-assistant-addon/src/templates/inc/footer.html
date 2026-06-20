@@ -1,0 +1,27 @@
+    <!-- Mini Player (shared across all pages) -->
+    <button id="mini-player-toggle-btn" class="mini-player-toggle-btn hidden">🎵</button>
+    <div id="mini-player" class="mini-player hidden">
+        <div class="mini-player-content">
+            <img id="mini-cover" src="" alt="Album Art" class="mini-cover" />
+            <div class="mini-info">
+                <div id="mini-title" class="mini-title">No track</div>
+                <div id="mini-artist" class="mini-artist">-</div>
+            </div>
+            <div class="mini-controls">
+                <button id="mini-prev" class="mini-btn">⏮️</button>
+                <button id="mini-play-pause" class="mini-btn mini-btn-play">▶️</button>
+                <button id="mini-next" class="mini-btn">⏭️</button>
+            </div>
+            <div class="mini-progress-container">
+                <input type="range" id="mini-progress" class="mini-progress-bar" min="0" max="100" value="0">
+            </div>
+            <button id="mini-close" class="mini-close">✕</button>
+        </div>
+    </div>
+
+    <!-- Core Scripts -->
+    <script src="{{ url_for('static', filename='js/api.js') }}" type="module"></script>
+    <script src="{{ url_for('static', filename='js/ui.js') }}" type="module"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

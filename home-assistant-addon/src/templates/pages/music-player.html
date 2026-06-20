@@ -1,0 +1,70 @@
+{% extends "inc/base.html" %}
+
+{% set page_title = "Music Player" %}
+{% set page_id = "music-player" %}
+
+{% block page_header %}
+<header class="page-header">
+    <h2 class="page-title">Music Player</h2>
+    <p class="page-subtitle">Listen to your music collection</p>
+</header>
+{% endblock %}
+
+{% block page_content %}
+<div class="dashboard-grid" style="margin-bottom: var(--space-xl);">
+    <div class="dashboard-card" style="opacity: 0.8;">
+        <span class="material-icons dashboard-icon">music_note</span>
+        <h3>Music Player</h3>
+        <p>Stream and enjoy your music</p>
+    </div>
+</div>
+
+<div class="music-player-container">
+    <div class="now-playing-section">
+        <img id="music-cover" src="" alt="Album Art" class="music-cover-large" />
+        <div class="now-playing-info">
+            <h3 id="music-title" class="music-title">No track playing</h3>
+            <p id="music-artist" class="music-artist">-</p>
+        </div>
+    </div>
+
+    <div class="music-progress-container">
+        <span id="music-current-time" class="music-time">0:00</span>
+        <input type="range" id="music-progress" class="music-progress-bar" min="0" max="100" value="0">
+        <span id="music-duration" class="music-time">0:00</span>
+    </div>
+
+    <div class="music-controls">
+        <button id="music-shuffle" class="music-btn" title="Shuffle">🔀</button>
+        <button id="music-prev" class="music-btn" title="Previous">⏮️</button>
+        <button id="music-play-pause" class="music-btn music-btn-large" title="Play/Pause">▶️</button>
+        <button id="music-next" class="music-btn" title="Next">⏭️</button>
+        <button id="music-repeat" class="music-btn" title="Repeat">🔁</button>
+    </div>
+
+    <div class="music-volume-container">
+        <span class="music-volume-icon material-icons">volume_up</span>
+        <input type="range" id="music-volume" class="music-volume-slider" min="0" max="100" value="80">
+    </div>
+
+    <div class="music-lyrics-container">
+        <div id="music-lyrics" class="music-lyrics"></div>
+    </div>
+
+    <div class="playlist-section">
+        <h4 class="playlist-title">Playlist (<span id="playlist-count">0</span> tracks)</h4>
+        <div id="playlist" class="playlist-container"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/musicPlayer.js') }}" type="module"></script>
+<script type="module">
+    import { musicPlayer } from '/static/js/musicPlayer.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        musicPlayer.init();
+    });
+</script>
+{% endblock %}

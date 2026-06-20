@@ -1,0 +1,12 @@
+{% include "inc/config.html" %}
+{% include "inc/header.html" %}
+{% include "inc/sidebar.html" %}
+
+    <main class="main-wrapper">
+        {% block page_header %}{% endblock %}
+        {% block page_content %}{% endblock %}
+    </main>
+
+    {% block page_modals %}{% endblock %}
+
+{% include "inc/footer.html" %}

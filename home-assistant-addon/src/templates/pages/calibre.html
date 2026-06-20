@@ -1,0 +1,75 @@
+{% extends "inc/base.html" %}
+
+{% set page_title = "Calibre Library Sync" %}
+{% set page_id = "calibre" %}
+
+{% block page_header %}
+<header class="page-header">
+    <h2 class="page-title">Calibre Library Sync</h2>
+    <p class="page-subtitle">Sync books and comics to Calibre</p>
+</header>
+{% endblock %}
+
+{% block page_content %}
+<div class="dashboard-grid" style="margin-bottom: var(--space-xl);">
+    <div class="dashboard-card" style="opacity: 0.8;">
+        <span class="material-icons dashboard-icon">library_books</span>
+        <h3>Calibre Web Sync</h3>
+        <p>Manage your library with Calibre</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="form-group">
+        <label for="calibre-library-path" class="form-label">Calibre Library Path</label>
+        <input type="text" id="calibre-library-path" class="form-input" placeholder="/media/calibre">
+        <small class="form-hint">Path to Calibre library folder (contains metadata.db and books folder)</small>
+    </div>
+    <div class="form-group">
+        <label for="calibre-folder" class="form-label">EPUB Source Folder Path</label>
+        <input type="text" id="calibre-folder" class="form-input" placeholder="/media/eBook">
+    </div>
+    <div class="form-group">
+        <label for="comic-folder" class="form-label">Comic Source Folder Path</label>
+        <input type="text" id="comic-folder" class="form-input" placeholder="/media/comic">
+    </div>
+    <div class="form-group">
+        <label class="form-checkbox">
+            <input type="checkbox" id="calibre-clear" checked>
+            <span class="form-checkbox-mark"></span>
+            Clear and rebuild library before sync
+        </label>
+        <small class="form-hint">This will delete all books in the library and rebuild from EPUB folder</small>
+    </div>
+    <button id="save-calibre-settings" class="btn btn-primary">Save Settings</button>
+
+    <div class="mt-md">
+        <button id="sync-calibre-btn" class="btn btn-primary" style="width: 100%; font-weight: 600; padding: var(--space-md); background: var(--color-success);">
+            <span class="material-icons" style="font-size: 20px; vertical-align: middle;">sync</span>
+            Sync EPUB to Calibre Library
+        </button>
+    </div>
+    <div class="mt-md">
+        <button id="sync-comic-btn" class="btn btn-primary" style="width: 100%; font-weight: 600; padding: var(--space-md); background: #7c4dff;">
+            <span class="material-icons" style="font-size: 20px; vertical-align: middle;">sync</span>
+            Sync Comics to Calibre Library
+        </button>
+    </div>
+
+    <h3 style="margin: var(--space-lg) 0 var(--space-sm);">EPUB Sync Logs</h3>
+    <pre id="calibre-log-output" class="log-output"></pre>
+    <h3 style="margin: var(--space-lg) 0 var(--space-sm);">Comic Sync Logs</h3>
+    <pre id="comic-log-output" class="log-output"></pre>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/calibre-web.js') }}" type="module"></script>
+<script type="module">
+    import { calibreWeb } from '/static/js/calibre-web.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        calibreWeb.init();
+    });
+</script>
+{% endblock %}

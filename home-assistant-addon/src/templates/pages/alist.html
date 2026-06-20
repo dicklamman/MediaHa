@@ -1,0 +1,66 @@
+{% extends "inc/base.html" %}
+
+{% set page_title = "AList to STRM" %}
+{% set page_id = "alist" %}
+
+{% block page_header %}
+<header class="page-header">
+    <h2 class="page-title">AList to STRM</h2>
+    <p class="page-subtitle">Generate STRM files for Jellyfin</p>
+</header>
+{% endblock %}
+
+{% block page_content %}
+<div class="dashboard-grid" style="margin-bottom: var(--space-xl);">
+    <div class="dashboard-card" style="opacity: 0.8;">
+        <span class="material-icons dashboard-icon">link</span>
+        <h3>AList to STRM</h3>
+        <p>Generate STRM files for media servers</p>
+    </div>
+</div>
+
+<div class="modern-form">
+    <div class="form-group-modern">
+        <label class="form-label-modern">AList URL</label>
+        <input type="text" id="alist-url" class="form-control-modern" placeholder="http://192.168.1.100:5244">
+    </div>
+    <div class="form-group-modern">
+        <label class="form-label-modern">Public Domain</label>
+        <input type="text" id="alist-domain" class="form-control-modern" placeholder="https://alist.example.com">
+    </div>
+    <div class="form-group-modern">
+        <label class="form-label-modern">Remote Path</label>
+        <input type="text" id="alist-remote" class="form-control-modern" placeholder="/OneDriveShare">
+    </div>
+    <div class="form-group-modern">
+        <label class="form-label-modern">Local Path</label>
+        <input type="text" id="alist-local" class="form-control-modern" placeholder="/media/alist">
+    </div>
+    <div class="form-group-modern">
+        <label class="form-label-modern">Username</label>
+        <input type="text" id="alist-user" class="form-control-modern" placeholder="admin">
+    </div>
+    <div class="form-group-modern">
+        <label class="form-label-modern">Password</label>
+        <input type="password" id="alist-pass" class="form-control-modern" placeholder="password">
+    </div>
+    <div class="form-actions-modern">
+        <button id="save-alist" class="btn-save-modern">Save Settings</button>
+        <button id="run-alist" class="btn-run-modern">Run Generator</button>
+    </div>
+    <div id="alist-status"></div>
+</div>
+
+<div id="alist-log" class="log-output"></div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/alist.js') }}" type="module"></script>
+<script type="module">
+    import { alist } from '/static/js/alist.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        alist.init();
+    });
+</script>
+{% endblock %}

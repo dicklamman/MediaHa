@@ -1,0 +1,67 @@
+{% extends "inc/base.html" %}
+
+{% set page_title = "AList Video" %}
+{% set page_id = "alist-video" %}
+
+{% block page_header %}
+<header class="page-header">
+    <h2 class="page-title">AList Video</h2>
+    <p class="page-subtitle">Browse and play videos from AList</p>
+</header>
+{% endblock %}
+
+{% block page_content %}
+<div class="dashboard-grid" style="margin-bottom: var(--space-xl);">
+    <div class="dashboard-card" style="opacity: 0.8;">
+        <span class="material-icons dashboard-icon">movie</span>
+        <h3>AList Video</h3>
+        <p>Stream videos from AList storage</p>
+    </div>
+</div>
+
+<div class="breadcrumb" id="breadcrumb-container">
+    <span class="crumb" id="root-crumb">AList</span>
+    <span id="dynamic-crumbs"></span>
+</div>
+
+<div class="file-browser" id="file-browser"></div>
+{% endblock %}
+
+{% block page_modals %}
+<!-- Video Player Modal -->
+<div id="video-modal" class="hidden">
+    <div id="video-header">
+        <div style="font-weight: 600;" id="video-title">Video Player</div>
+        <button id="close-video" class="modal-close">✕</button>
+    </div>
+    <div id="video-content">
+        <video id="video-player" controls></video>
+        <div id="video-error-overlay" class="hidden" style="position: absolute; text-align: center; color: white; background: rgba(0,0,0,0.8); padding: var(--space-xl); border-radius: var(--radius-lg); max-width: 80%;">
+            <h3 style="margin-top:0; color: #ffeb3b;">Video Format Not Supported</h3>
+            <p>Your browser cannot natively play this video format (e.g. MKV/AVI).</p>
+            <p>Please use the direct links below to open it in an external player.</p>
+        </div>
+    </div>
+    <div id="video-actions">
+        <a id="video-link-direct" href="#" target="_blank" class="btn btn-secondary">Open Direct Link</a>
+        <button id="video-btn-copy" class="btn btn-secondary">Copy URL</button>
+        <a id="video-link-pot" href="#" class="btn" style="background:#fbc02d; color:#000;">PotPlayer</a>
+        <a id="video-link-vlc" href="#" class="btn" style="background:#ff8800;">VLC</a>
+        <a id="video-link-iina" href="#" class="btn" style="background:#000;">IINA</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/alist.js') }}" type="module"></script>
+<script src="{{ url_for('static', filename='js/videoPlayer.js') }}" type="module"></script>
+<script type="module">
+    import { alist } from '/static/js/alist.js';
+    import { videoPlayer } from '/static/js/videoPlayer.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        alist.init();
+        videoPlayer.init();
+    });
+</script>
+{% endblock %}

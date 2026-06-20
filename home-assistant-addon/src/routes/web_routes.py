@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Web routes for UI serving."""
 import os
-from flask import send_from_directory, redirect, session
+from flask import send_from_directory, redirect, session, render_template
 
 
 def register_web_routes(app):
@@ -40,29 +40,82 @@ def register_web_routes(app):
         return send_from_directory(js_folder, filename)
 
     # =========================================
-    # Auth-aware page routes
+    # Auth-aware page routes (Jinja2 templates)
     # =========================================
 
     @app.route('/')
     def index():
         """Serve home page or login based on auth state."""
         if session.get("authenticated"):
-            return send_from_directory(pages_folder, 'home.html')
+            return render_template('pages/home.html')
         return send_from_directory(ui_folder, 'login.html')
 
-    @app.route('/home.html')
+    @app.route('/pages/home')
     def home():
         """Serve the home page."""
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
-        return send_from_directory(pages_folder, 'home.html')
+        return render_template('pages/home.html')
+
+    @app.route('/pages/epub')
+    def epub():
+        """Serve the EPUB page."""
+        if not session.get("authenticated"):
+            return send_from_directory(ui_folder, 'login.html')
+        return render_template('pages/epub.html')
+
+    @app.route('/pages/mp3')
+    def mp3():
+        """Serve the MP3 page."""
+        if not session.get("authenticated"):
+            return send_from_directory(ui_folder, 'login.html')
+        return render_template('pages/mp3.html')
+
+    @app.route('/pages/music-player')
+    def music_player():
+        """Serve the music player page."""
+        if not session.get("authenticated"):
+            return send_from_directory(ui_folder, 'login.html')
+        return render_template('pages/music-player.html')
+
+    @app.route('/pages/alist-video')
+    def alist_video():
+        """Serve the AList video page."""
+        if not session.get("authenticated"):
+            return send_from_directory(ui_folder, 'login.html')
+        return render_template('pages/alist-video.html')
+
+    @app.route('/pages/alist')
+    def alist():
+        """Serve the AList STRM page."""
+        if not session.get("authenticated"):
+            return send_from_directory(ui_folder, 'login.html')
+        return render_template('pages/alist.html')
+
+    @app.route('/pages/dropbox')
+    def dropbox():
+        """Serve the Dropbox page."""
+        if not session.get("authenticated"):
+            return send_from_directory(ui_folder, 'login.html')
+        return render_template('pages/dropbox.html')
+
+    @app.route('/pages/calibre')
+    def calibre():
+        """Serve the Calibre page."""
+        if not session.get("authenticated"):
+            return send_from_directory(ui_folder, 'login.html')
+        return render_template('pages/calibre.html')
 
     @app.route('/login.html')
     def login_page():
         """Serve the login page if not authenticated."""
         if session.get("authenticated"):
-            return send_from_directory(pages_folder, 'home.html')
+            return render_template('pages/home.html')
         return send_from_directory(ui_folder, 'login.html')
+
+    # =========================================
+    # Legacy HTML pages (fallback)
+    # =========================================
 
     @app.route('/pages/<path:filename>')
     def pages_files(filename):
