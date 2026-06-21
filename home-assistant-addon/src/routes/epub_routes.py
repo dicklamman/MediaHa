@@ -2,6 +2,7 @@
 """EPUB operation routes."""
 import os
 import json
+import base64
 from flask import jsonify, request, send_from_directory
 
 MEDIA_DIR = '/media'
@@ -26,7 +27,7 @@ def register_epub_routes(app):
 
         try:
             from ebooklib import epub
-            from bs4 import BeautifulSoup
+            from ebooklib import epub as epublib
 
             book = epub.read_epub(file_path)
             metadata = {
@@ -38,21 +39,58 @@ def register_epub_routes(app):
                 'identifier': '',
                 'date': '',
                 'rights': '',
-                'subjects': []
+                'subjects': [],
+                'cover': None
             }
 
-            # Get Dublin Core metadata
-            for item in book.get_metadata('DC'):
-                key = item[0].lower()
-                value = item[1]
-                if key in metadata and value:
-                    if key == 'subjects':
-                        if isinstance(value, list):
-                            metadata[key] = value
+            # Try using book.metadata dict (newer ebooklib versions)
+            if hasattr(book, 'metadata') and 'DC' in book.metadata:
+                dc_items = book.metadata['DC']
+                for key, values in dc_items.items():
+                    lower_key = key.lower()
+                    if lower_key in metadata:
+                        if isinstance(values, list):
+                            for v in values:
+                                if lower_key == 'subjects':
+                                    metadata[lower_key].append(str(v))
+                                else:
+                                    metadata[lower_key] = str(v)
                         else:
-                            metadata[key].append(value) if isinstance(metadata[key], list) else value
-                    else:
-                        metadata[key] = str(value) if value else ''
+                            if lower_key == 'subjects':
+                                metadata[lower_key].append(str(values))
+                            else:
+                                metadata[lower_key] = str(values)
+            else:
+                # Fallback: try get_metadata with namespace
+                dc_metadata = book.get_metadata('http://purl.org/dc/elements/1.1/')
+                for item in dc_metadata:
+                    if len(item) >= 2:
+                        name = item[0]
+                        values = item[1]
+                        key = name.lower()
+                        if key in metadata:
+                            if isinstance(values, list):
+                                for v in values:
+                                    if key == 'subjects':
+                                        metadata[key].append(str(v))
+                                    else:
+                                        metadata[key] = str(v)
+                            else:
+                                if key == 'subjects':
+                                    metadata[key].append(str(values))
+                                else:
+                                    metadata[key] = str(values)
+
+            # Get cover image
+            for item in book.get_items():
+                if item.get_type() == epublib.ITEM_TYPE.COVER_IMAGE:
+                    metadata['cover'] = base64.b64encode(item.get_content()).decode('utf-8')
+                    break
+                elif item.get_type() == epublib.ITEM_TYPE.IMAGE:
+                    # Check if it might be a cover
+                    name = item.get_name().lower()
+                    if 'cover' in name and (name.endswith('.jpg') or name.endswith('.jpeg') or name.endswith('.png')):
+                        metadata['cover'] = base64.b64encode(item.get_content()).decode('utf-8')
 
             return jsonify(metadata)
         except Exception as e:

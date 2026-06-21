@@ -42,6 +42,18 @@ export const epubMetadataEditor = {
             document.getElementById('epub-date').value = metadata.date || '';
             document.getElementById('epub-rights').value = metadata.rights || '';
             document.getElementById('epub-subjects').value = Array.isArray(metadata.subjects) ? metadata.subjects.join(', ') : (metadata.subjects || '');
+
+            // Display cover image
+            const coverImg = document.getElementById('epub-cover');
+            const coverPlaceholder = document.getElementById('epub-cover-placeholder');
+            if (metadata.cover) {
+                coverImg.src = 'data:image/jpeg;base64,' + metadata.cover;
+                coverImg.classList.remove('hidden');
+                if (coverPlaceholder) coverPlaceholder.classList.add('hidden');
+            } else {
+                coverImg.classList.add('hidden');
+                if (coverPlaceholder) coverPlaceholder.classList.remove('hidden');
+            }
         } catch (error) {
             console.error('Failed to load EPUB metadata:', error);
             if (typeof ui !== 'undefined' && ui.showResultMessage) {

@@ -1746,6 +1746,29 @@ body {
     overflow-y: auto;
 }
 
+.epub-cover-container {
+    width: 100%;
+    max-width: 200px;
+    margin: 0 auto var(--space-lg);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--bg-secondary);
+    box-shadow: var(--shadow-md);
+}
+
+#epub-cover {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.epub-cover-placeholder {
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+}
+
 /* Preview Modal Specific */
 #preview-modal {
     position: fixed;
