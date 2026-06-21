@@ -175,9 +175,11 @@ export const fileBrowser = {
             div.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 this.selectedFile = item;
+                console.log('Context menu triggered for:', item.name, 'type:', item.type);
                 const menuConvert = document.getElementById('menu-convert');
                 const menuPreview = document.getElementById('menu-preview');
                 const menuRename = document.getElementById('menu-rename');
+                console.log('Menu elements found:', { menuConvert, menuPreview, menuRename });
                 
                 if (item.type === 'folder') {
                     if (menuConvert) {

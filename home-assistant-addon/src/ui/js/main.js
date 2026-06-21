@@ -40,7 +40,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Initialize UI components (uses fileBrowser.setBasePath)
     ui.initTheme();
-    ui.initTabs();
     ui.initMobileNav();
 
     // Initialize feature modules
@@ -56,18 +55,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Global Event Listeners
+    document.addEventListener('contextmenu', (e) => {
+        // Don't hide context menu if right-clicking on a file item (it will be shown by fileBrowser)
+        if (e.target.closest('.file-item')) {
+            e.stopPropagation();
+        }
+    });
+    
     document.addEventListener('click', (e) => {
+        // Don't hide context menu if clicking on menu item
+        if (e.target.closest('.menu-item')) {
+            return;
+        }
         ui.hideContextMenu();
 
         // Close modals if clicking outside of them
         const previewModal = document.getElementById('preview-modal');
         const videoModal = document.getElementById('video-modal');
 
-        // Helper: check if click is inside any modal
-        const isClickInModal = (modal) => modal && !modal.classList.contains('hidden') && modal.contains(e.target);
-
         if (previewModal && !previewModal.classList.contains('hidden')) {       
-            if (!previewModal.contains(e.target) && !e.target.closest('.file-item') && !e.target.closest('.menu-item')) {
+            if (!previewModal.contains(e.target) && !e.target.closest('.file-item')) {
                 epubPlayer.close();
                 previewModal.classList.add('hidden');
                 const pContent = document.getElementById('preview-content');    
@@ -76,7 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (videoModal && !videoModal.classList.contains('hidden')) {
-            if (!videoModal.contains(e.target) && !e.target.closest('.file-item') && !e.target.closest('.menu-item')) {
+            if (!videoModal.contains(e.target) && !e.target.closest('.file-item')) {
                 import('./videoPlayer.js').then(({videoPlayer}) => videoPlayer.close());
             }
         }
@@ -86,6 +93,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const menuRename = document.getElementById('menu-rename');
     const menuConvert = document.getElementById('menu-convert');
     const menuEditAss = document.getElementById('menu-edit-ass');
+    
+    // Debug logging to check if elements exist
+    console.log('main.js running');
+    console.log('menu-preview:', menuPreview);
+    console.log('menu-rename:', menuRename);
+    console.log('menu-convert:', menuConvert);
+    console.log('menu-edit-ass:', menuEditAss);
 
     if (menuPreview) {
         menuPreview.addEventListener('click', async () => {
@@ -99,8 +113,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } else if (selectedFile.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|lrc|txt)$/)) {
                     const { mediaPreview } = await import('./mediaPreview.js');
                     mediaPreview.open(selectedFile);
-                } else if (selectedFile.name.toLowerCase().endsWith('.ass') || selectedFile.name.toLowerCase().endsWith('.ssa')) {
-                    assEditor.open(selectedFile);
                 } else {
                     window.open('/api/download?file_name=' + encodeURIComponent(selectedFile.path), '_blank');
                 }
