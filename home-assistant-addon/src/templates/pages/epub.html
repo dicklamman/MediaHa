@@ -15,6 +15,16 @@
 <div id="result"></div>
 {% endblock %}
 
+{% block context_menu %}
+<div id="context-menu" class="hidden">
+    <button type="button" class="menu-item" id="menu-preview">Preview Book</button>
+    <button type="button" class="menu-item" id="menu-rename">Rename</button>
+    <button type="button" class="menu-item" id="menu-convert">Convert to 繁體 (Traditional)</button>
+    <button type="button" class="menu-item" id="menu-edit-ass">Edit Subtitle (ASS)</button>
+    <button type="button" class="menu-item" id="menu-edit-epub-metadata">Edit Metadata (EPUB)</button>
+</div>
+{% endblock %}
+
 {% block page_modals %}
 {% endblock %}
 
