@@ -122,6 +122,21 @@ export const api = {
         return await response.json();
     },
 
+    // HTMX version - triggers HTMX endpoint for HTML response
+    async htmxConvertFile(filePath) {
+        const response = await fetch('/api/convert-file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_path: filePath }),
+        });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        // Returns HTML for HTMX
+        return await response.text();
+    },
+
     // Calibre Web Sync
     async getCalibreSettings() {
         const response = await fetch('/api/calibre/settings');

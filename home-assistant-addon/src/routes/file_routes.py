@@ -5,7 +5,7 @@ import base64
 import json
 import sqlite3
 from pathlib import Path
-from flask import jsonify, request, send_from_directory, redirect, session
+from flask import jsonify, request, send_from_directory, redirect, session, render_template_string
 
 
 MEDIA_DIR = '/media'
@@ -79,6 +79,39 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
             return jsonify({'message': 'Renamed successfully'})
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/convert-file', methods=['POST'])
+    def convert_file_htmx():
+        """HTMX endpoint for file conversion - returns HTML instead of JSON."""
+        data = request.json or {}
+        file_path = data.get('file_path')
+
+        if not file_path:
+            return render_template_string('<p class="error">No file selected</p>')
+
+        abs_path = os.path.abspath(os.path.join(MEDIA_DIR, file_path))
+        if not abs_path.startswith(os.path.abspath(MEDIA_DIR)):
+            return render_template_string('<p class="error">Access denied</p>')
+
+        if not os.path.exists(abs_path):
+            return render_template_string('<p class="error">File not found</p>')
+
+        try:
+            from utils.epub_converter import convert_to_traditional_chinese
+
+            result = convert_to_traditional_chinese(abs_path)
+            if result.get('success'):
+                return render_template_string('''
+                    <p class="success">Conversion complete!</p>
+                    <p>Output: {{ output }}</p>
+                ''', output=result.get('output_path', 'Unknown'))
+            else:
+                return render_template_string('<p class="error">Error: {{ error }}</p>',
+                                              error=result.get('error', 'Unknown error'))
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return render_template_string('<p class="error">Error: {{ error }}</p>', error=str(e))
 
     @app.route('/fetch/<int:book_id>/<format>', methods=['GET'])
     def fetch_book(book_id, format):

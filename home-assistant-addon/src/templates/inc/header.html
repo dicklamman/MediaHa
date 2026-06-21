@@ -10,9 +10,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- HTMX for dynamic content updates -->
+    <script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
+    <!-- Alpine.js for lightweight interactivity -->
+    <script src="https://unpkg.com/alpinejs@3.x.x" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body x-data="{ showConvertModal: false, convertResult: '', selectedFile: null }">
     <script>
         // Prevent theme flash by setting theme before render
         (function() {

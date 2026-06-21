@@ -344,7 +344,7 @@ export const fileBrowser = {
             try {
                 const items = await api.getFiles(this.selectedFile.path);
                 const epubs = items.filter(i => i.type === 'file' && i.name.toLowerCase().endsWith('.epub'));
-                
+
                 if (epubs.length === 0) {
                     ui.showResultMessage('info', 'No matching files found in this folder.');
                     return;
@@ -361,21 +361,47 @@ export const fileBrowser = {
                         errorCount++;
                     }
                 }
-                
+
                 ui.showResultMessage(errorCount === 0 ? 'success' : 'info', `Batch conversion complete! ${successCount} successful, ${errorCount} failed.`);
                 setTimeout(() => this.loadFiles(this.currentPath), 2500);
             } catch (err) {
                 ui.showResultMessage('error', 'Error reading folder: ' + err.message);
             }
         } else {
-            ui.showResultMessage('info', 'Converting "' + this.selectedFile.name + '"... this may take a moment.');
-            try {
-                const result = await api.convertFile(this.selectedFile.path);
-                ui.showResultMessage('success', 'Conversion successful! File exported to: ' + result.output_file);
-                setTimeout(() => this.loadFiles(this.currentPath), 1500);
-            } catch (error) {
-                ui.showResultMessage('error', 'Error: ' + error.message);
-            }
+            // Use HTMX modal for single file conversion
+            this.openHtmxConvertModal(this.selectedFile);
         }
+    },
+
+    // HTMX-powered convert modal
+    openHtmxConvertModal(file) {
+        const modal = document.getElementById('convert-modal');
+        const convertResult = document.getElementById('convert-result');
+
+        if (!modal) {
+            // Fallback to old method if modal not available
+            ui.showResultMessage('info', 'Converting "' + file.name + '"... this may take a moment.');
+            api.convertFile(file.path)
+                .then(result => {
+                    ui.showResultMessage('success', 'Conversion successful! File exported to: ' + result.output_file);
+                    setTimeout(() => this.loadFiles(this.currentPath), 1500);
+                })
+                .catch(error => {
+                    ui.showResultMessage('error', 'Error: ' + error.message);
+                });
+            return;
+        }
+
+        // Store selected path for HTMX to use
+        document.getElementById('context-menu').dataset.selectedPath = file.path;
+
+        // Open modal via Alpine.js
+        modal.__x.$data.show = true;
+        modal.__x.$data.fileName = file.name;
+        modal.__x.$data.filePath = file.path;
+        modal.__x.$data.status = 'Ready to convert...';
+
+        // Clear previous result
+        if (convertResult) convertResult.innerHTML = '';
     }
 };

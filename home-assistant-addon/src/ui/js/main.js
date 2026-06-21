@@ -101,10 +101,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('menu-convert:', menuConvert);
     console.log('menu-edit-ass:', menuEditAss);
 
+    // Global debug for menu-item clicks
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            console.log('Menu item clicked:', e.target.id, e.target.textContent);
+        });
+    });
+
     if (menuPreview) {
+        console.log('Attaching click handler to menuPreview');
         menuPreview.addEventListener('click', async () => {
+            console.log('menuPreview clicked!');
             ui.hideContextMenu();
             const selectedFile = fileBrowser.selectedFile;
+            console.log('selectedFile:', selectedFile);
             if (selectedFile && selectedFile.type !== 'folder') {
                 if (selectedFile.name.toLowerCase().endsWith('.mp3')) {
                     mp3Player.open(selectedFile, api);
@@ -121,13 +131,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (menuRename) {
+        console.log('Attaching click handler to menuRename');
         menuRename.addEventListener('click', async () => {
+            console.log('menuRename clicked!');
             await fileBrowser.handleRename();
         });
     }
 
     if (menuConvert) {
+        console.log('Attaching click handler to menuConvert');
         menuConvert.addEventListener('click', async () => {
+            console.log('menuConvert clicked!');
             await fileBrowser.handleConvert();
         });
     }

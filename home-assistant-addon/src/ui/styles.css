@@ -3429,3 +3429,70 @@ textarea.form-control {
     resize: vertical;
     min-height: 100px;
 }
+
+/* ================================================
+   HTMX Styles
+   ================================================ */
+
+/* Alpine.js cloak - hide elements until initialized */
+[x-cloak] {
+    display: none !important;
+}
+
+/* HTMX loading indicator */
+.htmx-indicator {
+    opacity: 0;
+    transition: opacity 200ms ease-in;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    opacity: 1;
+}
+
+/* HTMX swapping animation */
+.htmx-swapping {
+    opacity: 0;
+    transition: opacity 200ms ease-out;
+}
+
+.htmx-settling {
+    opacity: 1;
+    transition: opacity 200ms ease-out;
+}
+
+/* Success/Error states for HTMX responses */
+.htmx-success {
+    color: var(--success-color, #10b981);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    background: rgba(16, 185, 129, 0.1);
+}
+
+.htmx-error {
+    color: var(--error-color, #ef4444);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* Convert modal specific styles */
+#convert-modal .modal-content {
+    max-width: 500px;
+}
+
+#convert-result .success {
+    color: var(--success-color, #10b981);
+    padding: var(--space-sm);
+    border-radius: var(--radius-sm);
+    background: rgba(16, 185, 129, 0.1);
+    margin-top: var(--space-md);
+}
+
+#convert-result .error {
+    color: var(--error-color, #ef4444);
+    padding: var(--space-sm);
+    border-radius: var(--radius-sm);
+    background: rgba(239, 68, 68, 0.1);
+    margin-top: var(--space-md);
+}

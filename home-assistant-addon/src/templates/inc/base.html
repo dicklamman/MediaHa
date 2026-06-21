@@ -46,11 +46,50 @@
 
     <!-- Context Menu -->
     <div id="context-menu" class="hidden">
-        <button class="menu-item" id="menu-preview">Preview</button>
-        <button class="menu-item" id="menu-rename">Rename</button>
-        <button class="menu-item" id="menu-convert">Convert to 繁體</button>
-        <button class="menu-item" id="menu-edit-ass">Edit Subtitle (ASS)</button>
-        <button class="menu-item" id="menu-edit-epub-metadata">Edit Metadata (EPUB)</button>
+        <button type="button" class="menu-item" id="menu-preview">Preview</button>
+        <button type="button" class="menu-item" id="menu-rename">Rename</button>
+        <button type="button" class="menu-item" 
+                hx-post="/api/convert-file"
+                hx-vals='{"file_path": ""}'
+                hx-target="#convert-result"
+                hx-swap="innerHTML"
+                id="menu-convert">Convert to 繁體</button>
+        <button type="button" class="menu-item" id="menu-edit-ass">Edit Subtitle (ASS)</button>
+        <button type="button" class="menu-item" id="menu-edit-epub-metadata">Edit Metadata (EPUB)</button>
+    </div>
+
+    <!-- HTMX Convert Modal -->
+    <div id="convert-modal" 
+         x-data="{ show: false, fileName: '', filePath: '', status: '', progress: 0 }"
+         x-show="show" 
+         x-cloak
+         class="modal-overlay"
+         @open-convert-modal.window="show = true; fileName = $event.detail.name; filePath = $event.detail.path; status = ''; progress = 0;"
+         @keydown.escape.window="show = false">
+        <div class="modal-content" style="min-width: 400px;">
+            <div class="modal-header">
+                <h3>Convert to Traditional Chinese</h3>
+                <button type="button" @click="show = false" class="modal-close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p>File: <strong x-text="fileName"></strong></p>
+                <div id="convert-result">
+                    <p x-show="status" x-text="status" :class="status.includes('Error') ? 'error' : 'success'"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" @click="show = false" class="btn btn-secondary">Close</button>
+                <button type="button" 
+                        class="btn btn-primary"
+                        hx-post="/api/convert-file"
+                        hx-vals="js:{file_path: document.getElementById('context-menu').dataset.selectedPath}"
+                        hx-target="#convert-result"
+                        hx-swap="innerHTML"
+                        @click="status = 'Converting...';">
+                    Start Convert
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- EPUB Metadata Editor Modal -->
