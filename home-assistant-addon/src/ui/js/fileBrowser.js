@@ -336,6 +336,7 @@ export const fileBrowser = {
     },
 
     async handleConvert() {
+        console.log('handleConvert called, selectedFile:', this.selectedFile);
         if (!this.selectedFile) return;
         ui.hideContextMenu();
 
@@ -375,6 +376,7 @@ export const fileBrowser = {
 
     // HTMX-powered convert modal
     openHtmxConvertModal(file) {
+        console.log('openHtmxConvertModal called:', file.name, file.path);
         // Dispatch event to open the modal
         window.dispatchEvent(new CustomEvent('open-convert-modal', {
             detail: { name: file.name, path: file.path }

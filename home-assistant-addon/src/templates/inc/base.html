@@ -78,18 +78,27 @@
     <script>
     // Vanilla JS modal handlers for HTMX
     function openConvertModal(fileName, filePath) {
-        document.getElementById('convert-file-name').textContent = fileName;
-        document.getElementById('convert-file-path').value = filePath;
-        document.getElementById('convert-result').innerHTML = '';
-        document.getElementById('convert-modal').classList.remove('hidden');
+        console.log('openConvertModal called:', fileName, filePath);
+        const fileNameEl = document.getElementById('convert-file-name');
+        const filePathEl = document.getElementById('convert-file-path');
+        const modal = document.getElementById('convert-modal');
+        console.log('Elements found:', { fileNameEl, filePathEl, modal });
+        if (fileNameEl) fileNameEl.textContent = fileName;
+        if (filePathEl) filePathEl.value = filePath;
+        const resultEl = document.getElementById('convert-result');
+        if (resultEl) resultEl.innerHTML = '';
+        if (modal) modal.classList.remove('hidden');
     }
 
     function closeConvertModal() {
-        document.getElementById('convert-modal').classList.add('hidden');
+        console.log('closeConvertModal called');
+        const modal = document.getElementById('convert-modal');
+        if (modal) modal.classList.add('hidden');
     }
 
     // Listen for open event from fileBrowser.js
     window.addEventListener('open-convert-modal', function(e) {
+        console.log('open-convert-modal event received:', e.detail);
         openConvertModal(e.detail.name, e.detail.path);
     });
     </script>
