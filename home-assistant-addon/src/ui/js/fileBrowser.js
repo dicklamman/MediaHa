@@ -177,6 +177,7 @@ export const fileBrowser = {
                 this.selectedFile = item;
                 const menuConvert = document.getElementById('menu-convert');
                 const menuPreview = document.getElementById('menu-preview');
+                const menuRename = document.getElementById('menu-rename');
                 
                 if (item.type === 'folder') {
                     if (menuConvert) {
@@ -188,6 +189,7 @@ export const fileBrowser = {
                         }
                     }
                     if (menuPreview) menuPreview.style.display = 'none';
+                    if (menuRename) menuRename.style.display = 'block';
                 } else {
                     if (menuConvert) {
                         if (item.name.toLowerCase().endsWith('.epub') || this.basePath === 'eBook') {
@@ -197,6 +199,7 @@ export const fileBrowser = {
                             menuConvert.style.display = 'none';
                         }
                     }
+                    if (menuRename) menuRename.style.display = 'block';
                     if (menuPreview) {
                         if (item.name.toLowerCase().endsWith('.mp3')) {
                             menuPreview.style.display = 'block';
