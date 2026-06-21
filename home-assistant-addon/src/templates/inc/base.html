@@ -59,39 +59,50 @@
     </div>
 
     <!-- HTMX Convert Modal -->
-    <div id="convert-modal" 
-         x-data="{ show: false, fileName: '', filePath: '', status: '', progress: 0 }"
-         x-show="show" 
-         x-cloak
-         class="modal-overlay"
-         @open-convert-modal.window="show = true; fileName = $event.detail.name; filePath = $event.detail.path; status = ''; progress = 0;"
-         @keydown.escape.window="show = false">
+    <div id="convert-modal" class="modal-overlay hidden">
         <div class="modal-content" style="min-width: 400px;">
             <div class="modal-header">
                 <h3>Convert to Traditional Chinese</h3>
-                <button type="button" @click="show = false" class="modal-close">✕</button>
+                <button type="button" onclick="closeConvertModal()" class="modal-close">✕</button>
             </div>
             <div class="modal-body">
-                <p>File: <strong x-text="fileName"></strong></p>
-                <input type="hidden" id="convert-file-path" value="">
-                <div id="convert-result">
-                    <p x-show="status" x-text="status" :class="status.includes('Error') ? 'error' : 'success'"></p>
-                </div>
+                <p>File: <strong id="convert-file-name">-</strong></p>
+                <input type="hidden" id="convert-file-path" name="file_path" value="">
+                <div id="convert-result"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" @click="show = false" class="btn btn-secondary">Close</button>
+                <button type="button" onclick="closeConvertModal()" class="btn btn-secondary">Close</button>
                 <button type="button"
                         class="btn btn-primary"
+                        id="convert-submit-btn"
                         hx-post="/api/convert-file"
                         hx-include="#convert-file-path"
                         hx-target="#convert-result"
-                        hx-swap="innerHTML"
-                        @click="status = 'Converting...';">
+                        hx-swap="innerHTML">
                     Start Convert
                 </button>
             </div>
         </div>
     </div>
+
+    <script>
+    // Vanilla JS modal handlers for HTMX
+    function openConvertModal(fileName, filePath) {
+        document.getElementById('convert-file-name').textContent = fileName;
+        document.getElementById('convert-file-path').value = filePath;
+        document.getElementById('convert-result').innerHTML = '';
+        document.getElementById('convert-modal').classList.remove('hidden');
+    }
+
+    function closeConvertModal() {
+        document.getElementById('convert-modal').classList.add('hidden');
+    }
+
+    // Listen for open event from fileBrowser.js
+    window.addEventListener('open-convert-modal', function(e) {
+        openConvertModal(e.detail.name, e.detail.path);
+    });
+    </script>
 
     <!-- EPUB Metadata Editor Modal -->
     <div id="epub-metadata-modal" class="modal-overlay hidden">

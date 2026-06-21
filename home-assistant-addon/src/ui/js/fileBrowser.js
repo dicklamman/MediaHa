@@ -375,36 +375,9 @@ export const fileBrowser = {
 
     // HTMX-powered convert modal
     openHtmxConvertModal(file) {
-        const modal = document.getElementById('convert-modal');
-        const convertResult = document.getElementById('convert-result');
-        const filePathInput = document.getElementById('convert-file-path');
-
-        if (!modal) {
-            // Fallback to old method if modal not available
-            ui.showResultMessage('info', 'Converting "' + file.name + '"... this may take a moment.');
-            api.convertFile(file.path)
-                .then(result => {
-                    ui.showResultMessage('success', 'Conversion successful! File exported to: ' + result.output_file);
-                    setTimeout(() => this.loadFiles(this.currentPath), 1500);
-                })
-                .catch(error => {
-                    ui.showResultMessage('error', 'Error: ' + error.message);
-                });
-            return;
-        }
-
-        // Set file path in hidden input for HTMX
-        if (filePathInput) {
-            filePathInput.value = file.path;
-        }
-
-        // Open modal via Alpine.js
-        modal.__x.$data.show = true;
-        modal.__x.$data.fileName = file.name;
-        modal.__x.$data.filePath = file.path;
-        modal.__x.$data.status = 'Ready to convert...';
-
-        // Clear previous result
-        if (convertResult) convertResult.innerHTML = '';
+        // Dispatch event to open the modal
+        window.dispatchEvent(new CustomEvent('open-convert-modal', {
+            detail: { name: file.name, path: file.path }
+        }));
     }
 };
