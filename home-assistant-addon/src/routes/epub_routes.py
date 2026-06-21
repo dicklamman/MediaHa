@@ -42,23 +42,45 @@ def register_epub_routes(app):
                 'cover': None
             }
 
-            # Get metadata from book.metadata dict
+            # Get metadata - try multiple approaches for compatibility
+            metadata_items = {}
+            
+            # Try book.get_metadata() with namespace first (most compatible)
+            try:
+                dc_metadata = book.get_metadata('http://purl.org/dc/elements/1.1/')
+                for item in dc_metadata:
+                    if len(item) >= 2:
+                        name = item[0].lower()
+                        values = item[1]
+                        metadata_items[name] = values
+            except:
+                pass
+            
+            # Also try book.metadata dict
             if hasattr(book, 'metadata') and book.metadata:
-                dc_items = book.metadata.get('DC', {})
-                for key, values in dc_items.items():
-                    lower_key = key.lower()
-                    if lower_key in metadata:
-                        if isinstance(values, list):
-                            for v in values:
-                                if lower_key == 'subjects':
-                                    metadata[lower_key].append(str(v))
-                                else:
-                                    metadata[lower_key] = str(v)
-                        else:
-                            if lower_key == 'subjects':
-                                metadata[lower_key].append(str(values))
-                            else:
-                                metadata[lower_key] = str(values)
+                try:
+                    dc_items = book.metadata.get('DC', {})
+                    for key, values in dc_items.items():
+                        lower_key = key.lower()
+                        if lower_key not in metadata_items:
+                            metadata_items[lower_key] = values
+                except:
+                    pass
+            
+            # Map to our metadata dict (case-insensitive)
+            for key, value in metadata_items.items():
+                lower_key = key.lower()
+                if lower_key in ['title', 'creator', 'publisher', 'language', 'description', 'identifier', 'date', 'rights']:
+                    if isinstance(value, list):
+                        metadata[lower_key] = str(value[0]) if value else ''
+                    else:
+                        metadata[lower_key] = str(value)
+                elif lower_key == 'subjects':
+                    if isinstance(value, list):
+                        for v in value:
+                            metadata['subjects'].append(str(v))
+                    else:
+                        metadata['subjects'].append(str(value))
 
             # Get cover image - use item ID/name check instead of ITEM_TYPE
             for item in book.get_items():
