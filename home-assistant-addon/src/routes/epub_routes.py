@@ -27,7 +27,6 @@ def register_epub_routes(app):
 
         try:
             from ebooklib import epub
-            from ebooklib import epub as epublib
 
             book = epub.read_epub(file_path)
             metadata = {
@@ -61,16 +60,13 @@ def register_epub_routes(app):
                             else:
                                 metadata[lower_key] = str(values)
 
-            # Get cover image
+            # Get cover image - use item ID/name check instead of ITEM_TYPE
             for item in book.get_items():
-                if item.get_type() == epublib.ITEM_TYPE.COVER_IMAGE:
+                item_name = item.get_name().lower()
+                # Look for cover images by name pattern
+                if 'cover' in item_name and (item_name.endswith('.jpg') or item_name.endswith('.jpeg') or item_name.endswith('.png')):
                     metadata['cover'] = base64.b64encode(item.get_content()).decode('utf-8')
                     break
-                elif item.get_type() == epublib.ITEM_TYPE.IMAGE:
-                    # Check if it might be a cover
-                    name = item.get_name().lower()
-                    if 'cover' in name and (name.endswith('.jpg') or name.endswith('.jpeg') or name.endswith('.png')):
-                        metadata['cover'] = base64.b64encode(item.get_content()).decode('utf-8')
 
             return jsonify(metadata)
         except Exception as e:
