@@ -5,7 +5,7 @@ import base64
 import json
 import sqlite3
 from pathlib import Path
-from flask import jsonify, request, send_from_directory, redirect, session, render_template_string
+from flask import jsonify, request, send_from_directory, redirect, session
 
 
 MEDIA_DIR = '/media'
@@ -83,35 +83,46 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
     @app.route('/api/convert-file', methods=['POST'])
     def convert_file_htmx():
         """HTMX endpoint for file conversion - returns HTML instead of JSON."""
-        data = request.json or {}
-        file_path = data.get('file_path')
+        # Handle both JSON and form data (HTMX sends JSON with hx-vals)
+        file_path = None
+
+        # Try to get JSON first (HTMX sends with hx-vals)
+        try:
+            data = request.get_json(force=True, silent=True)
+            if data:
+                file_path = data.get('file_path')
+        except:
+            pass
+
+        # Fallback to form data
+        if not file_path:
+            file_path = request.form.get('file_path') or request.args.get('file_path')
 
         if not file_path:
-            return render_template_string('<p class="error">No file selected</p>')
+            return '<p class="error">No file selected</p>'
 
         abs_path = os.path.abspath(os.path.join(MEDIA_DIR, file_path))
         if not abs_path.startswith(os.path.abspath(MEDIA_DIR)):
-            return render_template_string('<p class="error">Access denied</p>')
+            return '<p class="error">Access denied</p>'
 
         if not os.path.exists(abs_path):
-            return render_template_string('<p class="error">File not found</p>')
+            return '<p class="error">File not found</p>'
 
         try:
             from utils.epub_converter import convert_to_traditional_chinese
 
             result = convert_to_traditional_chinese(abs_path)
             if result.get('success'):
-                return render_template_string('''
+                return f'''
                     <p class="success">Conversion complete!</p>
-                    <p>Output: {{ output }}</p>
-                ''', output=result.get('output_path', 'Unknown'))
+                    <p>Output: {result.get("output_path", "Unknown")}</p>
+                '''
             else:
-                return render_template_string('<p class="error">Error: {{ error }}</p>',
-                                              error=result.get('error', 'Unknown error'))
+                return f'<p class="error">Error: {result.get("error", "Unknown error")}</p>'
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return render_template_string('<p class="error">Error: {{ error }}</p>', error=str(e))
+            return f'<p class="error">Error: {str(e)}</p>'
 
     @app.route('/fetch/<int:book_id>/<format>', methods=['GET'])
     def fetch_book(book_id, format):
