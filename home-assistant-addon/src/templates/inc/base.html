@@ -44,19 +44,9 @@
         </div>
     </div>
 
-    <!-- Context Menu -->
-    <div id="context-menu" class="hidden">
-        <button type="button" class="menu-item" id="menu-preview">Preview</button>
-        <button type="button" class="menu-item" id="menu-rename">Rename</button>
-        <button type="button" class="menu-item" 
-                hx-post="/api/convert-file"
-                hx-vals='{"file_path": ""}'
-                hx-target="#convert-result"
-                hx-swap="innerHTML"
-                id="menu-convert">Convert to 繁體</button>
-        <button type="button" class="menu-item" id="menu-edit-ass">Edit Subtitle (ASS)</button>
-        <button type="button" class="menu-item" id="menu-edit-epub-metadata">Edit Metadata (EPUB)</button>
-    </div>
+    <!-- Context Menu - defined in each page template -->
+    <!-- Placeholder for pages that need a context menu -->
+    {% block context_menu %}{% endblock %}
 
     <!-- HTMX Convert Modal -->
     <div id="convert-modal" class="modal-overlay hidden">
