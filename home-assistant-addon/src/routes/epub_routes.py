@@ -43,9 +43,9 @@ def register_epub_routes(app):
                 'cover': None
             }
 
-            # Try using book.metadata dict (newer ebooklib versions)
-            if hasattr(book, 'metadata') and 'DC' in book.metadata:
-                dc_items = book.metadata['DC']
+            # Get metadata from book.metadata dict
+            if hasattr(book, 'metadata') and book.metadata:
+                dc_items = book.metadata.get('DC', {})
                 for key, values in dc_items.items():
                     lower_key = key.lower()
                     if lower_key in metadata:
@@ -60,26 +60,6 @@ def register_epub_routes(app):
                                 metadata[lower_key].append(str(values))
                             else:
                                 metadata[lower_key] = str(values)
-            else:
-                # Fallback: try get_metadata with namespace
-                dc_metadata = book.get_metadata('http://purl.org/dc/elements/1.1/')
-                for item in dc_metadata:
-                    if len(item) >= 2:
-                        name = item[0]
-                        values = item[1]
-                        key = name.lower()
-                        if key in metadata:
-                            if isinstance(values, list):
-                                for v in values:
-                                    if key == 'subjects':
-                                        metadata[key].append(str(v))
-                                    else:
-                                        metadata[key] = str(v)
-                            else:
-                                if key == 'subjects':
-                                    metadata[key].append(str(values))
-                                else:
-                                    metadata[key] = str(values)
 
             # Get cover image
             for item in book.get_items():
