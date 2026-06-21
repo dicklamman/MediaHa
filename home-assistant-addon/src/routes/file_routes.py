@@ -83,20 +83,19 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
     @app.route('/api/convert-file', methods=['POST'])
     def convert_file_htmx():
         """HTMX endpoint for file conversion - returns HTML instead of JSON."""
-        # Handle both JSON and form data (HTMX sends JSON with hx-vals)
         file_path = None
 
-        # Try to get JSON first (HTMX sends with hx-vals)
-        try:
-            data = request.get_json(force=True, silent=True)
-            if data:
-                file_path = data.get('file_path')
-        except:
-            pass
+        # Try form data first (hx-include sends as form data)
+        file_path = request.form.get('file_path')
 
-        # Fallback to form data
+        # Fallback to JSON
         if not file_path:
-            file_path = request.form.get('file_path') or request.args.get('file_path')
+            try:
+                data = request.get_json(force=True, silent=True)
+                if data:
+                    file_path = data.get('file_path')
+            except:
+                pass
 
         if not file_path:
             return '<p class="error">No file selected</p>'

@@ -73,16 +73,17 @@
             </div>
             <div class="modal-body">
                 <p>File: <strong x-text="fileName"></strong></p>
+                <input type="hidden" id="convert-file-path" value="">
                 <div id="convert-result">
                     <p x-show="status" x-text="status" :class="status.includes('Error') ? 'error' : 'success'"></p>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" @click="show = false" class="btn btn-secondary">Close</button>
-                <button type="button" 
+                <button type="button"
                         class="btn btn-primary"
                         hx-post="/api/convert-file"
-                        hx-vals="js:{file_path: document.getElementById('context-menu').dataset.selectedPath}"
+                        hx-include="#convert-file-path"
                         hx-target="#convert-result"
                         hx-swap="innerHTML"
                         @click="status = 'Converting...';">

@@ -377,6 +377,7 @@ export const fileBrowser = {
     openHtmxConvertModal(file) {
         const modal = document.getElementById('convert-modal');
         const convertResult = document.getElementById('convert-result');
+        const filePathInput = document.getElementById('convert-file-path');
 
         if (!modal) {
             // Fallback to old method if modal not available
@@ -392,8 +393,10 @@ export const fileBrowser = {
             return;
         }
 
-        // Store selected path for HTMX to use
-        document.getElementById('context-menu').dataset.selectedPath = file.path;
+        // Set file path in hidden input for HTMX
+        if (filePathInput) {
+            filePathInput.value = file.path;
+        }
 
         // Open modal via Alpine.js
         modal.__x.$data.show = true;
