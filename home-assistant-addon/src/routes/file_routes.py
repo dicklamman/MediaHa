@@ -108,16 +108,13 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
             return '<p class="error">File not found</p>'
 
         try:
-            from utils.epub_converter import convert_to_traditional_chinese
+            from utils.epub_converter import convert_to_hk_traditional_chinese
 
-            result = convert_to_traditional_chinese(abs_path)
-            if result.get('success'):
-                return f'''
-                    <p class="success">Conversion complete!</p>
-                    <p>Output: {result.get("output_path", "Unknown")}</p>
-                '''
-            else:
-                return f'<p class="error">Error: {result.get("error", "Unknown error")}</p>'
+            output_filename = convert_to_hk_traditional_chinese(abs_path)
+            return f'''
+                <p class="success">Conversion complete!</p>
+                <p>Output: {output_filename}</p>
+            '''
         except Exception as e:
             import traceback
             traceback.print_exc()
