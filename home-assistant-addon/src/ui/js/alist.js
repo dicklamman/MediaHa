@@ -1,6 +1,8 @@
 import { api } from './api.js';
 
 export const alist = {
+    isRunning: false,
+
     async init() {
         const btnSave = document.getElementById('save-alist');
         const btnRun = document.getElementById('run-alist');
@@ -59,18 +61,40 @@ export const alist = {
         }
     },
 
+    setButtonState(running) {
+        this.isRunning = running;
+        const btnRun = document.getElementById('run-alist');
+        if (btnRun) {
+            btnRun.disabled = running;
+            btnRun.textContent = running ? 'Running...' : 'Run Generator';
+            btnRun.classList.toggle('btn-running', running);
+        }
+    },
+
     async runGenerator() {
+        console.log('runGenerator called');
+        if (this.isRunning) return;
+
         const logBox = document.getElementById('alist-log');
+        if (!logBox) {
+            console.error('alist-log element not found');
+            return;
+        }
+
+        this.setButtonState(true);
         logBox.textContent = "Starting AList STRM Generator...\n";
-        
-        // Save settings first just in case
-        await this.saveSettings();
 
         try {
             const res = await fetch('/api/alist/run', { method: 'POST' });
+            if (!res.ok) {
+                logBox.textContent += `Error: HTTP ${res.status}\n`;
+                this.setButtonState(false);
+                return;
+            }
+
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
-            
+
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
@@ -80,6 +104,8 @@ export const alist = {
             logBox.textContent += "\nGenerator finished.";
         } catch (e) {
             logBox.textContent += `\nError: ${e.message}`;
+        } finally {
+            this.setButtonState(false);
         }
     }
 };

@@ -2,7 +2,7 @@
 """Configuration routes for Alist, Calibre, and Dropbox."""
 import os
 import json
-from flask import request, jsonify, Response
+from flask import request, jsonify, Response, stream_with_context
 
 
 def register_config_routes(app, ALIST_CONFIG_PATH, CALIBRE_CONFIG_PATH, DROPBOX_CONFIG_PATH):
@@ -32,7 +32,13 @@ def register_config_routes(app, ALIST_CONFIG_PATH, CALIBRE_CONFIG_PATH, DROPBOX_
         else:
             config = {}
         from utils.alist_strm import generate_strm_generator
-        return Response(generate_strm_generator(config), mimetype='text/plain')
+        
+        def generate():
+            gen = generate_strm_generator(config)
+            for chunk in gen:
+                yield chunk
+        
+        return Response(stream_with_context(generate()), mimetype='text/plain')
 
     # Dropbox settings
     @app.route('/api/dropbox/settings', methods=['GET'])
