@@ -2198,7 +2198,7 @@ body {
    ================================================ */
 .log-output {
     white-space: pre-wrap;
-    background: #1e1e1e;
+    background: #1e1e1e !important;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
@@ -2206,9 +2206,12 @@ body {
     margin-top: var(--space-lg);
     height: 300px;
     overflow-y: auto;
-    color: #00ff00;
+    color: #00ff00 !important;
     font-size: var(--font-size-sm);
     line-height: 1.6;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 /* ================================================

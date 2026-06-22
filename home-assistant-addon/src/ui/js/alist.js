@@ -72,7 +72,6 @@ export const alist = {
     },
 
     async runGenerator() {
-        console.log('runGenerator called');
         if (this.isRunning) return;
 
         const logBox = document.getElementById('alist-log');
@@ -83,11 +82,22 @@ export const alist = {
 
         this.setButtonState(true);
         logBox.textContent = "Starting AList STRM Generator...\n";
+        logBox.style.display = 'block';
+        logBox.style.visibility = 'visible';
+        logBox.style.minHeight = '300px';
+        logBox.style.opacity = '1';
 
         try {
             const res = await fetch('/api/alist/run', { method: 'POST' });
+            
             if (!res.ok) {
                 logBox.textContent += `Error: HTTP ${res.status}\n`;
+                this.setButtonState(false);
+                return;
+            }
+
+            if (!res.body) {
+                logBox.textContent += "Error: No response body (streaming not supported)\n";
                 this.setButtonState(false);
                 return;
             }
