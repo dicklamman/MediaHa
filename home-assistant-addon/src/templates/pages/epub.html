@@ -45,6 +45,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         fileBrowser.setBasePath('eBook');
+        fileBrowser.loadFiles('eBook');
         mediaPreview.init();
         epubPlayer.init();
         epubMetadataEditor.api = api;

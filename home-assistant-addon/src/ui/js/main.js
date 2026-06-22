@@ -49,9 +49,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     videoPlayer.init();
     assEditor.init();
     
-    // Fallback: load eBook if initTabs didn't work
+    // Fallback: load eBook only on main index page
     if (!fileBrowser.currentPath || fileBrowser.currentPath === '') {
-        setTimeout(() => fileBrowser.setBasePath('eBook'), 200);
+        // Only set default on index page, not on sub-pages
+        const isIndexPage = window.location.pathname === '/' || window.location.pathname === '/index';
+        if (isIndexPage) {
+            setTimeout(() => fileBrowser.setBasePath('eBook'), 200);
+        }
     }
 
     // Global Event Listeners
@@ -168,6 +172,5 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Initial load
-    fileBrowser.loadFiles('');
+    // Initial load - removed, each page should call loadFiles() with its base path
 });
