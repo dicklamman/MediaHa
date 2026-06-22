@@ -111,6 +111,7 @@ def generate_strm_generator(gist_config):
     local_root = os.path.abspath(gist_config.get('local_dir', '/media/alist'))
     username = gist_config.get('username', 'admin')
     password = gist_config.get('password', '')
+    
     try:
         yield f"Logging into AList URL: {api_url}...\n"
         token = get_alist_token(api_url, username, password)

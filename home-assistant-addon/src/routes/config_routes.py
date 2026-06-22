@@ -38,7 +38,8 @@ def register_config_routes(app, ALIST_CONFIG_PATH, CALIBRE_CONFIG_PATH, DROPBOX_
             for chunk in gen:
                 yield chunk
         
-        return Response(stream_with_context(generate()), mimetype='text/plain')
+        return Response(stream_with_context(generate()), mimetype='text/plain',
+                       headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-cache'})
 
     # Dropbox settings
     @app.route('/api/dropbox/settings', methods=['GET'])
