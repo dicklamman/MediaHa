@@ -65,7 +65,6 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 def disable_buffering(response):
     response.headers['X-Accel-Buffering'] = 'no'
     response.headers['Cache-Control'] = 'no-cache'
-    response.headers['Connection'] = 'keep-alive'
     return response
 
 
