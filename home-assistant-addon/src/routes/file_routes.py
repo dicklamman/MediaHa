@@ -11,8 +11,10 @@ from flask import jsonify, request, send_from_directory, redirect, session, Resp
 MEDIA_DIR = '/media'
 
 
-def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
+def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH, AUTH_USERNAME=None, AUTH_PASSWORD=None):
     """Register file operation routes."""
+    _AUTH_USERNAME = AUTH_USERNAME
+    _AUTH_PASSWORD = AUTH_PASSWORD
 
     @app.route('/api/files', methods=['GET'])
     def list_files():
@@ -129,8 +131,6 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
         logger = logging.getLogger(__name__)
         
         try:
-            from ..main import AUTH_USERNAME, AUTH_PASSWORD
-
             authenticated = session.get("authenticated", False)
             if not authenticated:
                 auth_header = request.headers.get('Authorization', '')
@@ -139,7 +139,7 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
                         encoded = auth_header[6:]
                         decoded = base64.b64decode(encoded).decode('utf-8')
                         username, password = decoded.split(':', 1)
-                        if username == AUTH_USERNAME and password == AUTH_PASSWORD:
+                        if username == _AUTH_USERNAME and password == _AUTH_PASSWORD:
                             session["authenticated"] = True
                             authenticated = True
                     except:

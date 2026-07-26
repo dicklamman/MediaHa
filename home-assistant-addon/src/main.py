@@ -139,7 +139,7 @@ from routes.web_routes import register_web_routes
 register_web_routes(app)
 
 from routes.file_routes import register_file_routes
-register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH)
+register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH, AUTH_USERNAME, AUTH_PASSWORD)
 
 from routes.audio_routes import register_audio_routes
 register_audio_routes(app)
