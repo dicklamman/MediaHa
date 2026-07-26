@@ -5,7 +5,7 @@ import base64
 import json
 import sqlite3
 from pathlib import Path
-from flask import jsonify, request, send_from_directory, redirect, session
+from flask import jsonify, request, send_from_directory, redirect, session, Response
 
 
 MEDIA_DIR = '/media'
@@ -124,9 +124,13 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
     @app.route('/opds/fetch/<int:book_id>/<format>', methods=['GET'])
     def fetch_book(book_id, format):
         """Serve book files for OPDS/Calibre-Web readers (COPS/Yomu)"""
-        from ..main import AUTH_USERNAME, AUTH_PASSWORD
-
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
+        logger = logging.getLogger(__name__)
+        
         try:
+            from ..main import AUTH_USERNAME, AUTH_PASSWORD
+
             authenticated = session.get("authenticated", False)
             if not authenticated:
                 auth_header = request.headers.get('Authorization', '')
@@ -142,9 +146,8 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
                         pass
 
             if not authenticated:
-                resp = jsonify({'error': 'Authentication required'})
-                resp.headers['WWW-Authenticate'] = 'Basic realm="MediaHa"'
-                return resp, 401
+                return Response('Authentication required', status=401, mimetype='text/plain',
+                               headers={'WWW-Authenticate': 'Basic realm="MediaHa"'})
 
             calibre_library = request.args.get('calibre_library')
             if not calibre_library:
@@ -154,13 +157,13 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
                         calibre_library = config.get('calibre_library_path', '')
 
             if not calibre_library:
-                return jsonify({'error': 'Calibre library not configured'}), 400
+                return Response(f'Calibre library not configured: {CALIBRE_CONFIG_PATH}', status=400, mimetype='text/plain')
 
             calibre_path = Path(calibre_library)
             metadata_db = Path(calibre_library) / 'metadata.db'
 
             if not metadata_db.exists():
-                return jsonify({'error': 'metadata.db not found', 'path': str(metadata_db)}), 500
+                return Response(f'metadata.db not found: {metadata_db}', status=500, mimetype='text/plain')
 
             books_folder = calibre_path / 'books' if (calibre_path / 'books').exists() else calibre_path
 
@@ -171,7 +174,7 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
             conn.close()
 
             if not row:
-                return jsonify({'error': f'Format {format} not found for book {book_id}'}), 404
+                return Response(f'Format {format.upper()} not found for book {book_id}', status=404, mimetype='text/plain')
 
             filename = row[0]
             if not os.path.splitext(filename)[1]:
@@ -186,18 +189,19 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
                     with open(ALIST_CONFIG_PATH, 'r') as f:
                         alist_config = json.load(f)
                         alist_url = alist_config.get('alist_url')
-                        username = alist_config.get('username', 'admin')
-                        password = alist_config.get('password', '')
+                        alist_user = alist_config.get('username', 'admin')
+                        alist_pass = alist_config.get('password', '')
                         if alist_url:
                             try:
                                 from utils.alist_strm import get_alist_token, get_file_sign
-                                token = get_alist_token(alist_url, username, password)
+                                token = get_alist_token(alist_url, alist_user, alist_pass)
                                 remote_path = str(book_folder / filename)
                                 sign = get_file_sign(alist_url, remote_path, token)
                                 if sign:
                                     stream_url = f"{alist_url.rstrip('/')}/d{remote_path}?sign={sign}"
                                     return redirect(stream_url)
-                            except Exception:
+                            except Exception as e:
+                                logger.debug(f'Alist streaming failed: {e}')
                                 pass
                 except Exception:
                     pass
@@ -238,20 +242,7 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
                         break
 
             if not found_file:
-                all_files = [f.name for f in calibre_path.iterdir() if f.is_file()][:20]
-                all_dirs = [d.name for d in calibre_path.iterdir() if d.is_dir()][:20]
-                return jsonify({
-                    'error': 'Book file not found',
-                    'book_id': book_id,
-                    'format': format,
-                    'searched_filename': filename,
-                    'calibre_root': str(calibre_path),
-                    'book_folder': str(book_folder),
-                    'book_folder_exists': path_exists_quick(book_folder),
-                    'book_folder_contents': [f.name for f in book_folder.iterdir()] if path_exists_quick(book_folder) else [],
-                    'root_files_sample': all_files,
-                    'root_dirs_sample': all_dirs
-                }), 404
+                return Response(f'Book file not found: {filename} in {book_folder}', status=404, mimetype='text/plain')
 
             file_path = found_file
             file_folder = file_path.parent
@@ -270,4 +261,4 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return jsonify({'error': str(e), 'type': type(e).__name__}), 500
+            return Response(f'Error: {str(e)}\n{traceback.format_exc()}', status=500, mimetype='text/plain')
