@@ -121,6 +121,7 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH):
             return f'<p class="error">Error: {str(e)}</p>'
 
     @app.route('/fetch/<int:book_id>/<format>', methods=['GET'])
+    @app.route('/opds/fetch/<int:book_id>/<format>', methods=['GET'])
     def fetch_book(book_id, format):
         """Serve book files for OPDS/Calibre-Web readers (COPS/Yomu)"""
         from ..main import AUTH_USERNAME, AUTH_PASSWORD

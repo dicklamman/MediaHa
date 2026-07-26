@@ -79,7 +79,7 @@ def register_routes(app, check_auth):
         language = "en"  # Default to 'en' if not found
         ext = book_row["format"] if "format" in book_row.keys() else "epub"
         ext = ext.lower()
-        file_url = '/fetch/' + str(book_id) + '/' + ext
+        file_url = '/opds/fetch/' + str(book_id) + '/' + ext
         file_length = book_row["file_size"] if "file_size" in book_row.keys() and book_row["file_size"] else 0
         
         # Build entry
