@@ -154,6 +154,10 @@ def register_web_routes(app):
     @app.route('/<path:filename>')
     def serve_ui(filename):
         """Serve other files from ui directory."""
+        # Never handle API routes here — let dedicated route handlers take over
+        if filename.startswith('api/'):
+            return f"File not found: {filename}", 404
+
         # Try root ui folder first
         root_path = os.path.join(ui_folder, filename)
         if os.path.exists(root_path) and os.path.isfile(root_path):
