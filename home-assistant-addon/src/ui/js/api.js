@@ -226,5 +226,21 @@ export const api = {
             throw new Error(errorData.error || 'Failed to save EPUB metadata');
         }
         return await response.json();
+    },
+    async convertToTraditionalChinese(path) {
+        const response = await fetch('/api/convert/traditional', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_name: path })
+        });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Conversion failed');
+        }
+        return await response.json();
     }
 };

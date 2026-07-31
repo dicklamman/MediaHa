@@ -382,6 +382,109 @@ def register_audio_routes(app):
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/convert/traditional', methods=['POST'])
+    def convert_to_traditional():
+        """Convert MP3 metadata (title, artist, album, o3ics) and filename from Simplified to Traditional Chinese."""
+        if not session.get("authenticated"):
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        data = request.json
+        file_name = data.get('file_name')
+        if not file_name:
+            return jsonify({'error': 'No file name provided'}), 400
+
+        file_path = os.path.abspath(os.path.join(MEDIA_DIR, file_name))
+        if not file_path.startswith(os.path.abspath(MEDIA_DIR)):
+            return jsonify({'error': 'Access denied'}), 403
+
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+
+        try:
+            import opencc
+            cc = opencc.OpenCC('s2hk')
+
+            # Read current metadata
+            audio = MP3(file_path, ID3=ID3)
+            title = ""
+            artist = ""
+            album = ""
+
+            if audio.tags:
+                if 'TIT2' in audio.tags:
+                    title = audio.tags['TIT2'].text[0]
+                if 'TPE1' in audio.tags:
+                    artist = audio.tags['TPE1'].text[0]
+                if 'TALB' in audio.tags:
+                    album = audio.tags['TALB'].text[0]
+
+            if not title:
+                title = os.path.splitext(os.path.basename(file_path))[0]
+
+            # Convert metadata to Traditional Chinese
+            new_title = cc.convert(title) if title else ""
+            new_artist = cc.convert(artist) if artist else ""
+            new_album = cc.convert(album) if album else ""
+
+            # Read lyrics
+            lrc_path = os.path.splitext(file_path)[0] + '.lrc'
+            o3ics = ""
+            if os.path.exists(lrc_path):
+                with open(lrc_path, 'r', encoding='utf-8-sig') as f:
+                    o3ics = f.read()
+            new_o3ics = cc.convert(o3ics) if o3ics else ""
+
+            # Save metadata back
+            if audio.tags is None:
+                audio.add_tags()
+
+            if new_title:
+                audio.tags.delall('TIT2')
+                audio.tags.add(TIT2(encoding=3, text=new_title))
+            if new_artist:
+                audio.tags.delall('TPE1')
+                audio.tags.add(TPE1(encoding=3, text=new_artist))
+            if new_album:
+                audio.tags.delall('TALB')
+                audio.tags.add(TALB(encoding=3, text=new_album))
+            audio.save()
+
+            # Save converted lyrics
+            if new_o3ics.strip():
+                with open(lrc_path, 'w', encoding='utf-8') as f:
+                    f.write(new_o3ics)
+            elif os.path.exists(lrc_path):
+                os.remove(lrc_path)
+
+            # Rename file if filename contains Chinese characters
+            new_filename = None
+            base_name = os.path.splitext(os.path.basename(file_path))[0]
+            new_base_name = cc.convert(base_name)
+            if new_base_name != base_name:
+                new_full_name = new_base_name + os.path.splitext(file_path)[1]
+                new_file_path = os.path.join(os.path.dirname(file_path), new_full_name)
+                if not os.path.exists(new_file_path):
+                    os.rename(file_path, new_file_path)
+                    # Also rename lrc file if it exists
+                    if os.path.exists(lrc_path):
+                        new_lrc_path = os.path.splitext(new_file_path)[0] + '.lrc'
+                        if not os.path.exists(new_lrc_path):
+                            os.rename(lrc_path, new_lrc_path)
+                    new_filename = new_full_name
+
+            return jsonify({
+                'success': True,
+                'title': new_title,
+                'artist': new_artist,
+                'album': new_album,
+                'filename': new_filename,
+                'new_file_path': new_filename
+                    ? os.path.join(os.path.dirname(file_name), new_filename)
+                    : file_name
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
     def detect_language(text):
         if not text:
             return 'english'

@@ -66,6 +66,10 @@ export const mp3Player = {
         const lrcSubtractBtn = document.getElementById('lrc-subtract-btn');
         if (lrcSubtractBtn) lrcSubtractBtn.addEventListener('click', () => this.applyLrcOffset(-1));
 
+        // Traditional Chinese conversion
+        const toTraditionalBtn = document.getElementById('to-traditional-btn');
+        if (toTraditionalBtn) toTraditionalBtn.addEventListener('click', () => this.convertToTraditionalChinese());
+
         // Cover upload handlers
         const uploadCoverBtn = document.getElementById('upload-cover-btn');
         const coverFileInput = document.getElementById('cover-file-input');
@@ -1552,6 +1556,60 @@ export const mp3Player = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    },
+
+    async convertToTraditionalChinese() {
+        if (!this.api || !this.currentFile) return;
+
+        const btn = document.getElementById('to-traditional-btn');
+        if (!btn) return;
+        const originalText = btn.textContent;
+        btn.innerHTML = '<span class="spinner"></span>轉換中...';
+        btn.disabled = true;
+
+        try {
+            const result = await this.api.convertToTraditionalChinese(this.currentFile.path);
+
+            // Update display with converted values
+            if (result.title) {
+                document.getElementById('meta-disp-title').textContent = result.title;
+                document.getElementById('meta-input-title').value = result.title;
+            }
+            if (result.artist) {
+                document.getElementById('meta-disp-artist').textContent = result.artist;
+                document.getElementById('meta-input-artist').value = result.artist;
+            }
+            if (result.album) {
+                document.getElementById('meta-disp-album').textContent = result.album;
+                document.getElementById('meta-input-album').value = result.album;
+            }
+
+            // Update modal title
+            const mp3Title = document.getElementById('mp3-title');
+            if (mp3Title) {
+                mp3Title.textContent = result.title || this.currentFile.name;
+            }
+
+            // Update filename if changed
+            if (result.new_file_path && result.new_file_path !== this.currentFile.path) {
+                this.currentFile.path = result.new_file_path;
+                this.currentFile.name = result.filename || this.currentFile.name;
+            }
+
+            // Re-render lyrics if they were converted
+            const o3icsInput = document.getElementById('meta-input-o3ics');
+            if (o3icsInput && o3icsInput.value) {
+                this.renderLyrics(o3icsInput.value);
+            }
+
+            alert('已成功轉換為繁體中文！');
+        } catch (err) {
+            alert('轉換失敗: ' + err.message);
+            console.error('convertToTraditionalChinese error:', err);
+        } finally {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
     },
 
     close() {
