@@ -478,9 +478,7 @@ def register_audio_routes(app):
                 'artist': new_artist,
                 'album': new_album,
                 'filename': new_filename,
-                'new_file_path': new_filename
-                    ? os.path.join(os.path.dirname(file_name), new_filename)
-                    : file_name
+                'new_file_path': os.path.join(os.path.dirname(file_name), new_filename) if new_filename else file_name
             })
         except Exception as e:
             return jsonify({'error': str(e)}), 500

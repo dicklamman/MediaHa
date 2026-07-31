@@ -7,32 +7,34 @@ alwaysApply: true
 
 The Home Assistant add-on version lives in `home-assistant-addon/config.json` (line 3, `"version": "X.Y.Z"`).
 
-## When to bump
+## Rule: Always bump on every change inside `home-assistant-addon/`
 
-Whenever any change is made inside `home-assistant-addon/` (Python, JS, HTML, CSS, config schema, Dockerfile, requirements, etc.), bump the **patch** number (last digit) in the same edit.
+**Every single edit** inside `home-assistant-addon/` (Python, JS, HTML, CSS, config, Dockerfile, requirements, templates, etc.) must include a version bump — without being reminded. This is non-negotiable.
 
-- Patch change `1.1.48` → `1.1.49` for bug fixes, refactors, dependency bumps, doc updates inside the add-on.
-- Minor change `1.1.48` → `1.2.0` for new features or new endpoints.
-- Major change `1.1.48` → `2.0.0` only for breaking changes (auth, schema, route removal).
+## How to bump
 
-Default to a patch bump unless the user explicitly says otherwise.
+- **Patch** `1.1.48` → `1.1.49` — bug fixes, refactors, dependency updates, doc changes.
+- **Minor** `1.1.48` → `1.2.0` — new features, new endpoints, new UI elements.
+- **Major** `1.1.48` → `2.0.0` — breaking changes only (auth, schema, route removal).
+
+Default to patch. Only bump one level per commit/PR.
 
 ## Do NOT bump when
 
-- Only files outside `home-assistant-addon/` change (root `README.md`, top-level docs, CI config, etc.).
+- Files outside `home-assistant-addon/` change (root README, CI config, etc.).
 - The edit *is* the version bump itself (avoid double-increment).
 
 ## How to bump
 
 1. Read `home-assistant-addon/config.json`.
-2. Increment the version string in place — keep the surrounding JSON formatting identical.
-3. Mention the new version in the assistant's final summary so the user sees it in the diff.
+2. Increment the version string in place — keep surrounding JSON formatting identical.
+3. Include the version bump in the **same edit/commit** as the code change.
 
 ## Example
 
 ```diff
-   "name": "Media Converter",
--  "version": "1.1.48",
-+  "version": "1.1.49",
-   "slug": "media_converter",
+ "name": "Media Converter",
+-"version": "1.1.48",
++"version": "1.1.49",
+ "slug": "media_converter",
 ```
