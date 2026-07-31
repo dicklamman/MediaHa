@@ -369,17 +369,13 @@ export const fileBrowser = {
                 ui.showResultMessage('error', 'Error reading folder: ' + err.message);
             }
         } else {
-            // Use HTMX modal for single file conversion
-            this.openHtmxConvertModal(this.selectedFile);
+            ui.showResultMessage('info', `Converting "${this.selectedFile.name}"...`);
+            try {
+                await api.htmxConvertFile(this.selectedFile.path);
+                ui.showResultMessage('success', `Conversion complete!`);
+                await this.loadFiles(this.currentPath);
+            } catch (err) {
+                ui.showResultMessage('error', 'Conversion failed: ' + err.message);
+            }
         }
-    },
-
-    // HTMX-powered convert modal
-    openHtmxConvertModal(file) {
-        console.log('openHtmxConvertModal called:', file.name, file.path);
-        // Dispatch event to open the modal
-        window.dispatchEvent(new CustomEvent('open-convert-modal', {
-            detail: { name: file.name, path: file.path }
-        }));
-    }
 };

@@ -150,19 +150,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Listen for HTMX convert modal open event — reload file list after conversion completes
-    window.addEventListener('open-convert-modal', async (e) => {
-        const { name, path } = e.detail;
-        console.log('open-convert-modal received for:', name, path);
-        try {
-            await api.htmxConvertFile(path);
-            ui.hideContextMenu();
-            await fileBrowser.loadFiles(fileBrowser.currentPath);
-        } catch (err) {
-            alert('Conversion failed: ' + err.message);
-        }
-    });
-
     if (menuEditAss) {
         menuEditAss.addEventListener('click', async () => {
             ui.hideContextMenu();

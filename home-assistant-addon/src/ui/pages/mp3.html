@@ -129,7 +129,118 @@
                     <p><strong>Album:</strong> <span id="meta-disp-album">-</span></p>
                 </div>
 
-                <div id="enhance-preview" class="hidden"></div>
+                <div id="enhance-preview" class="hidden">
+                    <h4 style="margin: 0 0 12px; font-size: 14px; color: var(--color-text-muted);">Auto-Enhance Results</h4>
+
+                    <div class="enhance-row" id="enhance-row-title">
+                        <div class="enhance-field-label"><strong>Title</strong></div>
+                        <div class="enhance-cols">
+                            <div class="enhance-col">
+                                <div class="enhance-col-label">Original</div>
+                                <div class="enhance-value" id="enhance-orig-title">-</div>
+                            </div>
+                            <div class="enhance-col">
+                                <div class="enhance-col-label">New</div>
+                                <div class="enhance-value" id="enhance-new-title">-</div>
+                            </div>
+                        </div>
+                        <div class="enhance-row-actions">
+                            <span id="enhance-source-title" class="enhance-source-badge"></span>
+                            <button class="btn btn-sm btn-outline use-enhance-btn" data-field="title">Use New</button>
+                            <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="title">Keep Original</button>
+                            <button class="btn btn-sm btn-outline refresh-enhance-btn" data-field="title"><span class="material-icons" style="font-size:14px;">refresh</span></button>
+                        </div>
+                    </div>
+
+                    <div class="enhance-row" id="enhance-row-artist">
+                        <div class="enhance-field-label"><strong>Artist</strong></div>
+                        <div class="enhance-cols">
+                            <div class="enhance-col">
+                                <div class="enhance-col-label">Original</div>
+                                <div class="enhance-value" id="enhance-orig-artist">-</div>
+                            </div>
+                            <div class="enhance-col">
+                                <div class="enhance-col-label">New</div>
+                                <div class="enhance-value" id="enhance-new-artist">-</div>
+                            </div>
+                        </div>
+                        <div class="enhance-row-actions">
+                            <span id="enhance-source-artist" class="enhance-source-badge"></span>
+                            <button class="btn btn-sm btn-outline use-enhance-btn" data-field="artist">Use New</button>
+                            <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="artist">Keep Original</button>
+                            <button class="btn btn-sm btn-outline refresh-enhance-btn" data-field="artist"><span class="material-icons" style="font-size:14px;">refresh</span></button>
+                        </div>
+                    </div>
+
+                    <div class="enhance-row" id="enhance-row-album">
+                        <div class="enhance-field-label"><strong>Album</strong></div>
+                        <div class="enhance-cols">
+                            <div class="enhance-col">
+                                <div class="enhance-col-label">Original</div>
+                                <div class="enhance-value" id="enhance-orig-album">-</div>
+                            </div>
+                            <div class="enhance-col">
+                                <div class="enhance-col-label">New</div>
+                                <div class="enhance-value" id="enhance-new-album">-</div>
+                            </div>
+                        </div>
+                        <div class="enhance-row-actions">
+                            <span id="enhance-source-album" class="enhance-source-badge"></span>
+                            <button class="btn btn-sm btn-outline use-enhance-btn" data-field="album">Use New</button>
+                            <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="album">Keep Original</button>
+                            <button class="btn btn-sm btn-outline refresh-enhance-btn" data-field="album"><span class="material-icons" style="font-size:14px;">refresh</span></button>
+                        </div>
+                    </div>
+
+                    <div class="enhance-row" id="enhance-row-cover">
+                        <div class="enhance-field-label"><strong>Cover</strong></div>
+                        <div class="enhance-cols">
+                            <div class="enhance-col">
+                                <div class="enhance-col-label">Original</div>
+                                <div class="enhance-cover-container">
+                                    <img id="enhance-orig-cover" class="enhance-cover-img" src="" alt="">
+                                    <div id="enhance-orig-cover-placeholder" class="enhance-cover-placeholder">No cover</div>
+                                </div>
+                            </div>
+                            <div class="enhance-col">
+                                <div class="enhance-col-label">New</div>
+                                <div class="enhance-cover-container">
+                                    <img id="enhance-new-cover" class="enhance-cover-img" src="" alt="">
+                                    <div id="enhance-new-cover-placeholder" class="enhance-cover-placeholder show">No cover</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="enhance-row-actions">
+                            <span id="enhance-source-cover" class="enhance-source-badge"></span>
+                            <button class="btn btn-sm btn-outline use-enhance-btn" data-field="cover">Use New</button>
+                            <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="cover">Keep Original</button>
+                            <button class="btn btn-sm btn-outline refresh-enhance-btn" data-field="cover"><span class="material-icons" style="font-size:14px;">refresh</span></button>
+                        </div>
+                    </div>
+
+                    <div class="enhance-row" id="enhance-row-o3ics">
+                        <div class="enhance-field-label"><strong>Lyrics</strong></div>
+                        <div class="enhance-cols">
+                            <div class="enhance-col">
+                                <div class="enhance-col-label">Original</div>
+                                <div class="enhance-value enhance-value-o3ics" id="enhance-orig-o3ics">-</div>
+                            </div>
+                            <div class="enhance-col">
+                                <div class="enhance-col-label">New</div>
+                                <div class="enhance-value enhance-value-o3ics" id="enhance-new-o3ics">-</div>
+                            </div>
+                        </div>
+                        <div class="enhance-row-actions">
+                            <span id="enhance-source-o3ics" class="enhance-source-badge"></span>
+                            <button class="btn btn-sm btn-outline use-enhance-btn" data-field="o3ics">Use New</button>
+                            <button class="btn btn-sm btn-outline revert-enhance-btn" data-field="o3ics">Keep Original</button>
+                            <button class="btn btn-sm btn-outline refresh-enhance-btn" data-field="o3ics"><span class="material-icons" style="font-size:14px;">refresh</span></button>
+                        </div>
+                    </div>
+
+                    <div id="cover-options-container" class="hidden"></div>
+                    <div id="o3ics-options-container" class="hidden"></div>
+                </div>
 
                 <div id="metadata-editor" class="hidden">
                     <div class="form-group">
