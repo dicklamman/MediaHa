@@ -378,4 +378,5 @@ export const fileBrowser = {
                 ui.showResultMessage('error', 'Conversion failed: ' + err.message);
             }
         }
+    },
 };
