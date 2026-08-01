@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "command": ".cursor/hooks/version-bump.ps1",
+        "matcher": "StrReplace|Write",
+        "failClosed": false,
+        "timeout": 30
+      }
+    ]
+  }
+}
