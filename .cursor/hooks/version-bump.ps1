@@ -25,20 +25,12 @@ $parts = $version -split '\.'
 $patch = [int]$parts[2] + 1
 $newVersion = "$($parts[0]).$($parts[1]).$patch"
 
-$stateFile = Join-Path $PWD ".cursor\hooks\bumped.txt"
-
-# Skip if already bumped this session
-if (Test-Path $stateFile) { return }
-
 # Bump config.json in place
 $config.version = $newVersion
 $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -NoNewline -Encoding UTF8
 
-# Mark as bumped for this session
-"bumped" | Set-Content $stateFile -Encoding UTF8
-
 $additionalContext = @"
-[Version Bump Hook] Automatically bumped `home-assistant-addon/config.json` from $version to $new.0 (patch) since you edited: $path
+[Version Bump Hook] Auto-bumped `home-assistant-addon/config.json` from $version to $newVersion (patch) since you edited: $path
 "@
 
 $result = @{
