@@ -1563,7 +1563,7 @@ export const mp3Player = {
 
         const btn = document.getElementById('to-traditional-btn');
         if (!btn) return;
-        const originalText = btn.textContent;
+        const originalHTML = btn.innerHTML;
         btn.innerHTML = '<span class="spinner"></span>轉換中...';
         btn.disabled = true;
 
@@ -1607,7 +1607,7 @@ export const mp3Player = {
             alert('轉換失敗: ' + err.message);
             console.error('convertToTraditionalChinese error:', err);
         } finally {
-            btn.textContent = originalText;
+            btn.innerHTML = originalHTML;
             btn.disabled = false;
         }
     },
