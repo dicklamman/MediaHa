@@ -14,15 +14,26 @@ def download_to_disk(download_url, dest_path, chunk_size=64 * 1024):
                 if chunk:
                     f.write(chunk)
 
-def get_onelist_token(base_url, username, password):
+def get_onelist_token(base_url, username, password, verify_ssl=True):
     url = f"{base_url.rstrip('/')}/api/auth/login"
     data = {"username": username, "password": password}
-    resp = requests.post(url, json=data, timeout=15)
-    resp.raise_for_status()
-    result = resp.json()
-    if result.get("code") != 200:
-        raise Exception(result.get("message", "Login failed"))
-    return result["data"]["token"]
+    try:
+        resp = requests.post(url, json=data, timeout=15, verify=verify_ssl)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get("code") != 200:
+            raise Exception(result.get("message", "Login failed"))
+        return result["data"]["token"]
+    except requests.exceptions.SSLError as e:
+        raise Exception(f"SSL Error: {e}. Check if the URL uses HTTPS and the certificate is valid.")
+    except requests.exceptions.ConnectionError as e:
+        raise Exception(f"Connection Error: {e}. Check if the server is reachable and the URL is correct.")
+    except requests.exceptions.Timeout as e:
+        raise Exception(f"Timeout Error: {e}. The server took too long to respond.")
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Request Error: {e}")
+    except Exception as e:
+        raise Exception(f"Login failed: {e}")
 
 def list_directory(base_url, path, token):
     url = f"{base_url.rstrip('/')}/api/fs/list"
@@ -111,10 +122,11 @@ def generate_strm_generator(gist_config):
     local_root = os.path.abspath(gist_config.get('local_dir', '/media/alist'))
     username = gist_config.get('username', 'admin')
     password = gist_config.get('password', '')
+    verify_ssl = gist_config.get('verify_ssl', True)
     
     try:
         yield f"Logging into OneList URL: {api_url}...\n"
-        token = get_onelist_token(api_url, username, password)
+        token = get_onelist_token(api_url, username, password, verify_ssl)
         yield "Login successful ?\n"
 
         yield f"Clearing local directory: {local_root}...\n"

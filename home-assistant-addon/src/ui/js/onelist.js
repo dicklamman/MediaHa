@@ -25,6 +25,8 @@ export const onelist = {
                 document.getElementById('onelist-local').value = data.local_dir || '';
                 document.getElementById('onelist-user').value = data.username || '';
                 document.getElementById('onelist-pass').value = data.password || '';
+                const verifySsl = document.getElementById('onelist-verify-ssl');
+                if (verifySsl) verifySsl.checked = data.verify_ssl !== false;
             }
         } catch (e) {
             console.error('Failed to load settings', e);
@@ -38,7 +40,8 @@ export const onelist = {
             remote_path: document.getElementById('onelist-remote').value,
             local_dir: document.getElementById('onelist-local').value,
             username: document.getElementById('onelist-user').value,
-            password: document.getElementById('onelist-pass').value
+            password: document.getElementById('onelist-pass').value,
+            verify_ssl: document.getElementById('onelist-verify-ssl').checked
         };
 
         try {
