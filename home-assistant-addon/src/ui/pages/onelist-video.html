@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AList Video - MediaHa</title>
+    <title>OneList Video - MediaHa</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,27 +30,27 @@
         <nav class="sidebar-nav">
             <ul>
                 <li id="nav-home"><a href="/home.html"><span class="nav-icon material-icons">home</span>Home</a></li>
-                <li id="nav-alist-video" class="active"><a href="alist-video.html"><span class="nav-icon material-icons">movie</span>AList Video</a></li>
+                <li id="nav-onelist-video" class="active"><a href="onelist-video.html"><span class="nav-icon material-icons">movie</span>OneList Video</a></li>
             </ul>
         </nav>
     </aside>
 
     <main class="main-wrapper">
         <header class="page-header">
-            <h2 class="page-title">AList Video</h2>
-            <p class="page-subtitle">Browse and play videos from AList</p>
+            <h2 class="page-title">OneList Video</h2>
+            <p class="page-subtitle">Browse and play videos from OneList</p>
         </header>
 
         <div class="dashboard-grid" style="margin-bottom: var(--space-xl);">
             <div class="dashboard-card" style="opacity: 0.8;">
                 <span class="material-icons dashboard-icon">movie</span>
-                <h3>AList Video</h3>
-                <p>Stream videos from AList storage</p>
+                <h3>OneList Video</h3>
+                <p>Stream videos from OneList storage</p>
             </div>
         </div>
 
         <div class="breadcrumb" id="breadcrumb-container">
-            <span class="crumb" id="root-crumb">AList</span>
+            <span class="crumb" id="root-crumb">OneList</span>
             <span id="dynamic-crumbs"></span>
         </div>
 
@@ -101,14 +101,14 @@
 
     <script src="/js/api.js" type="module"></script>
     <script src="/js/ui.js" type="module"></script>
-    <script src="/js/alist.js" type="module"></script>
+    <script src="/js/onelist.js" type="module"></script>
     <script src="/js/videoPlayer.js" type="module"></script>
     <script type="module">
-        import { alist } from '/js/alist.js';
+        import { onelist } from '/js/onelist.js';
         import { videoPlayer } from '/js/videoPlayer.js';
 
         document.addEventListener('DOMContentLoaded', () => {
-            alist.init();
+            onelist.init();
             videoPlayer.init();
         });
     </script>

@@ -75,7 +75,7 @@ def disable_buffering(response):
 MEDIA_DIR = '/media'
 CONFIG_DIR = '/data' if os.path.exists('/data') else os.path.join(os.path.dirname(__file__), '..', 'config')
 
-ALIST_CONFIG_PATH = os.path.join(CONFIG_DIR, 'alist_options.json')
+ONE_LIST_CONFIG_PATH = os.path.join(CONFIG_DIR, 'alist_options.json')
 CALIBRE_CONFIG_PATH = os.path.join(CONFIG_DIR, 'calibre_options.json')
 DROPBOX_CONFIG_PATH = os.path.join(CONFIG_DIR, 'dropbox_options.json')
 
@@ -139,13 +139,13 @@ from routes.web_routes import register_web_routes
 register_web_routes(app)
 
 from routes.file_routes import register_file_routes
-register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH, AUTH_USERNAME, AUTH_PASSWORD)
+register_file_routes(app, CALIBRE_CONFIG_PATH, ONE_LIST_CONFIG_PATH, AUTH_USERNAME, AUTH_PASSWORD)
 
 from routes.audio_routes import register_audio_routes
 register_audio_routes(app)
 
 from routes.config_routes import register_config_routes
-register_config_routes(app, ALIST_CONFIG_PATH, CALIBRE_CONFIG_PATH, DROPBOX_CONFIG_PATH)
+register_config_routes(app, ONE_LIST_CONFIG_PATH, CALIBRE_CONFIG_PATH, DROPBOX_CONFIG_PATH)
 
 from routes.special_routes import register_special_routes
 register_special_routes(app)

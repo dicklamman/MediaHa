@@ -2,7 +2,7 @@ import { ui } from './ui.js';
 import { fileBrowser } from './fileBrowser.js';
 import { epubPlayer } from './epubPlayer.js';
 import { mp3Player } from './mp3Player.js';
-import { alist } from './alist.js';
+import { onelist } from './onelist.js';
 import { videoPlayer } from './videoPlayer.js';
 import { assEditor } from './assEditor.js';
 import { api } from './api.js';
@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize feature modules
     epubPlayer.init();
     mp3Player.init();
-    alist.init();
+    onelist.init();
     videoPlayer.init();
     assEditor.init();
     

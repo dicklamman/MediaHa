@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AList to STRM - MediaHa</title>
+    <title>OneList to STRM - MediaHa</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,68 +30,68 @@
         <nav class="sidebar-nav">
             <ul>
                 <li id="nav-home"><a href="/home.html"><span class="nav-icon material-icons">home</span>Home</a></li>
-                <li id="nav-alist" class="active"><a href="alist.html"><span class="nav-icon material-icons">link</span>AList to STRM</a></li>
+                <li id="nav-onelist" class="active"><a href="onelist.html"><span class="nav-icon material-icons">link</span>OneList to STRM</a></li>
             </ul>
         </nav>
     </aside>
 
     <main class="main-wrapper">
         <header class="page-header">
-            <h2 class="page-title">AList to STRM</h2>
+            <h2 class="page-title">OneList to STRM</h2>
             <p class="page-subtitle">Generate STRM files for Jellyfin</p>
         </header>
 
         <div class="dashboard-grid" style="margin-bottom: var(--space-xl);">
             <div class="dashboard-card" style="opacity: 0.8;">
                 <span class="material-icons dashboard-icon">link</span>
-                <h3>AList to STRM</h3>
+                <h3>OneList to STRM</h3>
                 <p>Generate STRM files for media servers</p>
             </div>
         </div>
 
         <div class="modern-form">
             <div class="form-group-modern">
-                <label class="form-label-modern">AList URL</label>
-                <input type="text" id="alist-url" class="form-control-modern" placeholder="http://192.168.1.100:5244">
+                <label class="form-label-modern">OneList URL</label>
+                <input type="text" id="onelist-url" class="form-control-modern" placeholder="http://192.168.1.100:5244">
             </div>
             <div class="form-group-modern">
                 <label class="form-label-modern">Public Domain</label>
-                <input type="text" id="alist-domain" class="form-control-modern" placeholder="https://alist.example.com">
+                <input type="text" id="onelist-domain" class="form-control-modern" placeholder="https://alist.example.com">
             </div>
             <div class="form-group-modern">
                 <label class="form-label-modern">Remote Path</label>
-                <input type="text" id="alist-remote" class="form-control-modern" placeholder="/OneDriveShare">
+                <input type="text" id="onelist-remote" class="form-control-modern" placeholder="/OneDriveShare">
             </div>
             <div class="form-group-modern">
                 <label class="form-label-modern">Local Path</label>
-                <input type="text" id="alist-local" class="form-control-modern" placeholder="/media/alist">
+                <input type="text" id="onelist-local" class="form-control-modern" placeholder="/media/alist">
             </div>
             <div class="form-group-modern">
                 <label class="form-label-modern">Username</label>
-                <input type="text" id="alist-user" class="form-control-modern" placeholder="admin">
+                <input type="text" id="onelist-user" class="form-control-modern" placeholder="admin">
             </div>
             <div class="form-group-modern">
                 <label class="form-label-modern">Password</label>
-                <input type="password" id="alist-pass" class="form-control-modern" placeholder="password">
+                <input type="password" id="onelist-pass" class="form-control-modern" placeholder="password">
             </div>
             <div class="form-actions-modern">
-                <button id="save-alist" class="btn-save-modern">Save Settings</button>
-                <button id="run-alist" class="btn-run-modern">Run Generator</button>
+                <button id="save-onelist" class="btn-save-modern">Save Settings</button>
+                <button id="run-onelist" class="btn-run-modern">Run Generator</button>
             </div>
-            <div id="alist-status"></div>
+            <div id="onelist-status"></div>
         </div>
 
-        <div id="alist-log" class="log-output" style="display: block; visibility: visible;"></div>
+        <div id="onelist-log" class="log-output" style="display: block; visibility: visible;"></div>
     </main>
 
     <script src="/js/api.js" type="module"></script>
     <script src="/js/ui.js" type="module"></script>
-    <script src="/js/alist.js" type="module"></script>
+    <script src="/js/onelist.js" type="module"></script>
     <script type="module">
-        import { alist } from '/js/alist.js';
+        import { onelist } from '/js/onelist.js';
 
         document.addEventListener('DOMContentLoaded', () => {
-            alist.init();
+            onelist.init();
         });
     </script>
 </body>

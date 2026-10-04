@@ -10,8 +10,8 @@ NAV_ITEMS = [
     ('epub', 'menu_book', 'EPUB Converter', '/pages/epub'),
     ('mp3', 'library_music', 'MP3 Converter', '/pages/mp3'),
     ('music-player', 'music_note', 'Music Player', '/pages/music-player'),
-    ('alist-video', 'movie', 'AList Video', '/pages/alist-video'),
-    ('alist', 'link', 'AList to STRM', '/pages/alist'),
+    ('onelist-video', 'movie', 'OneList Video', '/pages/onelist-video'),
+    ('onelist', 'link', 'OneList to STRM', '/pages/onelist'),
     ('dropbox', 'cloud', 'Dropbox Sync', '/pages/dropbox'),
     ('calibre', 'library_books', 'Calibre Web Sync', '/pages/calibre')
 ]
@@ -101,19 +101,19 @@ def register_web_routes(app):
             return send_from_directory(ui_folder, 'login.html')
         return render_page('pages/music-player.html', 'music-player', 'Music Player')
 
-    @app.route('/pages/alist-video')
-    def alist_video():
-        """Serve the AList video page."""
+    @app.route('/pages/onelist-video')
+    def onelist_video():
+        """Serve the OneList video page."""
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
-        return render_page('pages/alist-video.html', 'alist-video', 'AList Video')
+        return render_page('pages/onelist-video.html', 'onelist-video', 'OneList Video')
 
-    @app.route('/pages/alist')
-    def alist():
-        """Serve the AList STRM page."""
+    @app.route('/pages/onelist')
+    def onelist():
+        """Serve the OneList STRM page."""
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
-        return render_page('pages/alist.html', 'alist', 'AList to STRM')
+        return render_page('pages/onelist.html', 'onelist', 'OneList to STRM')
 
     @app.route('/pages/dropbox')
     def dropbox():

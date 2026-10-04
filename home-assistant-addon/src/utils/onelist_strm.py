@@ -14,7 +14,7 @@ def download_to_disk(download_url, dest_path, chunk_size=64 * 1024):
                 if chunk:
                     f.write(chunk)
 
-def get_alist_token(base_url, username, password):
+def get_onelist_token(base_url, username, password):
     url = f"{base_url.rstrip('/')}/api/auth/login"
     data = {"username": username, "password": password}
     resp = requests.post(url, json=data, timeout=15)
@@ -36,7 +36,7 @@ def list_directory(base_url, path, token):
     return result["data"]["content"]
 
 def refresh_directory(base_url, path, token, timeout=300, retries=2):
-    """Force AList to re-fetch the directory listing from the underlying cloud storage."""
+    """Force OneList to re-fetch the directory listing from the underlying cloud storage."""
     url = f"{base_url.rstrip('/')}/api/fs/refresh"
     headers = {"Authorization": token}
     data = {"path": path}
@@ -113,8 +113,8 @@ def generate_strm_generator(gist_config):
     password = gist_config.get('password', '')
     
     try:
-        yield f"Logging into AList URL: {api_url}...\n"
-        token = get_alist_token(api_url, username, password)
+        yield f"Logging into OneList URL: {api_url}...\n"
+        token = get_onelist_token(api_url, username, password)
         yield "Login successful ?\n"
 
         yield f"Clearing local directory: {local_root}...\n"
@@ -122,8 +122,8 @@ def generate_strm_generator(gist_config):
             shutil.rmtree(local_root)
         os.makedirs(local_root, exist_ok=True)
 
-        yield f"Scanning AList remote path: {remote_root}\n"
-        yield f"Refreshing AList remote path from cloud storage: {remote_root}...\n"
+        yield f"Scanning OneList remote path: {remote_root}\n"
+        yield f"Refreshing OneList remote path from cloud storage: {remote_root}...\n"
         try:
             refresh_directory(api_url, remote_root, token)
             yield f"? Refreshed: {remote_root}\n"

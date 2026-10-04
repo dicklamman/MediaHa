@@ -1,11 +1,11 @@
 import { api } from './api.js';
 
-export const alist = {
+export const onelist = {
     isRunning: false,
 
     async init() {
-        const btnSave = document.getElementById('save-alist');
-        const btnRun = document.getElementById('run-alist');
+        const btnSave = document.getElementById('save-onelist');
+        const btnRun = document.getElementById('run-onelist');
 
         if (btnSave && btnRun) {
             btnSave.addEventListener('click', () => this.saveSettings());
@@ -16,15 +16,15 @@ export const alist = {
 
     async loadSettings() {
         try {
-            const res = await fetch('/api/alist/settings');
+            const res = await fetch('/api/onelist/settings');
             if (res.ok) {
                 const data = await res.json();
-                document.getElementById('alist-url').value = data.alist_url || '';
-                document.getElementById('alist-domain').value = data.public_domain || '';
-                document.getElementById('alist-remote').value = data.remote_path || '';
-                document.getElementById('alist-local').value = data.local_dir || '';
-                document.getElementById('alist-user').value = data.username || '';
-                document.getElementById('alist-pass').value = data.password || '';
+                document.getElementById('onelist-url').value = data.alist_url || '';
+                document.getElementById('onelist-domain').value = data.public_domain || '';
+                document.getElementById('onelist-remote').value = data.remote_path || '';
+                document.getElementById('onelist-local').value = data.local_dir || '';
+                document.getElementById('onelist-user').value = data.username || '';
+                document.getElementById('onelist-pass').value = data.password || '';
             }
         } catch (e) {
             console.error('Failed to load settings', e);
@@ -33,21 +33,21 @@ export const alist = {
 
     async saveSettings() {
         const data = {
-            alist_url: document.getElementById('alist-url').value,
-            public_domain: document.getElementById('alist-domain').value,
-            remote_path: document.getElementById('alist-remote').value,
-            local_dir: document.getElementById('alist-local').value,
-            username: document.getElementById('alist-user').value,
-            password: document.getElementById('alist-pass').value
+            alist_url: document.getElementById('onelist-url').value,
+            public_domain: document.getElementById('onelist-domain').value,
+            remote_path: document.getElementById('onelist-remote').value,
+            local_dir: document.getElementById('onelist-local').value,
+            username: document.getElementById('onelist-user').value,
+            password: document.getElementById('onelist-pass').value
         };
 
         try {
-            const res = await fetch('/api/alist/settings', {
+            const res = await fetch('/api/onelist/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            const status = document.getElementById('alist-status');
+            const status = document.getElementById('onelist-status');
             if (res.ok) {
                 status.textContent = 'Settings saved successfully!';
                 status.style.color = '#28a745';
@@ -63,7 +63,7 @@ export const alist = {
 
     setButtonState(running) {
         this.isRunning = running;
-        const btnRun = document.getElementById('run-alist');
+        const btnRun = document.getElementById('run-onelist');
         if (btnRun) {
             btnRun.disabled = running;
             btnRun.textContent = running ? 'Running...' : 'Run Generator';
@@ -74,21 +74,21 @@ export const alist = {
     async runGenerator() {
         if (this.isRunning) return;
 
-        const logBox = document.getElementById('alist-log');
+        const logBox = document.getElementById('onelist-log');
         if (!logBox) {
-            console.error('alist-log element not found');
+            console.error('onelist-log element not found');
             return;
         }
 
         this.setButtonState(true);
-        logBox.textContent = "Starting AList STRM Generator...\n";
+        logBox.textContent = "Starting OneList STRM Generator...\n";
         logBox.style.display = 'block';
         logBox.style.visibility = 'visible';
         logBox.style.minHeight = '300px';
         logBox.style.opacity = '1';
 
         try {
-            const res = await fetch('/api/alist/run', { method: 'POST' });
+            const res = await fetch('/api/onelist/run', { method: 'POST' });
             
             if (!res.ok) {
                 logBox.textContent += `Error: HTTP ${res.status}\n`;

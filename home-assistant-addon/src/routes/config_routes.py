@@ -1,37 +1,37 @@
 # -*- coding: utf-8 -*-
-"""Configuration routes for Alist, Calibre, and Dropbox."""
+"""Configuration routes for OneList, Calibre, and Dropbox."""
 import os
 import json
 from flask import request, jsonify, Response, stream_with_context
 
 
-def register_config_routes(app, ALIST_CONFIG_PATH, CALIBRE_CONFIG_PATH, DROPBOX_CONFIG_PATH):
+def register_config_routes(app, ONE_LIST_CONFIG_PATH, CALIBRE_CONFIG_PATH, DROPBOX_CONFIG_PATH):
     """Register configuration routes."""
-
-    # Alist settings
-    @app.route('/api/alist/settings', methods=['GET'])
-    def get_alist_settings():
-        if os.path.exists(ALIST_CONFIG_PATH):
-            with open(ALIST_CONFIG_PATH, 'r') as f:
+    
+    # OneList settings
+    @app.route('/api/onelist/settings', methods=['GET'])
+    def get_onelist_settings():
+        if os.path.exists(ONE_LIST_CONFIG_PATH):
+            with open(ONE_LIST_CONFIG_PATH, 'r') as f:
                 return jsonify(json.load(f))
         return jsonify({})
 
-    @app.route('/api/alist/settings', methods=['POST'])
-    def save_alist_settings():
+    @app.route('/api/onelist/settings', methods=['POST'])
+    def save_onelist_settings():
         data = request.json
-        os.makedirs(os.path.dirname(ALIST_CONFIG_PATH), exist_ok=True)
-        with open(ALIST_CONFIG_PATH, 'w') as f:
+        os.makedirs(os.path.dirname(ONE_LIST_CONFIG_PATH), exist_ok=True)
+        with open(ONE_LIST_CONFIG_PATH, 'w') as f:
             json.dump(data, f)
         return jsonify({'status': 'ok'})
 
-    @app.route('/api/alist/run', methods=['POST'])
-    def run_alist():
-        if os.path.exists(ALIST_CONFIG_PATH):
-            with open(ALIST_CONFIG_PATH, 'r') as f:
+    @app.route('/api/onelist/run', methods=['POST'])
+    def run_onelist():
+        if os.path.exists(ONE_LIST_CONFIG_PATH):
+            with open(ONE_LIST_CONFIG_PATH, 'r') as f:
                 config = json.load(f)
         else:
             config = {}
-        from utils.alist_strm import generate_strm_generator
+        from utils.onelist_strm import generate_strm_generator
         
         def generate():
             gen = generate_strm_generator(config)

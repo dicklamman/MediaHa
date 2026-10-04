@@ -2,7 +2,7 @@
 
 {% block page_content %}
 <div class="breadcrumb" id="breadcrumb-container">
-    <span class="crumb" id="root-crumb">AList</span>
+    <span class="crumb" id="root-crumb">OneList</span>
     <span id="dynamic-crumbs"></span>
 </div>
 
@@ -35,14 +35,14 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="/js/alist.js" type="module"></script>
+<script src="/js/onelist.js" type="module"></script>
 <script src="/js/videoPlayer.js" type="module"></script>
 <script type="module">
-    import { alist } from '/js/alist.js';
+    import { onelist } from '/js/onelist.js';
     import { videoPlayer } from '/js/videoPlayer.js';
 
     document.addEventListener('DOMContentLoaded', () => {
-        alist.init();
+        onelist.init();
         videoPlayer.init();
     });
 </script>

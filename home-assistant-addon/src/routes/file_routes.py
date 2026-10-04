@@ -11,7 +11,7 @@ from flask import jsonify, request, send_from_directory, redirect, session, Resp
 MEDIA_DIR = '/media'
 
 
-def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH, AUTH_USERNAME=None, AUTH_PASSWORD=None):
+def register_file_routes(app, CALIBRE_CONFIG_PATH, ONE_LIST_CONFIG_PATH, AUTH_USERNAME=None, AUTH_PASSWORD=None):
     """Register file operation routes."""
     _AUTH_USERNAME = AUTH_USERNAME
     _AUTH_PASSWORD = AUTH_PASSWORD
@@ -183,25 +183,25 @@ def register_file_routes(app, CALIBRE_CONFIG_PATH, ALIST_CONFIG_PATH, AUTH_USERN
             file_path = book_folder / filename
             format_lower = format.lower()
 
-            # Try Alist streaming first
-            if os.path.exists(ALIST_CONFIG_PATH):
+            # Try OneList streaming first
+            if os.path.exists(ONE_LIST_CONFIG_PATH):
                 try:
-                    with open(ALIST_CONFIG_PATH, 'r') as f:
-                        alist_config = json.load(f)
-                        alist_url = alist_config.get('alist_url')
-                        alist_user = alist_config.get('username', 'admin')
-                        alist_pass = alist_config.get('password', '')
-                        if alist_url:
+                    with open(ONE_LIST_CONFIG_PATH, 'r') as f:
+                        onelist_config = json.load(f)
+                        onelist_url = onelist_config.get('alist_url')
+                        onelist_user = onelist_config.get('username', 'admin')
+                        onelist_pass = onelist_config.get('password', '')
+                        if onelist_url:
                             try:
-                                from utils.alist_strm import get_alist_token, get_file_sign
-                                token = get_alist_token(alist_url, alist_user, alist_pass)
+                                from utils.onelist_strm import get_onelist_token, get_file_sign
+                                token = get_onelist_token(onelist_url, onelist_user, onelist_pass)
                                 remote_path = str(book_folder / filename)
-                                sign = get_file_sign(alist_url, remote_path, token)
+                                sign = get_file_sign(onelist_url, remote_path, token)
                                 if sign:
-                                    stream_url = f"{alist_url.rstrip('/')}/d{remote_path}?sign={sign}"
+                                    stream_url = f"{onelist_url.rstrip('/')}/d{remote_path}?sign={sign}"
                                     return redirect(stream_url)
                             except Exception as e:
-                                logger.debug(f'Alist streaming failed: {e}')
+                                logger.debug(f'OneList streaming failed: {e}')
                                 pass
                 except Exception:
                     pass
