@@ -159,6 +159,9 @@ register_calibre_routes(app)
 from routes.epub_routes import register_epub_routes
 register_epub_routes(app)
 
+from routes.photo_routes import register_photo_routes
+register_photo_routes(app)
+
 
 # =============================================================================
 # Entry Point
