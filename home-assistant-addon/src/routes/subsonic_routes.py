@@ -55,7 +55,7 @@ def register_subsonic_routes(app, username, password):
 
     def is_json():
         """Check if client wants JSON format."""
-        fmt = request.args.get('f', 'xml')
+        fmt = request.args.get('f', 'json')
         return fmt == 'json'
 
     def escape_xml(text):
