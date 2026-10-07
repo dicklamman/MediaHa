@@ -16,6 +16,21 @@ def register_subsonic_routes(app, username, password):
     """Register SubSonic API compatible routes."""
 
     # =========================================================================
+    # Base endpoint
+    # =========================================================================
+
+    @app.route('/subsonic')
+    @app.route('/subsonic/')
+    def subsonic_root():
+        """SubSonic API root - returns OK response."""
+        if is_json():
+            return jsonify({'status': 'ok', 'version': '1.16.1'})
+        else:
+            return Response('''<?xml version="1.0" encoding="UTF-8"?>
+<subsonic-response status="ok" version="1.16.1"/>
+''', mimetype='application/xml')
+
+    # =========================================================================
     # Authentication
     # =========================================================================
 
