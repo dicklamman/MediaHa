@@ -6,9 +6,9 @@ import re
 import urllib.request
 import json
 import requests
-from flask import request, jsonify, session
+from flask import request, jsonify, session, send_file, Response
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC
+from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC, USLT
 
 
 MEDIA_DIR = '/media'
@@ -480,6 +480,153 @@ def register_audio_routes(app):
                 'filename': new_filename,
                 'new_file_path': os.path.join(os.path.dirname(file_name), new_filename) if new_filename else file_name
             })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/lyrics/<path:filename>', methods=['GET'])
+    def serve_lyrics(filename):
+        """
+        Serve LRC lyrics file for Navidrome/Subsonic clients.
+        
+        Navidrome looks for lyrics at: /lyrics/folder/song.mp3
+        This endpoint checks for .lrc file alongside the mp3.
+        
+        Supports:
+        - /lyrics/Music/song.mp3 -> checks /media/Music/song.lrc
+        - ?api=1 (returns JSON with lyrics)
+        """
+        api_mode = request.args.get('api') == '1'
+        
+        # Remove .mp3/.flac extension to find lrc file
+        base_path = filename
+        for ext in ['.mp3', '.flac', '.m4a', '.ogg', '.wav']:
+            if filename.lower().endswith(ext):
+                base_path = filename[:-len(ext)]
+                break
+        
+        # Try local .lrc file
+        lrc_path = os.path.abspath(os.path.join(MEDIA_DIR, base_path + '.lrc'))
+        
+        if not lrc_path.startswith(os.path.abspath(MEDIA_DIR)):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        if os.path.exists(lrc_path):
+            try:
+                with open(lrc_path, 'r', encoding='utf-8-sig') as f:
+                    lyrics = f.read()
+                
+                if api_mode:
+                    return jsonify({'lyrics': lyrics})
+                
+                # Return as text/plain for Navidrome
+                return Response(lyrics, mimetype='text/plain')
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        # Check for embedded lyrics in ID3 tag
+        mp3_path = os.path.join(MEDIA_DIR, filename)
+        if os.path.exists(mp3_path):
+            try:
+                audio = MP3(mp3_path, ID3=ID3)
+                if audio.tags:
+                    for tag in audio.tags.values():
+                        if tag.FrameID == 'USLT':
+                            lyrics = tag.text
+                            if api_mode:
+                                return jsonify({'lyrics': lyrics})
+                            return Response(lyrics, mimetype='text/plain')
+            except Exception:
+                pass
+        
+        if api_mode:
+            return jsonify({'lyrics': None}), 404
+        return Response('', mimetype='text/plain'), 404
+
+    @app.route('/api/lrc', methods=['GET'])
+    def get_lrc():
+        """
+        Get or create LRC file for an audio file.
+        
+        Query params:
+        - file: path to the audio file (e.g., Music/song.mp3)
+        - create: if 'true', creates empty LRC from metadata
+        """
+        file_name = request.args.get('file')
+        if not file_name:
+            return jsonify({'error': 'No file specified'}), 400
+        
+        file_path = os.path.abspath(os.path.join(MEDIA_DIR, file_name))
+        if not file_path.startswith(os.path.abspath(MEDIA_DIR)):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        lrc_path = os.path.splitext(file_path)[0] + '.lrc'
+        
+        # Return existing LRC
+        if os.path.exists(lrc_path):
+            try:
+                with open(lrc_path, 'r', encoding='utf-8-sig') as f:
+                    return jsonify({'exists': True, 'content': f.read()})
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        # Optionally create from metadata
+        if request.args.get('create') == 'true':
+            try:
+                audio = MP3(file_path, ID3=ID3)
+                title = ""
+                artist = ""
+                
+                if audio.tags:
+                    if 'TIT2' in audio.tags:
+                        title = audio.tags['TIT2'].text[0]
+                    if 'TPE1' in audio.tags:
+                        artist = audio.tags['TPE1'].text[0]
+                
+                if not title:
+                    title = os.path.splitext(os.path.basename(file_path))[0]
+                
+                # Create template LRC
+                lrc_content = f"""[ti:{title}]
+[ar:{artist}]
+[al:]
+[by:MediaHa]
+[offset:0]
+
+[00:00.00]{title}
+[00:00.00]{artist}
+"""
+                with open(lrc_path, 'w', encoding='utf-8') as f:
+                    f.write(lrc_content)
+                
+                return jsonify({'exists': False, 'created': True, 'content': lrc_content})
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        return jsonify({'exists': False, 'content': None})
+
+    @app.route('/api/lrc', methods=['POST'])
+    def save_lrc():
+        """Save LRC content to file."""
+        if not session.get("authenticated"):
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        data = request.json
+        file_name = data.get('file')
+        content = data.get('content', '')
+        
+        if not file_name:
+            return jsonify({'error': 'No file specified'}), 400
+        
+        file_path = os.path.abspath(os.path.join(MEDIA_DIR, file_name))
+        if not file_path.startswith(os.path.abspath(MEDIA_DIR)):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        lrc_path = os.path.splitext(file_path)[0] + '.lrc'
+        
+        try:
+            with open(lrc_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            return jsonify({'success': True})
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
