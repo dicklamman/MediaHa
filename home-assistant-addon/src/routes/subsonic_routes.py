@@ -5,7 +5,7 @@ import base64
 import hashlib
 import time
 import re
-from flask import request, Response, session
+from flask import request, Response, jsonify, send_file
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC, USLT
 
@@ -38,18 +38,57 @@ def register_subsonic_routes(app, username, password):
 
         return False
 
-    def make_response_xml(content, status='ok', version='1.16.1'):
-        """Create SubSonic XML response."""
-        return f'''<?xml version="1.0" encoding="UTF-8"?>
-<subsonic-response status="{status}" version="{version}">
-{content}
-</subsonic-response>'''
+    def is_json():
+        """Check if client wants JSON format."""
+        fmt = request.args.get('f', 'xml')
+        return fmt == 'json'
 
     def escape_xml(text):
         """Escape XML special characters."""
         if not text:
             return ''
         return str(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&apos;')
+
+    def ok_response(data):
+        """Return response in XML or JSON format."""
+        if is_json():
+            return jsonify({'status': 'ok', 'version': '1.16.1', **data})
+        else:
+            xml = build_xml(data)
+            return Response(f'''<?xml version="1.0" encoding="UTF-8"?>
+<subsonic-response status="ok" version="1.16.1">
+{xml}
+</subsonic-response>''', mimetype='application/xml')
+
+    def error_response(code, message):
+        """Return error in XML or JSON format."""
+        if is_json():
+            return jsonify({'status': 'failed', 'error': {'code': code, 'message': message}}), 400
+        else:
+            return Response(f'''<?xml version="1.0" encoding="UTF-8"?>
+<subsonic-response status="failed" version="1.16.1">
+<error code="{code}" message="{escape_xml(message)}"/>
+</subsonic-response>''', mimetype='application/xml', status=400)
+
+    def build_xml(data, indent=''):
+        """Build XML string from dict/list."""
+        xml = ''
+        if isinstance(data, dict):
+            for key, val in data.items():
+                if val is None or val == '':
+                    continue
+                if isinstance(val, list):
+                    for item in val:
+                        if isinstance(item, dict):
+                            attrs = ' '.join(f'{k}="{escape_xml(str(v))}"' for k, v in item.items() if v is not None and v != '')
+                            xml += f'{indent}<{key} {attrs}/>\n'
+                        else:
+                            xml += f'{indent}<{key}>{escape_xml(str(item))}</{key}>\n'
+                elif isinstance(val, dict):
+                    xml += f'{indent}<{key}>\n{build_xml(val, indent + "  ")}{indent}</{key}>\n'
+                else:
+                    xml += f'{indent}<{key}>{escape_xml(str(val))}</{key}>\n'
+        return xml
 
     # =========================================================================
     # System Endpoints
@@ -59,22 +98,22 @@ def register_subsonic_routes(app, username, password):
     def subsonic_ping():
         """Ping endpoint - server health check."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
-
-        return Response(make_response_xml('<ping/>'), mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
+        return ok_response({'ping': {}})
 
     @app.route('/subsonic/rest/getLicense')
     def subsonic_license():
         """Get license info (always valid for open source)."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
 
-        license_xml = '''<license valid="true" email="mediaha@localhost" licenseExpires="9999999999999">
-    <licenseOwner>MediaHa</licenseOwner>
-</license>'''
-        return Response(make_response_xml(license_xml), mimetype='application/xml')
+        data = {'license': {
+            'valid': 'true',
+            'email': 'mediaha@localhost',
+            'licenseExpires': '9999999999999',
+            'licenseOwner': 'MediaHa'
+        }}
+        return ok_response(data)
 
     # =========================================================================
     # Music Library Endpoints
@@ -84,80 +123,67 @@ def register_subsonic_routes(app, username, password):
     def subsonic_music_folders():
         """Get music folders."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
 
-        folders_xml = '''<musicFolders>
-    <musicFolder id="1" name="Music"/>
-</musicFolders>'''
-        return Response(make_response_xml(folders_xml), mimetype='application/xml')
+        data = {'musicFolders': {'musicFolder': [{'id': '1', 'name': 'Music'}]}}
+        return ok_response(data)
 
-    @app.route('/subsonic/rest/getArtists')
-    def subsonic_get_artists():
-        """Get all artists."""
+    @app.route('/subsonic/rest/getIndexes')
+    def subsonic_get_indexes():
+        """Get indexes - list of artists with their folders."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
 
-        artists = {}
         index_map = {}
+        media_path = MEDIA_DIR
 
-        # Scan media directory
-        media_path = os.path.join(MEDIA_DIR)
         if os.path.exists(media_path):
             for folder in os.listdir(media_path):
                 folder_path = os.path.join(media_path, folder)
                 if os.path.isdir(folder_path):
-                    # This is an artist folder
-                    artist_name = folder
-                    first_char = artist_name[0].upper() if artist_name else '#'
+                    first_char = folder[0].upper() if folder else '#'
                     if not first_char.isalpha():
                         first_char = '#'
 
                     if first_char not in index_map:
                         index_map[first_char] = []
 
-                    # Count albums
-                    album_count = 0
-                    for subfolder in os.listdir(folder_path):
-                        subfolder_path = os.path.join(folder_path, subfolder)
-                        if os.path.isdir(subfolder_path):
-                            album_count += 1
-                        elif subfolder.lower().endswith(('.mp3', '.flac', '.m4a', '.ogg')):
-                            album_count += 1
-
+                    artist_id = f"artist_{hashlib.md5(folder.encode()).hexdigest()[:8]}"
                     index_map[first_char].append({
-                        'id': f"artist_{hashlib.md5(folder.encode()).hexdigest()[:8]}",
-                        'name': artist_name,
-                        'albumCount': album_count
+                        'id': artist_id,
+                        'name': folder
                     })
 
-        # Build XML
-        artists_xml = '<artists index="true">'
-        for index in sorted(index_map.keys()):
-            for artist in sorted(index_map[index], key=lambda x: x['name']):
-                artists_xml += f'''<artist id="{escape_xml(artist['id'])}" name="{escape_xml(artist['name'])}" albumCount="{artist['albumCount']}"/>'''
-        artists_xml += '</artists>'
+        # Build indexes structure
+        indexes = []
+        for index_char in sorted(index_map.keys()):
+            indexes.append({
+                'name': index_char,
+                'artist': index_map[index_char]
+            })
 
-        return Response(make_response_xml(artists_xml), mimetype='application/xml')
+        data = {'indexes': {'index': indexes, 'lastModified': int(time.time())}}
+        return ok_response(data)
+
+    @app.route('/subsonic/rest/getArtists')
+    def subsonic_get_artists():
+        """Get all artists (Subsonic 1.16+)."""
+        return subsonic_get_indexes()
 
     @app.route('/subsonic/rest/getArtist')
     def subsonic_get_artist():
         """Get artist details with albums."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
 
         artist_id = request.args.get('id', '')
-        folder_name = artist_id.replace('artist_', '')
 
         # Find artist folder
-        media_path = os.path.join(MEDIA_DIR)
         artist_name = None
         artist_folder = None
 
-        for folder in os.listdir(media_path):
-            folder_path = os.path.join(media_path, folder)
+        for folder in os.listdir(MEDIA_DIR):
+            folder_path = os.path.join(MEDIA_DIR, folder)
             if os.path.isdir(folder_path):
                 fid = f"artist_{hashlib.md5(folder.encode()).hexdigest()[:8]}"
                 if fid == artist_id:
@@ -166,48 +192,42 @@ def register_subsonic_routes(app, username, password):
                     break
 
         if not artist_folder:
-            return Response(make_response_xml('<error code="notFound" message="Artist not found"/>', 'failed'),
-                          mimetype='application/xml')
-
-        albums_xml = '<artist id="{0}" name="{1}">'.format(
-            escape_xml(artist_id), escape_xml(artist_name))
+            return error_response('notFound', 'Artist not found')
 
         # List albums
+        albums = []
         for subfolder in os.listdir(artist_folder):
             subfolder_path = os.path.join(artist_folder, subfolder)
             if os.path.isdir(subfolder_path):
                 album_id = f"album_{hashlib.md5(subfolder.encode()).hexdigest()[:8]}"
-                albums_xml += f'<album id="{album_id}" name="{escape_xml(subfolder)}" artist="{escape_xml(artist_name)}" songCount="0" duration="0"/>'
+                song_count = sum(1 for f in os.listdir(subfolder_path) if f.lower().endswith(('.mp3', '.flac', '.m4a', '.ogg', '.wav')))
+                albums.append({
+                    'id': album_id,
+                    'name': subfolder,
+                    'artist': artist_name,
+                    'songCount': str(song_count),
+                    'coverArt': album_id
+                })
 
-        albums_xml += '</artist>'
-
-        return Response(make_response_xml(albums_xml), mimetype='application/xml')
+        data = {'artist': {'id': artist_id, 'name': artist_name, 'album': albums}}
+        return ok_response(data)
 
     @app.route('/subsonic/rest/getAlbum')
     def subsonic_get_album():
         """Get album details with songs."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
 
         album_id = request.args.get('id', '')
 
         # Find album folder
-        media_path = os.path.join(MEDIA_DIR)
         album_folder = None
         artist_name = None
         album_name = None
 
-        for folder in os.listdir(media_path):
-            folder_path = os.path.join(media_path, folder)
+        for folder in os.listdir(MEDIA_DIR):
+            folder_path = os.path.join(MEDIA_DIR, folder)
             if os.path.isdir(folder_path):
-                fid = f"album_{hashlib.md5(folder.encode()).hexdigest()[:8]}"
-                if fid == album_id:
-                    album_folder = folder_path
-                    artist_name = folder  # folder is artist name
-                    album_name = album_id.replace('album_', '')
-                    break
-
                 # Check subfolders
                 for subfolder in os.listdir(folder_path):
                     subfolder_path = os.path.join(folder_path, subfolder)
@@ -220,19 +240,12 @@ def register_subsonic_routes(app, username, password):
                             break
 
         if not album_folder:
-            return Response(make_response_xml('<error code="notFound" message="Album not found"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('notFound', 'Album not found')
 
         # Get cover art
-        cover_id = None
-        for f in os.listdir(album_folder):
-            if f.lower().startswith('cover') or f.lower().startswith('folder'):
-                cover_id = f"cover_{hashlib.md5(f.encode()).hexdigest()[:8]}"
+        cover_id = album_id
 
-        album_xml = f'''<album id="{escape_xml(album_id)}" name="{escape_xml(album_name)}" artist="{escape_xml(artist_name)}" coverArt="{cover_id or album_id}">'''
-
-        # List songs
-        song_count = 0
+        songs = []
         total_duration = 0
 
         for song_file in sorted(os.listdir(album_folder)):
@@ -255,50 +268,54 @@ def register_subsonic_routes(app, username, password):
                         duration = int(audio.info.length)
                 except:
                     pass
-            elif song_file.lower().endswith('.flac'):
-                try:
-                    from mutagen.flac import FLAC
-                    audio = FLAC(song_path)
-                    if audio.tags:
-                        if 'TITLE' in audio.tags:
-                            title = audio.tags['TITLE'][0]
-                        duration = int(audio.info.length)
-                except:
-                    pass
-
-            song_count += 1
-            total_duration += duration
 
             # Check for LRC lyrics
             lrc_path = os.path.splitext(song_path)[0] + '.lrc'
             has_lyrics = 'true' if os.path.exists(lrc_path) else 'false'
 
-            album_xml += f'''<song id="{song_id}" parent="{album_id}" title="{escape_xml(title)}" album="{escape_xml(album_name)}" artist="{escape_xml(artist_name)}" duration="{duration}" hasLyrics="{has_lyrics}"/>'''
+            total_duration += duration
 
-        album_xml += f'</album>'
+            songs.append({
+                'id': song_id,
+                'parent': album_id,
+                'title': title,
+                'album': album_name,
+                'artist': artist_name,
+                'duration': str(duration),
+                'hasLyrics': has_lyrics,
+                'isVideo': 'false',
+                'type': 'music'
+            })
 
-        return Response(make_response_xml(album_xml), mimetype='application/xml')
+        data = {
+            'album': {
+                'id': album_id,
+                'name': album_name,
+                'artist': artist_name,
+                'coverArt': cover_id,
+                'song': songs
+            }
+        }
+        return ok_response(data)
 
     @app.route('/subsonic/rest/getMusicDirectory')
     def subsonic_music_directory():
         """Get music directory (generic folder view)."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
 
         mid = request.args.get('id', '')
-        media_path = os.path.join(MEDIA_DIR)
 
-        # If root, show artists
-        if mid == '0' or mid == 'root':
-            return subsonic_get_artists()
+        # If root, return indexes
+        if mid == '0' or mid == 'root' or not mid:
+            return subsonic_get_indexes()
 
         # Find directory
         dir_path = None
         dir_name = mid
 
-        for folder in os.listdir(media_path):
-            folder_path = os.path.join(media_path, folder)
+        for folder in os.listdir(MEDIA_DIR):
+            folder_path = os.path.join(MEDIA_DIR, folder)
             if os.path.isdir(folder_path):
                 fid = f"artist_{hashlib.md5(folder.encode()).hexdigest()[:8]}"
                 if fid == mid:
@@ -317,38 +334,33 @@ def register_subsonic_routes(app, username, password):
                             break
 
         if not dir_path:
-            return Response(make_response_xml('<error code="notFound" message="Directory not found"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('notFound', 'Directory not found')
 
-        dir_xml = f'<directory id="{escape_xml(mid)}" name="{escape_xml(dir_name)}">'
-
+        children = []
         for entry in sorted(os.listdir(dir_path)):
             entry_path = os.path.join(dir_path, entry)
             if os.path.isdir(entry_path):
                 entry_id = f"album_{hashlib.md5(entry.encode()).hexdigest()[:8]}"
-                dir_xml += f'<child id="{entry_id}" title="{escape_xml(entry)}" isDir="true"/>'
+                children.append({'id': entry_id, 'title': entry, 'isDir': 'true'})
             elif entry.lower().endswith(('.mp3', '.flac', '.m4a', '.ogg', '.wav')):
                 entry_id = f"song_{hashlib.md5(entry.encode()).hexdigest()[:8]}"
-                dir_xml += f'<child id="{entry_id}" title="{escape_xml(os.path.splitext(entry)[0])}" isDir="false"/>'
+                children.append({'id': entry_id, 'title': os.path.splitext(entry)[0], 'isDir': 'false'})
 
-        dir_xml += '</directory>'
-
-        return Response(make_response_xml(dir_xml), mimetype='application/xml')
+        data = {'directory': {'id': mid, 'name': dir_name, 'child': children}}
+        return ok_response(data)
 
     @app.route('/subsonic/rest/getSong')
     def subsonic_get_song():
         """Get single song details."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
 
         song_id = request.args.get('id', '')
 
         # Find song in media directory
         song_path = None
-        media_path = os.path.join(MEDIA_DIR)
 
-        for root, dirs, files in os.walk(media_path):
+        for root, dirs, files in os.walk(MEDIA_DIR):
             for f in files:
                 if f.lower().endswith(('.mp3', '.flac', '.m4a', '.ogg', '.wav')):
                     sid = f"song_{hashlib.md5(f.encode()).hexdigest()[:8]}"
@@ -357,8 +369,7 @@ def register_subsonic_routes(app, username, password):
                         break
 
         if not song_path:
-            return Response(make_response_xml('<error code="notFound" message="Song not found"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('notFound', 'Song not found')
 
         # Read metadata
         title = os.path.splitext(os.path.basename(song_path))[0]
@@ -382,11 +393,19 @@ def register_subsonic_routes(app, username, password):
 
         # Check for lyrics
         lrc_path = os.path.splitext(song_path)[0] + '.lrc'
-        has_lyrics = os.path.exists(lrc_path)
+        has_lyrics = 'true' if os.path.exists(lrc_path) else 'false'
 
-        song_xml = f'''<song id="{escape_xml(song_id)}" title="{escape_xml(title)}" artist="{escape_xml(artist)}" album="{escape_xml(album)}" duration="{duration}" hasLyrics="{'true' if has_lyrics else 'false'}"/>'''
-
-        return Response(make_response_xml(song_xml), mimetype='application/xml')
+        data = {
+            'song': {
+                'id': song_id,
+                'title': title,
+                'artist': artist,
+                'album': album,
+                'duration': str(duration),
+                'hasLyrics': has_lyrics
+            }
+        }
+        return ok_response(data)
 
     # =========================================================================
     # Streaming & Download
@@ -399,13 +418,11 @@ def register_subsonic_routes(app, username, password):
             return Response('Unauthorized', status=401)
 
         song_id = request.args.get('id', '')
-        max_bitrate = request.args.get('maxBitRate', '0')
 
         # Find song
         song_path = None
-        media_path = os.path.join(MEDIA_DIR)
 
-        for root, dirs, files in os.walk(media_path):
+        for root, dirs, files in os.walk(MEDIA_DIR):
             for f in files:
                 if f.lower().endswith(('.mp3', '.flac', '.m4a', '.ogg', '.wav')):
                     sid = f"song_{hashlib.md5(f.encode()).hexdigest()[:8]}"
@@ -445,9 +462,8 @@ def register_subsonic_routes(app, username, password):
             return Response('Unauthorized', status=401)
 
         art_id = request.args.get('id', '')
-        size = request.args.get('size', '0')
 
-        media_path = os.path.join(MEDIA_DIR)
+        media_path = MEDIA_DIR
         cover_path = None
 
         # Find cover art
@@ -474,13 +490,14 @@ def register_subsonic_routes(app, username, password):
                     if fid == art_id:
                         cover_path = os.path.join(root, f)
                         break
-                elif art_id.startswith('album_') or art_id.startswith('artist_'):
-                    # Check in current directory for cover image
-                    for cf in ['cover.jpg', 'cover.jpeg', 'cover.png', 'folder.jpg', 'folder.png']:
-                        cp = os.path.join(root, cf)
-                        if os.path.exists(cp):
-                            cover_path = cp
-                            break
+
+            # Check for album/artist folder cover
+            if not cover_path:
+                for cf in ['cover.jpg', 'cover.jpeg', 'cover.png', 'folder.jpg', 'folder.png']:
+                    cp = os.path.join(root, cf)
+                    if os.path.exists(cp):
+                        cover_path = cp
+                        break
 
         if cover_path and os.path.exists(cover_path):
             ext = os.path.splitext(cover_path)[1].lower()
@@ -497,23 +514,19 @@ def register_subsonic_routes(app, username, password):
 
     @app.route('/subsonic/rest/getLyrics')
     def subsonic_get_lyrics():
-        """Get lyrics for a song - looks for .lrc file in same folder as audio."""
+        """Get lyrics for a song - looks for .lrc file in same folder."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
 
         artist = request.args.get('artist', '')
         title = request.args.get('title', '')
 
         lyrics_text = ""
 
-        # Search for matching LRC file in /media/music
-        media_path = os.path.join(MEDIA_DIR)
-
         # Normalize title for matching
         search_title = title.lower().strip() if title else ""
 
-        for root, dirs, files in os.walk(media_path):
+        for root, dirs, files in os.walk(MEDIA_DIR):
             for f in files:
                 if not f.lower().endswith('.lrc'):
                     continue
@@ -546,8 +559,8 @@ def register_subsonic_routes(app, username, password):
             if lyrics_text:
                 break
 
-        lyrics_xml = f'<lyrics artist="{escape_xml(artist)}" title="{escape_xml(title)}"><![CDATA[{lyrics_text}]]></lyrics>'
-        return Response(make_response_xml(lyrics_xml), mimetype='application/xml')
+        data = {'lyrics': {'artist': artist, 'title': title, '@text': lyrics_text}}
+        return ok_response(data)
 
     # =========================================================================
     # Search
@@ -557,20 +570,17 @@ def register_subsonic_routes(app, username, password):
     def subsonic_search():
         """Search for music."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
 
         query = request.args.get('query', '')
         if not query:
             query = request.args.get('q', '')
 
-        media_path = os.path.join(MEDIA_DIR)
         query_lower = query.lower()
-
-        search_xml = '<searchResult>'
+        songs = []
 
         # Search files
-        for root, dirs, files in os.walk(media_path):
+        for root, dirs, files in os.walk(MEDIA_DIR):
             for f in files:
                 if not f.lower().endswith(('.mp3', '.flac', '.m4a', '.ogg', '.wav')):
                     continue
@@ -596,10 +606,14 @@ def register_subsonic_routes(app, username, password):
                 # Check if matches query
                 if (query_lower in title.lower() or query_lower in artist.lower() or
                     query_lower in f.lower()):
-                    search_xml += f'''<song id="{song_id}" title="{escape_xml(title)}" artist="{escape_xml(artist)}"/>'''
+                    songs.append({
+                        'id': song_id,
+                        'title': title,
+                        'artist': artist
+                    })
 
-        search_xml += '</searchResult>'
-        return Response(make_response_xml(search_xml), mimetype='application/xml')
+        data = {'searchResult': {'song': songs}}
+        return ok_response(data)
 
     @app.route('/subsonic/rest/search2')
     def subsonic_search2():
@@ -619,19 +633,17 @@ def register_subsonic_routes(app, username, password):
     def subsonic_get_playlists():
         """Get user playlists."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
 
-        return Response(make_response_xml('<playlists><playlist id="0" name="Favorites"/></playlists>'),
-                       mimetype='application/xml')
+        data = {'playlists': {'playlist': [{'id': '0', 'name': 'Favorites'}]}}
+        return ok_response(data)
 
     @app.route('/subsonic/rest/getPlaylist')
     def subsonic_get_playlist():
         """Get playlist details."""
         if not auth_required():
-            return Response(make_response_xml('<error code="credentials" message="Invalid credentials"/>', 'failed'),
-                          mimetype='application/xml')
+            return error_response('credentials', 'Invalid credentials')
 
         playlist_id = request.args.get('id', '')
-        return Response(make_response_xml(f'<playlist id="{escape_xml(playlist_id)}" name="Favorites"/>'),
-                       mimetype='application/xml')
+        data = {'playlist': {'id': playlist_id, 'name': 'Favorites', 'entry': []}}
+        return ok_response(data)
