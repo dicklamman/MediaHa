@@ -16,6 +16,15 @@ def register_subsonic_routes(app, username, password):
     """Register SubSonic API compatible routes."""
 
     # =========================================================================
+    # Authentication
+    # =========================================================================
+
+    def is_json():
+        """Check if client wants JSON format."""
+        fmt = request.args.get('f', 'json')
+        return fmt == 'json'
+
+    # =========================================================================
     # Base endpoint
     # =========================================================================
 
@@ -29,10 +38,6 @@ def register_subsonic_routes(app, username, password):
             return Response('''<?xml version="1.0" encoding="UTF-8"?>
 <subsonic-response status="ok" version="1.16.1"/>
 ''', mimetype='application/xml')
-
-    # =========================================================================
-    # Authentication
-    # =========================================================================
 
     def auth_required():
         """Check SubSonic authentication."""
@@ -78,7 +83,7 @@ def register_subsonic_routes(app, username, password):
     def error_response(code, message):
         """Return error in XML or JSON format."""
         if is_json():
-            return jsonify({'status': 'failed', 'error': {'code': code, 'message': message}}), 400
+            return jsonify({'status': 'failed', 'version': '1.16.1', 'error': {'code': code, 'message': message}}), 400
         else:
             return Response(f'''<?xml version="1.0" encoding="UTF-8"?>
 <subsonic-response status="failed" version="1.16.1">
