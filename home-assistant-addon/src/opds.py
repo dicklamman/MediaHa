@@ -638,6 +638,72 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS DEBUG] series/updated error: {e}\n{traceback.format_exc()}")
             return Response('{"series":[]}', mimetype='application/json')
 
+    @app.route('/opds/api/v1/series/<series_id>/books')
+    def opds_api_series_books(series_id):
+        """OPDS Feed - return all books in a series."""
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('Authentication required', status=401, mimetype='text/plain',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+
+        accept = request.headers.get('Accept', '')
+        logger.warning(f"[OPDS DEBUG] series/{series_id}/books Accept={accept}")
+
+        try:
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                logger.warning(f"[OPDS DEBUG] series/{series_id}/books: config error - {error}")
+                return Response('{"books":[]}', mimetype='application/json')
+
+            conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
+
+            # Get series name first
+            cursor.execute("SELECT name FROM series WHERE id = ?", (series_id,))
+            series_row = cursor.fetchone()
+            if not series_row:
+                conn.close()
+                logger.warning(f"[OPDS DEBUG] series/{series_id}/books: series not found")
+                return Response('{"books":[]}', mimetype='application/json')
+
+            series_name = series_row["name"]
+
+            # Get all comic books in this series
+            cursor.execute("""
+                SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
+                       d.format, d.name as filename, d.uncompressed_size as file_size
+                FROM books b
+                JOIN books_series_link bsl ON b.id = bsl.book
+                JOIN books_tags_link btl ON b.id = btl.book
+                JOIN tags t ON btl.tag = t.id
+                LEFT JOIN data d ON b.id = d.book
+                WHERE bsl.series = ? AND t.name = 'Comics'
+                ORDER BY b.series_index
+            """, (series_id,))
+            rows = cursor.fetchall()
+            conn.close()
+
+            books_list = []
+            for row in rows:
+                books_list.append({
+                    "id": str(row["id"]),
+                    "title": row["title"],
+                    "seriesIndex": row["series_index"] or "",
+                    "pubDate": row["pubdate"] or "",
+                    "uuid": row["uuid"] or "",
+                    "format": row["format"] or "",
+                    "filename": row["filename"] or "",
+                    "fileSize": row["file_size"] or 0
+                })
+
+            logger.warning(f"[OPDS DEBUG] series/{series_id}/books returning {len(books_list)} books in '{series_name}'")
+            return Response(json.dumps({"series": series_name, "books": books_list}), mimetype='application/json')
+
+        except Exception as e:
+            import traceback
+            logger.warning(f"[OPDS DEBUG] series/{series_id}/books error: {e}\n{traceback.format_exc()}")
+            return Response('{"books":[]}', mimetype='application/json')
+
     @app.route('/opds/<path:unknown>')
     def opds_catchall(unknown):
         """Catch-all for unexpected OPDS paths."""
