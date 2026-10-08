@@ -527,6 +527,17 @@ def register_routes(app, check_auth):
             download_name=book_path.name
         )
 
+    # Paperback-compatible routes (no /opds prefix)
+    @app.route('/api/v1/series/new')
+    def paperback_api_series_new():
+        """Paperback API - new series (wrapper for compatibility)."""
+        return opds_api_series_new()
+
+    @app.route('/api/v1/series/updated')
+    def paperback_api_series_updated():
+        """Paperback API - updated series (wrapper for compatibility)."""
+        return opds_api_series_updated()
+
     @app.route('/opds/api/v1/series/new')
     def opds_api_series_new():
         """OPDS Feed Update Protocol - return new series since a given time."""
@@ -810,6 +821,7 @@ def register_routes(app, check_auth):
                 series_slug = slugify(row["name"])
                 content.append({
                     "id": series_id,
+                    "metadata": {"title": row["name"]},
                     "name": row["name"],
                     "nameSort": row["name"],
                     "booksCount": row["book_count"],
@@ -882,6 +894,7 @@ def register_routes(app, check_auth):
             series_slug = slugify(row["name"])
             resp = json.dumps({
                 "id": str(row["id"]),
+                "metadata": {"title": row["name"]},
                 "name": row["name"],
                 "nameSort": row["name"],
                 "booksCount": row["book_count"],
