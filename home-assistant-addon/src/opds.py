@@ -531,13 +531,14 @@ def register_routes(app, check_auth):
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
 
         since = request.args.get('since', '')
-        logger.warning(f"[OPDS DEBUG] series/new since={since}")
-        # Return empty update feed (no new series tracked)
+        accept = request.headers.get('Accept', '')
+        content_type = request.headers.get('Content-Type', '')
+        logger.warning(f"[OPDS DEBUG] series/new since={since} Accept={accept} Content-Type={content_type}")
+
+        # Return JSON OPDS 2.0 style response
         return Response(
-            '<?xml version="1.0" encoding="UTF-8"?>\n'
-            '<updates xmlns="http://bibliographica.org/opds/updates/1.1/">\n'
-            '</updates>',
-            mimetype='application/atom+xml;profile=opds-catalog'
+            '{"series":[]}',
+            mimetype='application/json'
         )
 
     @app.route('/opds/api/v1/series/updated')
@@ -549,13 +550,14 @@ def register_routes(app, check_auth):
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
 
         since = request.args.get('since', '')
-        logger.warning(f"[OPDS DEBUG] series/updated since={since}")
-        # Return empty update feed (no update tracking)
+        accept = request.headers.get('Accept', '')
+        content_type = request.headers.get('Content-Type', '')
+        logger.warning(f"[OPDS DEBUG] series/updated since={since} Accept={accept} Content-Type={content_type}")
+
+        # Return JSON OPDS 2.0 style response
         return Response(
-            '<?xml version="1.0" encoding="UTF-8"?>\n'
-            '<updates xmlns="http://bibliographica.org/opds/updates/1.1/">\n'
-            '</updates>',
-            mimetype='application/atom+xml;profile=opds-catalog'
+            '{"series":[]}',
+            mimetype='application/json'
         )
 
     @app.route('/opds/<path:unknown>')
