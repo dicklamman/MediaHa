@@ -2,10 +2,13 @@
 import os
 import base64
 import sqlite3
+import logging
 from flask import request, Response, session, send_file
 from pathlib import Path
 import json
 import datetime
+
+logger = logging.getLogger("opds")
 
 CALIBRE_CONFIG_PATH = '/data/calibre_options.json' if os.path.exists('/data') else os.path.join(os.path.dirname(__file__), '../config/calibre_options.json')
 
@@ -214,8 +217,10 @@ def register_routes(app, check_auth):
     @app.route('/opds/')
     def opds_root():
         """OPDS root - Books and Comics"""
+        logger.warning(f"[OPDS DEBUG] path={request.path} method={request.method} auth={request.headers.get('Authorization','')[:30]}...")
         authenticated = _authenticate()
         if not authenticated:
+            logger.warning(f"[OPDS DEBUG] opds_root: returning 401")
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
 
@@ -511,4 +516,18 @@ def register_routes(app, check_auth):
             mimetype=mime,
             as_attachment=True,
             download_name=book_path.name
+        )
+
+    @app.route('/opds/<path:unknown>')
+    def opds_catchall(unknown):
+        """Catch-all for unexpected OPDS paths."""
+        logger.warning(f"[OPDS DEBUG] catchall hit: /opds/{unknown}")
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('Authentication required', status=401, mimetype='text/plain',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+        return Response(
+            '<?xml version="1.0"?><opds><error>Unknown OPDS path</error></opds>',
+            mimetype='application/xml',
+            status=404
         )
