@@ -230,6 +230,7 @@ def register_routes(app, check_auth):
                 return error
 
             conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
 
             xml_parts = make_opds_header('MediaHa Library', 'mediaha:root', '/opds')
 
@@ -276,6 +277,7 @@ def register_routes(app, check_auth):
                 return error
 
             conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
 
             xml_parts = make_opds_header('Books', 'mediaha:books', '/opds/books')
 
@@ -319,6 +321,7 @@ def register_routes(app, check_auth):
                 return error
 
             conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
 
             xml_parts = make_opds_header('Comics', 'mediaha:comics', '/opds/comics')
 
@@ -363,6 +366,7 @@ def register_routes(app, check_auth):
                 return error
 
             conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
 
             # Get series info
             cursor.execute("""
