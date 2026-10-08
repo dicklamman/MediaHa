@@ -936,7 +936,7 @@ def register_routes(app, check_auth):
 
         except Exception as e:
             import traceback
-                logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id}/books error: {e}\n{traceback.format_exc()}")
+            logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id}/books error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps({"content": [], "totalPages": 1, "totalElements": 0}), mimetype='application/json')
 
     @app.route('/opds/api/v1/books')
