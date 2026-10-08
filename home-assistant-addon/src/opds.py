@@ -535,11 +535,50 @@ def register_routes(app, check_auth):
         content_type = request.headers.get('Content-Type', '')
         logger.warning(f"[OPDS DEBUG] series/new since={since} Accept={accept} Content-Type={content_type}")
 
-        # Return JSON OPDS 2.0 style response
-        return Response(
-            '{"series":[]}',
-            mimetype='application/json'
-        )
+        try:
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                logger.warning(f"[OPDS DEBUG] series/new: config error - {error}")
+                return Response('{"series":[]}', mimetype='application/json')
+
+            conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
+
+            # Get all comic series with their latest book date
+            cursor.execute("""
+                SELECT s.id, s.name, s.name_sort,
+                       COUNT(DISTINCT b.id) as book_count,
+                       MAX(b.pubdate) as latest_date
+                FROM series s
+                JOIN books_series_link bsl ON s.id = bsl.series
+                JOIN books b ON bsl.book = b.id
+                JOIN books_tags_link btl ON b.id = btl.book
+                JOIN tags t ON btl.tag = t.id
+                WHERE t.name = 'Comics'
+                GROUP BY s.id, s.name, s.name_sort
+                ORDER BY s.name
+            """)
+            rows = cursor.fetchall()
+            conn.close()
+
+            series_list = []
+            for row in rows:
+                series_slug = slugify(row["name"])
+                series_list.append({
+                    "id": str(row["id"]),
+                    "name": row["name"],
+                    "slug": series_slug,
+                    "bookCount": row["book_count"],
+                    "latestDate": row["latest_date"] or ""
+                })
+
+            logger.warning(f"[OPDS DEBUG] series/new returning {len(series_list)} series: {[s['name'] for s in series_list]}")
+            return Response(json.dumps({"series": series_list}), mimetype='application/json')
+
+        except Exception as e:
+            import traceback
+            logger.warning(f"[OPDS DEBUG] series/new error: {e}\n{traceback.format_exc()}")
+            return Response('{"series":[]}', mimetype='application/json')
 
     @app.route('/opds/api/v1/series/updated')
     def opds_api_series_updated():
@@ -554,11 +593,50 @@ def register_routes(app, check_auth):
         content_type = request.headers.get('Content-Type', '')
         logger.warning(f"[OPDS DEBUG] series/updated since={since} Accept={accept} Content-Type={content_type}")
 
-        # Return JSON OPDS 2.0 style response
-        return Response(
-            '{"series":[]}',
-            mimetype='application/json'
-        )
+        try:
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                logger.warning(f"[OPDS DEBUG] series/updated: config error - {error}")
+                return Response('{"series":[]}', mimetype='application/json')
+
+            conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
+
+            # Get all comic series with their latest book date
+            cursor.execute("""
+                SELECT s.id, s.name, s.name_sort,
+                       COUNT(DISTINCT b.id) as book_count,
+                       MAX(b.pubdate) as latest_date
+                FROM series s
+                JOIN books_series_link bsl ON s.id = bsl.series
+                JOIN books b ON bsl.book = b.id
+                JOIN books_tags_link btl ON b.id = btl.book
+                JOIN tags t ON btl.tag = t.id
+                WHERE t.name = 'Comics'
+                GROUP BY s.id, s.name, s.name_sort
+                ORDER BY s.name
+            """)
+            rows = cursor.fetchall()
+            conn.close()
+
+            series_list = []
+            for row in rows:
+                series_slug = slugify(row["name"])
+                series_list.append({
+                    "id": str(row["id"]),
+                    "name": row["name"],
+                    "slug": series_slug,
+                    "bookCount": row["book_count"],
+                    "latestDate": row["latest_date"] or ""
+                })
+
+            logger.warning(f"[OPDS DEBUG] series/updated returning {len(series_list)} series: {[s['name'] for s in series_list]}")
+            return Response(json.dumps({"series": series_list}), mimetype='application/json')
+
+        except Exception as e:
+            import traceback
+            logger.warning(f"[OPDS DEBUG] series/updated error: {e}\n{traceback.format_exc()}")
+            return Response('{"series":[]}', mimetype='application/json')
 
     @app.route('/opds/<path:unknown>')
     def opds_catchall(unknown):
