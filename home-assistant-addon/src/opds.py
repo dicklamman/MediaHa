@@ -812,7 +812,9 @@ def register_routes(app, check_auth):
                     "thumbnailUrl": f"/opds/series/{series_id}/{series_slug}/thumbnail",
                 })
 
-            return Response(json.dumps({"content": content, "totalPages": 1, "totalElements": len(content)}), mimetype='application/json')
+            resp = {"content": content, "totalPages": 1, "totalElements": len(content)}
+            logger.warning(f"[OPDS DEBUG] komga /api/v1/series returning: {json.dumps(resp)}")
+            return Response(json.dumps(resp), mimetype='application/json')
 
         except Exception as e:
             import traceback
@@ -827,11 +829,13 @@ def register_routes(app, check_auth):
             return Response('Authentication required', status=401, mimetype='application/json',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
         logger.warning(f"[OPDS DEBUG] komga /api/v1/libraries")
-        return Response(json.dumps([{
+        resp = json.dumps([{
             "id": "comics",
             "name": "Comics",
             "url": "/opds/api/v1/series"
-        }]), mimetype='application/json')
+        }])
+        logger.warning(f"[OPDS DEBUG] komga /api/v1/libraries returning: {resp}")
+        return Response(resp, mimetype='application/json')
 
     @app.route('/opds/api/v1/series/<series_id>')
     @app.route('/api/v1/series/<series_id>')
@@ -871,14 +875,16 @@ def register_routes(app, check_auth):
                 return Response(json.dumps({}), mimetype='application/json', status=404)
 
             series_slug = slugify(row["name"])
-            return Response(json.dumps({
+            resp = json.dumps({
                 "id": str(row["id"]),
                 "name": row["name"],
                 "nameSort": row["name"],
                 "booksCount": row["book_count"],
                 "url": f"/api/v1/series/{series_id}",
                 "thumbnailUrl": f"/opds/series/{series_id}/{series_slug}/thumbnail",
-            }), mimetype='application/json')
+            })
+            logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id} returning: {resp}")
+            return Response(resp, mimetype='application/json')
 
         except Exception as e:
             import traceback
@@ -936,7 +942,9 @@ def register_routes(app, check_auth):
                     "readableAt": row["pubdate"] or "",
                 })
 
-            return Response(json.dumps({"content": content, "totalPages": 1, "totalElements": len(content)}), mimetype='application/json')
+            resp = {"content": content, "totalPages": 1, "totalElements": len(content)}
+            logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id}/books returning: {json.dumps(resp)}")
+            return Response(json.dumps(resp), mimetype='application/json')
 
         except Exception as e:
             import traceback
@@ -1000,7 +1008,9 @@ def register_routes(app, check_auth):
                     "readableAt": row["pubdate"] or "",
                 })
 
-            return Response(json.dumps({"content": content, "totalPages": 1, "totalElements": len(content)}), mimetype='application/json')
+            resp = {"content": content, "totalPages": 1, "totalElements": len(content)}
+            logger.warning(f"[OPDS DEBUG] komga {'ondeck' if ondeck else 'books'} returning: {json.dumps(resp)}")
+            return Response(json.dumps(resp), mimetype='application/json')
 
         except Exception as e:
             import traceback
@@ -1043,7 +1053,7 @@ def register_routes(app, check_auth):
                 return Response(json.dumps({}), mimetype='application/json', status=404)
 
             series_slug = slugify(row["series_name"]) if row["series_name"] else ""
-            return Response(json.dumps({
+            resp = json.dumps({
                 "id": str(row["id"]),
                 "seriesId": str(row["series_id"]) if row["series_id"] else None,
                 "seriesName": row["series_name"] or None,
@@ -1054,7 +1064,9 @@ def register_routes(app, check_auth):
                 "url": f"/api/v1/books/{book_id}",
                 "thumbnailUrl": f"/opds/cover/{book_id}",
                 "readableAt": row["pubdate"] or "",
-            }), mimetype='application/json')
+            })
+            logger.warning(f"[OPDS DEBUG] komga /api/v1/books/{book_id} returning: {resp}")
+            return Response(resp, mimetype='application/json')
 
         except Exception as e:
             import traceback
