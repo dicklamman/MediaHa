@@ -522,6 +522,42 @@ def register_routes(app, check_auth):
             download_name=book_path.name
         )
 
+    @app.route('/opds/api/v1/series/new')
+    def opds_api_series_new():
+        """OPDS Feed Update Protocol - return new series since a given time."""
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('Authentication required', status=401, mimetype='text/plain',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+
+        since = request.args.get('since', '')
+        logger.warning(f"[OPDS DEBUG] series/new since={since}")
+        # Return empty update feed (no new series tracked)
+        return Response(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<updates xmlns="http://bibliographica.org/opds/updates/1.1/">\n'
+            '</updates>',
+            mimetype='application/atom+xml;profile=opds-catalog'
+        )
+
+    @app.route('/opds/api/v1/series/updated')
+    def opds_api_series_updated():
+        """OPDS Feed Update Protocol - return updated series since a given time."""
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('Authentication required', status=401, mimetype='text/plain',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+
+        since = request.args.get('since', '')
+        logger.warning(f"[OPDS DEBUG] series/updated since={since}")
+        # Return empty update feed (no update tracking)
+        return Response(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<updates xmlns="http://bibliographica.org/opds/updates/1.1/">\n'
+            '</updates>',
+            mimetype='application/atom+xml;profile=opds-catalog'
+        )
+
     @app.route('/opds/<path:unknown>')
     def opds_catchall(unknown):
         """Catch-all for unexpected OPDS paths."""
