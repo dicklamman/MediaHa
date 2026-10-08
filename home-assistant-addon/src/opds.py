@@ -2,7 +2,7 @@
 import os
 import base64
 import sqlite3
-from flask import request, Response, session
+from flask import request, Response, session, send_file
 from pathlib import Path
 import json
 import datetime
@@ -93,11 +93,11 @@ def register_routes(app, check_auth):
             '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>'
         ]
         
-        # Add acquisition link with metadata
+        # Add acquisition link with metadata (include filesize for Paperback compatibility)
         acq_link = '    <link href="' + file_url + '" type="application/' + ext + '+zip" rel="http://opds-spec.org/acquisition" title="' + ext.upper() + '"'
         if file_length:
             acq_link += ' length="' + str(file_length) + '"'
-        acq_link += '/>'
+        acq_link += ' />'
         entry.append(acq_link)
         
         # Add author link if available
@@ -116,13 +116,11 @@ def register_routes(app, check_auth):
         entry.append('    <published>' + issued + 'T00:00:00Z</published>')
         entry.append('    <dcterms:language>' + escape_xml(language) + '</dcterms:language>')
         entry.append('  </entry>')
-        
+
         return '\n'.join(entry)
 
-    @app.route('/opds')
-    @app.route('/opds/')
-    def opds_root():
-        """OPDS root - Books and Comics"""
+    def _authenticate(self):
+        """Check Basic Auth from session or header"""
         authenticated = session.get("authenticated", False)
         if not authenticated:
             auth_header = request.headers.get('Authorization', '')
@@ -136,37 +134,83 @@ def register_routes(app, check_auth):
                         authenticated = True
                 except:
                     pass
+        return authenticated
 
+    def _get_calibre_config(self):
+        """Load Calibre config and return (calibre_path, metadata_db) or error Response"""
+        if os.path.exists(CALIBRE_CONFIG_PATH):
+            with open(CALIBRE_CONFIG_PATH, 'r') as f:
+                config = json.load(f)
+        else:
+            return None, None, Response('<?xml version="1.0"?><opds><error>Config not found</error></opds>',
+                                       mimetype='application/xml')
+
+        calibre_library_path = config.get('calibre_library_path', '')
+        if not calibre_library_path:
+            return None, None, Response('<?xml version="1.0"?><opds><error>Calibre path not set</error></opds>',
+                                        mimetype='application/xml')
+
+        calibre_path = Path(calibre_library_path)
+        # Handle Calibre's folder structure: library/books/{book_id}/
+        if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
+            calibre_path = calibre_path / 'books'
+        metadata_db = Path(calibre_library_path) / 'metadata.db'
+
+        if not metadata_db.exists():
+            return None, None, Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
+                                        mimetype='application/xml')
+
+        return calibre_path, metadata_db, None
+
+    def _get_db_connection(self, metadata_db):
+        """Create a SQLite connection with row factory"""
+        conn = sqlite3.connect(str(metadata_db), timeout=30)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _get_book_file(self, book_id, ext, calibre_path):
+        """Find the book file for a given book ID and format extension.
+
+        Searches for the file in this order:
+        1. <book_id>/<book_id>.<ext>   (Calibre default)
+        2. <book_id>/<any>.<ext>       (any matching format in book folder)
+        3. <any>/<book_id>.<ext>       (file named after book_id in root)
+        Returns (file_path, file_size) or (None, None) if not found.
+        """
+        # Normalize extension
+        ext = ext.lower().lstrip('.')
+
+        # Search in book folder
+        book_folder = calibre_path / str(book_id)
+        if book_folder.exists() and book_folder.is_dir():
+            for f in book_folder.iterdir():
+                if f.suffix.lstrip('.').lower() == ext:
+                    return f, f.stat().st_size
+
+        # Search root folder for file named <book_id>.<ext>
+        for f in calibre_path.iterdir():
+            if f.is_file() and f.suffix.lstrip('.').lower() == ext:
+                # Match if stem is the book_id or contains it
+                if f.stem == str(book_id):
+                    return f, f.stat().st_size
+
+        return None, None
+
+    @app.route('/opds')
+    @app.route('/opds/')
+    def opds_root():
+        """OPDS root - Books and Comics"""
+        authenticated = _authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
-        
+
         try:
-            if os.path.exists(CALIBRE_CONFIG_PATH):
-                with open(CALIBRE_CONFIG_PATH, 'r') as f:
-                    config = json.load(f)
-            else:
-                return Response('<?xml version="1.0"?><opds><error>Config not found</error></opds>',
-                              mimetype='application/xml')
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                return error
 
-            calibre_library_path = config.get('calibre_library_path', '')
-            if not calibre_library_path:
-                return Response('<?xml version="1.0"?><opds><error>Calibre path not set</error></opds>',
-                              mimetype='application/xml')
-
-            calibre_path = Path(calibre_library_path)
-            # Handle Calibre's folder structure: library/books/{book_id}/
-            if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
-                calibre_path = calibre_path / 'books'
-            metadata_db = Path(calibre_library_path) / 'metadata.db'
-
-            if not metadata_db.exists():
-                return Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
-                              mimetype='application/xml')
-
-            conn = sqlite3.connect(str(metadata_db), timeout=30)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
+            conn = _get_db_connection(metadata_db)
 
             xml_parts = make_opds_header('MediaHa Library', 'mediaha:root', '/opds')
 
@@ -202,50 +246,17 @@ def register_routes(app, check_auth):
     @app.route('/opds/books')
     def opds_books():
         """OPDS books list - shows series and standalone books"""
-        authenticated = session.get("authenticated", False)
-        if not authenticated:
-            auth_header = request.headers.get('Authorization', '')
-            if auth_header.startswith('Basic '):
-                try:
-                    encoded = auth_header[6:]
-                    decoded = base64.b64decode(encoded).decode('utf-8')
-                    username, password = decoded.split(':', 1)
-                    if check_auth(username, password):
-                        session["authenticated"] = True
-                        authenticated = True
-                except:
-                    pass
-
+        authenticated = _authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
-        
+
         try:
-            if os.path.exists(CALIBRE_CONFIG_PATH):
-                with open(CALIBRE_CONFIG_PATH, 'r') as f:
-                    config = json.load(f)
-            else:
-                return Response('<?xml version="1.0"?><opds><error>Config not found</error></opds>',
-                              mimetype='application/xml')
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                return error
 
-            calibre_library_path = config.get('calibre_library_path', '')
-            if not calibre_library_path:
-                return Response('<?xml version="1.0"?><opds><error>Calibre path not set</error></opds>',
-                              mimetype='application/xml')
-
-            calibre_path = Path(calibre_library_path)
-            # Handle Calibre's folder structure: library/books/{book_id}/
-            if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
-                calibre_path = calibre_path / 'books'
-            metadata_db = Path(calibre_library_path) / 'metadata.db'
-
-            if not metadata_db.exists():
-                return Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
-                              mimetype='application/xml')
-
-            conn = sqlite3.connect(str(metadata_db), timeout=30)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
+            conn = _get_db_connection(metadata_db)
 
             xml_parts = make_opds_header('Books', 'mediaha:books', '/opds/books')
 
@@ -278,50 +289,17 @@ def register_routes(app, check_auth):
     @app.route('/opds/comics')
     def opds_comics():
         """OPDS comics list - shows comic series"""
-        authenticated = session.get("authenticated", False)
-        if not authenticated:
-            auth_header = request.headers.get('Authorization', '')
-            if auth_header.startswith('Basic '):
-                try:
-                    encoded = auth_header[6:]
-                    decoded = base64.b64decode(encoded).decode('utf-8')
-                    username, password = decoded.split(':', 1)
-                    if check_auth(username, password):
-                        session["authenticated"] = True
-                        authenticated = True
-                except:
-                    pass
-
+        authenticated = _authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
 
         try:
-            if os.path.exists(CALIBRE_CONFIG_PATH):
-                with open(CALIBRE_CONFIG_PATH, 'r') as f:
-                    config = json.load(f)
-            else:
-                return Response('<?xml version="1.0"?><opds><error>Config not found</error></opds>',
-                              mimetype='application/xml')
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                return error
 
-            calibre_library_path = config.get('calibre_library_path', '')
-            if not calibre_library_path:
-                return Response('<?xml version="1.0"?><opds><error>Calibre path not set</error></opds>',
-                              mimetype='application/xml')
-
-            calibre_path = Path(calibre_library_path)
-            # Handle Calibre's folder structure: library/books/{book_id}/
-            if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
-                calibre_path = calibre_path / 'books'
-            metadata_db = Path(calibre_library_path) / 'metadata.db'
-
-            if not metadata_db.exists():
-                return Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
-                              mimetype='application/xml')
-
-            conn = sqlite3.connect(str(metadata_db), timeout=30)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
+            conn = _get_db_connection(metadata_db)
 
             xml_parts = make_opds_header('Comics', 'mediaha:comics', '/opds/comics')
 
@@ -355,51 +333,17 @@ def register_routes(app, check_auth):
     @app.route('/opds/series/<series_id>/<path:series_name>')
     def opds_series_detail(series_id, series_name):
         """OPDS series detail - shows all books in a series"""
-        authenticated = session.get("authenticated", False)
-        if not authenticated:
-            auth_header = request.headers.get('Authorization', '')
-            if auth_header.startswith('Basic '):
-                try:
-                    encoded = auth_header[6:]
-                    decoded = base64.b64decode(encoded).decode('utf-8')
-                    username, password = decoded.split(':', 1)
-                    if check_auth(username, password):
-                        session["authenticated"] = True
-                        authenticated = True
-                except:
-                    pass
-
+        authenticated = _authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
 
         try:
-            if os.path.exists(CALIBRE_CONFIG_PATH):
-                with open(CALIBRE_CONFIG_PATH, 'r') as f:
-                    config = json.load(f)
-            else:
-                return Response('<?xml version="1.0"?><opds><error>Config not found</error></opds>',
-                              mimetype='application/xml')
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                return error
 
-            calibre_library_path = config.get('calibre_library_path', '')
-            if not calibre_library_path:
-                return Response('<?xml version="1.0"?><opds><error>Calibre path not set</error></opds>',
-                              mimetype='application/xml')
-
-            calibre_path = Path(calibre_library_path)
-            # Handle Calibre's folder structure: library/books/{book_id}/
-            if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
-                calibre_path = calibre_path / 'books'
-            metadata_db = Path(calibre_library_path) / 'metadata.db'
-
-            if not metadata_db.exists():
-                return Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
-                              mimetype='application/xml')
-
-            # Check if this is a comic series by looking at the series
-            conn = sqlite3.connect(str(metadata_db), timeout=30)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
+            conn = _get_db_connection(metadata_db)
 
             # Get series info
             cursor.execute("""
@@ -469,28 +413,15 @@ def register_routes(app, check_auth):
     @app.route('/opds/cover/<int:book_id>')
     def opds_cover(book_id):
         """Serve book cover images for OPDS readers"""
-        from flask import send_from_directory
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('Authentication required', status=401, mimetype='text/plain',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+
         try:
-            if os.path.exists(CALIBRE_CONFIG_PATH):
-                with open(CALIBRE_CONFIG_PATH, 'r') as f:
-                    config = json.load(f)
-            else:
-                return Response('Not found: No config', status=404)
-
-            calibre_library_path = config.get('calibre_library_path', '')
-            if not calibre_library_path:
-                return Response('Not found: No library path', status=404)
-
-            calibre_path = Path(calibre_library_path)
-            
-            # Handle Calibre's folder structure: library/books/{book_id}/
-            if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
-                calibre_path = calibre_path / 'books'
-            
-            metadata_db = Path(calibre_library_path) / 'metadata.db'
-
-            if not metadata_db.exists():
-                return Response('Not found: No metadata.db', status=404)
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                return error
 
             # Search in both book folder and root folder
             search_folders = [calibre_path / str(book_id), calibre_path]
@@ -507,15 +438,14 @@ def register_routes(app, check_auth):
                         name_stem = f.stem.lower()
                         for pattern in cover_patterns:
                             if pattern in name_stem:
-                                return send_from_directory(str(folder), f.name)
+                                return send_file(str(f))
                         # Also check if filename is just the book_id
                         if f.stem == str(book_id):
-                            return send_from_directory(str(folder), f.name)
+                            return send_file(str(f))
                     
-                    # Fallback: first image file
                     for f in files:
                         if f.suffix.lower() in ('.jpg', '.jpeg', '.png'):
-                            return send_from_directory(str(folder), f.name)
+                            return send_file(str(f))
 
             return Response('Not found: No cover', status=404)
 
@@ -523,3 +453,48 @@ def register_routes(app, check_auth):
             import traceback
             traceback.print_exc()
             return Response('Error: ' + str(e), status=500)
+
+    @app.route('/opds/fetch/<int:book_id>/<path:ext>')
+    def opds_fetch(book_id, ext):
+        """Serve book files for OPDS readers (Paperback-compatible download endpoint).
+
+        Looks up the book's file in the Calibre library folder and streams it
+        with the correct MIME type. Supports EPUB, PDF, MOBI, AZW3, and CBR/CBZ.
+        """
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('Authentication required', status=401, mimetype='text/plain',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+
+        calibre_path, metadata_db, error = _get_calibre_config()
+        if error:
+            return error
+
+        # Normalize extension (strip any path prefix dots)
+        ext = ext.lower().strip('.')
+
+        # Map extension to MIME type
+        mime_map = {
+            'epub': 'application/epub+zip',
+            'pdf': 'application/pdf',
+            'mobi': 'application/x-mobipocket-ebook',
+            'azw3': 'application/x-mobipocket-ebook',
+            'cbr': 'application/vnd.comicbook-rar',
+            'cbz': 'application/vnd.comicbook+zip',
+            'txt': 'text/plain',
+            'rtf': 'application/rtf',
+            'fb2': 'application/fb2+xml',
+        }
+        mime = mime_map.get(ext, 'application/octet-stream')
+
+        book_path, file_size = _get_book_file(book_id, ext, calibre_path)
+
+        if not book_path or not book_path.exists():
+            return Response('File not found', status=404, mimetype='text/plain')
+
+        return send_file(
+            str(book_path),
+            mimetype=mime,
+            as_attachment=True,
+            download_name=book_path.name
+        )

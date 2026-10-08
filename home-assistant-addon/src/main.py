@@ -159,9 +159,6 @@ register_calibre_routes(app)
 from routes.epub_routes import register_epub_routes
 register_epub_routes(app)
 
-from routes.subsonic_routes import register_subsonic_routes
-register_subsonic_routes(app, AUTH_USERNAME, AUTH_PASSWORD)
-
 from routes.photo_routes import register_photo_routes
 register_photo_routes(app)
 
