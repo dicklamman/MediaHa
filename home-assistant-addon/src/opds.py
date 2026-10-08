@@ -88,13 +88,27 @@ def register_routes(app, check_auth):
             '    <title>' + title + '</title>',
             '    <updated>' + now + '</updated>',
             '    <id>' + entry_uuid + '</id>',
-            '    <content type="text/html">' + series_content + '</content>',
+            '    <content type="text">Book ' + str(int(series_index)) + ' of ' + escape_xml(series_name) + '</content>',
             '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image"/>',
             '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>'
         ]
         
-        # Add acquisition link with metadata (include filesize for Paperback compatibility)
-        acq_link = '    <link href="' + file_url + '" type="application/' + ext + '+zip" rel="http://opds-spec.org/acquisition" title="' + ext.upper() + '"'
+        # Map extension to MIME type (used in both feed entries and download)
+        mime_map = {
+            'epub': 'application/epub+zip',
+            'pdf': 'application/pdf',
+            'mobi': 'application/x-mobipocket-ebook',
+            'azw3': 'application/x-mobipocket-ebook',
+            'cbr': 'application/vnd.comicbook-rar',
+            'cbz': 'application/vnd.comicbook+zip',
+            'txt': 'text/plain',
+            'rtf': 'application/rtf',
+            'fb2': 'application/fb2+xml',
+        }
+        mime = mime_map.get(ext, 'application/octet-stream')
+
+        # Add acquisition link with correct MIME type and file size
+        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://opds-spec.org/acquisition"'
         if file_length:
             acq_link += ' length="' + str(file_length) + '"'
         acq_link += ' />'
