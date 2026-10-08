@@ -153,7 +153,7 @@ def register_routes(app, check_auth):
                     pass
         return authenticated
 
-    def _get_calibre_config(self):
+    def _get_calibre_config():
         """Load Calibre config and return (calibre_path, metadata_db) or error Response"""
         if os.path.exists(CALIBRE_CONFIG_PATH):
             with open(CALIBRE_CONFIG_PATH, 'r') as f:
@@ -179,13 +179,13 @@ def register_routes(app, check_auth):
 
         return calibre_path, metadata_db, None
 
-    def _get_db_connection(self, metadata_db):
+    def _get_db_connection(metadata_db):
         """Create a SQLite connection with row factory"""
         conn = sqlite3.connect(str(metadata_db), timeout=30)
         conn.row_factory = sqlite3.Row
         return conn
 
-    def _get_book_file(self, book_id, ext, calibre_path):
+    def _get_book_file(book_id, ext, calibre_path):
         """Find the book file for a given book ID and format extension.
 
         Searches for the file in this order:
