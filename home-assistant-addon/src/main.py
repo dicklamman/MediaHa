@@ -95,7 +95,11 @@ def enforce_login():
         return
 
     # Allow public paths
-    if path in ("/", "/login.html", "/login.js", "/favicon.ico", "/api/login", "/api/auth/status", "/health", "/opds"):
+    if path in ("/", "/login.html", "/login.js", "/favicon.ico", "/api/login", "/api/auth/status", "/health"):
+        return
+
+    # Allow OPDS routes (they handle auth themselves via Basic Auth)
+    if path.startswith("/opds"):
         return
 
     # Allow static folder
