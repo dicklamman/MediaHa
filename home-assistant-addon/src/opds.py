@@ -214,7 +214,7 @@ def register_routes(app, check_auth):
     @app.route('/opds/')
     def opds_root():
         """OPDS root - Books and Comics"""
-        authenticated = _authenticate()
+        authenticated = self._authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
@@ -260,7 +260,7 @@ def register_routes(app, check_auth):
     @app.route('/opds/books')
     def opds_books():
         """OPDS books list - shows series and standalone books"""
-        authenticated = _authenticate()
+        authenticated = self._authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
@@ -303,7 +303,7 @@ def register_routes(app, check_auth):
     @app.route('/opds/comics')
     def opds_comics():
         """OPDS comics list - shows comic series"""
-        authenticated = _authenticate()
+        authenticated = self._authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
@@ -347,7 +347,7 @@ def register_routes(app, check_auth):
     @app.route('/opds/series/<series_id>/<path:series_name>')
     def opds_series_detail(series_id, series_name):
         """OPDS series detail - shows all books in a series"""
-        authenticated = _authenticate()
+        authenticated = self._authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
@@ -427,7 +427,7 @@ def register_routes(app, check_auth):
     @app.route('/opds/cover/<int:book_id>')
     def opds_cover(book_id):
         """Serve book cover images for OPDS readers"""
-        authenticated = _authenticate()
+        authenticated = self._authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
@@ -475,7 +475,7 @@ def register_routes(app, check_auth):
         Looks up the book's file in the Calibre library folder and streams it
         with the correct MIME type. Supports EPUB, PDF, MOBI, AZW3, and CBR/CBZ.
         """
-        authenticated = _authenticate()
+        authenticated = self._authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
