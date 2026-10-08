@@ -759,6 +759,7 @@ def register_routes(app, check_auth):
 
     # ─── Komga-compatible API endpoints ───────────────────────────────────────
 
+    @app.route('/opds/api/v1/series')
     @app.route('/api/v1/series')
     def komga_api_series():
         """Komga API - list all series (idempotent, no auth for now)."""
@@ -814,6 +815,21 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS DEBUG] komga /api/v1/series error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps({"content": [], "totalPages": 1, "totalElements": 0}), mimetype='application/json')
 
+    @app.route('/opds/api/v1/libraries')
+    def komga_api_libraries():
+        """Komga API - list libraries (returns one "Comics" library)."""
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('Authentication required', status=401, mimetype='application/json',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+        logger.warning(f"[OPDS DEBUG] komga /api/v1/libraries")
+        return Response(json.dumps([{
+            "id": "comics",
+            "name": "Comics",
+            "url": "/opds/api/v1/series"
+        }]), mimetype='application/json')
+
+    @app.route('/opds/api/v1/series/<series_id>')
     @app.route('/api/v1/series/<series_id>')
     def komga_api_series_detail(series_id):
         """Komga API - single series detail."""
@@ -920,9 +936,74 @@ def register_routes(app, check_auth):
 
         except Exception as e:
             import traceback
-            logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id}/books error: {e}\n{traceback.format_exc()}")
+                logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id}/books error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps({"content": [], "totalPages": 1, "totalElements": 0}), mimetype='application/json')
 
+    @app.route('/opds/api/v1/books')
+    @app.route('/opds/api/v1/books/ondeck')
+    def komga_api_books():
+        """Komga API - list all books / ondeck (flat)."""
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('Authentication required', status=401, mimetype='application/json',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+
+        ondeck = request.path.endswith('/ondeck')
+        logger.warning(f"[OPDS DEBUG] komga {'ondeck' if ondeck else 'books'}")
+
+        try:
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                return Response(json.dumps({"content": [], "totalPages": 1, "totalElements": 0}), mimetype='application/json')
+
+            conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
+
+            query = """
+                SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
+                       d.format, d.name as filename, d.uncompressed_size as file_size,
+                       s.id as series_id, s.name as series_name
+                FROM books b
+                JOIN books_tags_link btl ON b.id = btl.book
+                JOIN tags t ON btl.tag = t.id
+                LEFT JOIN books_series_link bsl ON b.id = bsl.book
+                LEFT JOIN series s ON bsl.series = s.id
+                LEFT JOIN data d ON b.id = d.book
+                WHERE t.name = 'Comics'
+            """
+            if ondeck:
+                query += " ORDER BY b.pubdate DESC, b.id DESC LIMIT 20"
+            else:
+                query += " ORDER BY b.series_index"
+
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            conn.close()
+
+            content = []
+            for row in rows:
+                book_id = str(row["id"])
+                content.append({
+                    "id": book_id,
+                    "seriesId": str(row["series_id"]) if row["series_id"] else None,
+                    "seriesName": row["series_name"] or None,
+                    "number": row["series_index"] or 0,
+                    "title": row["title"],
+                    "size": row["file_size"] or 0,
+                    "mediaType": f"application/{row['format'].lower()}" if row["format"] else "application/octet-stream",
+                    "url": f"/api/v1/books/{book_id}",
+                    "thumbnailUrl": f"/opds/cover/{book_id}",
+                    "readableAt": row["pubdate"] or "",
+                })
+
+            return Response(json.dumps({"content": content, "totalPages": 1, "totalElements": len(content)}), mimetype='application/json')
+
+        except Exception as e:
+            import traceback
+            logger.warning(f"[OPDS DEBUG] komga books/ondeck error: {e}\n{traceback.format_exc()}")
+            return Response(json.dumps({"content": [], "totalPages": 1, "totalElements": 0}), mimetype='application/json')
+
+    @app.route('/opds/api/v1/books/<book_id>')
     @app.route('/api/v1/books/<book_id>')
     def komga_api_book_detail(book_id):
         """Komga API - single book detail."""
