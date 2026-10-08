@@ -32,6 +32,10 @@ def slugify(text):
 def register_routes(app, check_auth):
     """Register OPDS routes with the Flask app"""
 
+    # Log all registered routes at startup for debugging
+    rules = [(r.rule, list(r.methods - {'OPTIONS', 'HEAD'})) for r in app.url_map.iter_rules()]
+    logger.warning(f"[OPDS STARTUP] Registered routes: {rules}")
+
     def make_opds_header(title, feed_id, self_path):
         now = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00')
         return [
