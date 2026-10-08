@@ -566,13 +566,15 @@ def register_routes(app, check_auth):
                 series_slug = slugify(row["name"])
                 series_list.append({
                     "id": str(row["id"]),
-                    "name": row["name"],
-                    "slug": series_slug,
+                    "metadata": {
+                        "title": row["name"],
+                        "titleLocked": True,
+                    },
                     "bookCount": row["book_count"],
-                    "latestDate": row["latest_date"] or ""
+                    "latestUploadedChapter": row["latest_date"] or ""
                 })
 
-            logger.warning(f"[OPDS DEBUG] series/new returning {len(series_list)} series: {[s['name'] for s in series_list]}")
+            logger.warning(f"[OPDS DEBUG] series/new returning {len(series_list)} series: {[s['metadata']['title'] for s in series_list]}")
             return Response(json.dumps({"series": series_list}), mimetype='application/json')
 
         except Exception as e:
@@ -624,13 +626,15 @@ def register_routes(app, check_auth):
                 series_slug = slugify(row["name"])
                 series_list.append({
                     "id": str(row["id"]),
-                    "name": row["name"],
-                    "slug": series_slug,
+                    "metadata": {
+                        "title": row["name"],
+                        "titleLocked": True,
+                    },
                     "bookCount": row["book_count"],
-                    "latestDate": row["latest_date"] or ""
+                    "latestUploadedChapter": row["latest_date"] or ""
                 })
 
-            logger.warning(f"[OPDS DEBUG] series/updated returning {len(series_list)} series: {[s['name'] for s in series_list]}")
+            logger.warning(f"[OPDS DEBUG] series/updated returning {len(series_list)} series: {[s['metadata']['title'] for s in series_list]}")
             return Response(json.dumps({"series": series_list}), mimetype='application/json')
 
         except Exception as e:
