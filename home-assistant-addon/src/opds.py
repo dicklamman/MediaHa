@@ -546,7 +546,7 @@ def register_routes(app, check_auth):
 
             # Get all comic series with their latest book date
             cursor.execute("""
-                SELECT s.id, s.name, s.name_sort,
+                SELECT s.id, s.name,
                        COUNT(DISTINCT b.id) as book_count,
                        MAX(b.pubdate) as latest_date
                 FROM series s
@@ -555,7 +555,7 @@ def register_routes(app, check_auth):
                 JOIN books_tags_link btl ON b.id = btl.book
                 JOIN tags t ON btl.tag = t.id
                 WHERE t.name = 'Comics'
-                GROUP BY s.id, s.name, s.name_sort
+                GROUP BY s.id, s.name
                 ORDER BY s.name
             """)
             rows = cursor.fetchall()
@@ -604,7 +604,7 @@ def register_routes(app, check_auth):
 
             # Get all comic series with their latest book date
             cursor.execute("""
-                SELECT s.id, s.name, s.name_sort,
+                SELECT s.id, s.name,
                        COUNT(DISTINCT b.id) as book_count,
                        MAX(b.pubdate) as latest_date
                 FROM series s
@@ -613,7 +613,7 @@ def register_routes(app, check_auth):
                 JOIN books_tags_link btl ON b.id = btl.book
                 JOIN tags t ON btl.tag = t.id
                 WHERE t.name = 'Comics'
-                GROUP BY s.id, s.name, s.name_sort
+                GROUP BY s.id, s.name
                 ORDER BY s.name
             """)
             rows = cursor.fetchall()
