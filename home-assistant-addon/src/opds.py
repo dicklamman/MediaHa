@@ -530,97 +530,38 @@ def register_routes(app, check_auth):
     # Paperback-compatible routes (no /opds prefix)
     @app.route('/api/v1/series/new')
     def paperback_api_series_new():
-        """Paperback API - new series (wrapper for compatibility)."""
-        return opds_api_series_new()
+        """Paperback API - new series (no /opds prefix)."""
+        return _komga_series_response(prefix="/api/v1/series/")
 
     @app.route('/api/v1/series/updated')
     def paperback_api_series_updated():
-        """Paperback API - updated series (wrapper for compatibility)."""
-        return opds_api_series_updated()
+        """Paperback API - updated series (no /opds prefix)."""
+        return _komga_series_response(prefix="/api/v1/series/")
 
     @app.route('/opds/api/v1/series/new')
     def opds_api_series_new():
         """OPDS Feed Update Protocol - return new series since a given time."""
-        authenticated = _authenticate()
-        if not authenticated:
-            return Response('Authentication required', status=401, mimetype='text/plain',
-                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
-
-        since = request.args.get('since', '')
-        accept = request.headers.get('Accept', '')
-        content_type = request.headers.get('Content-Type', '')
-        logger.warning(f"[OPDS DEBUG] series/new since={since} Accept={accept} Content-Type={content_type}")
-
-        try:
-            calibre_path, metadata_db, error = _get_calibre_config()
-            if error:
-                logger.warning(f"[OPDS DEBUG] series/new: config error - {error}")
-                return Response('{"series":[]}', mimetype='application/json')
-
-            conn = _get_db_connection(metadata_db)
-            cursor = conn.cursor()
-
-            # Get all comic series with their latest book date
-            cursor.execute("""
-                SELECT s.id, s.name,
-                       COUNT(DISTINCT b.id) as book_count,
-                       MAX(b.pubdate) as latest_date
-                FROM series s
-                JOIN books_series_link bsl ON s.id = bsl.series
-                JOIN books b ON bsl.book = b.id
-                JOIN books_tags_link btl ON b.id = btl.book
-                JOIN tags t ON btl.tag = t.id
-                WHERE t.name = 'Comics'
-                GROUP BY s.id, s.name
-                ORDER BY s.name
-            """)
-            rows = cursor.fetchall()
-            conn.close()
-
-            series_list = []
-            for row in rows:
-                series_slug = slugify(row["name"])
-                series_list.append({
-                    "id": str(row["id"]),
-                    "metadata": {
-                        "title": row["name"],
-                        "titleLocked": True,
-                    },
-                    "bookCount": row["book_count"],
-                    "latestUploadedChapter": row["latest_date"] or ""
-                })
-
-            logger.warning(f"[OPDS DEBUG] series/new returning {len(series_list)} series: {[s['metadata']['title'] for s in series_list]}")
-            return Response(json.dumps({"series": series_list}), mimetype='application/json')
-
-        except Exception as e:
-            import traceback
-            logger.warning(f"[OPDS DEBUG] series/new error: {e}\n{traceback.format_exc()}")
-            return Response('{"series":[]}', mimetype='application/json')
+        return _komga_series_response(prefix="/opds/api/v1/series/")
 
     @app.route('/opds/api/v1/series/updated')
     def opds_api_series_updated():
         """OPDS Feed Update Protocol - return updated series since a given time."""
+        return _komga_series_response(prefix="/opds/api/v1/series/")
+
+    def _komga_series_response(prefix):
+        """Shared logic for series list endpoints (used by both OPDS and Paperback routes)."""
         authenticated = _authenticate()
         if not authenticated:
-            return Response('Authentication required', status=401, mimetype='text/plain',
-                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
-
-        since = request.args.get('since', '')
-        accept = request.headers.get('Accept', '')
-        content_type = request.headers.get('Content-Type', '')
-        logger.warning(f"[OPDS DEBUG] series/updated since={since} Accept={accept} Content-Type={content_type}")
+            return Response('{"series":[]}', mimetype='application/json')
 
         try:
             calibre_path, metadata_db, error = _get_calibre_config()
             if error:
-                logger.warning(f"[OPDS DEBUG] series/updated: config error - {error}")
                 return Response('{"series":[]}', mimetype='application/json')
 
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
 
-            # Get all comic series with their latest book date
             cursor.execute("""
                 SELECT s.id, s.name,
                        COUNT(DISTINCT b.id) as book_count,
@@ -639,7 +580,6 @@ def register_routes(app, check_auth):
 
             series_list = []
             for row in rows:
-                series_slug = slugify(row["name"])
                 series_list.append({
                     "id": str(row["id"]),
                     "metadata": {
@@ -647,15 +587,15 @@ def register_routes(app, check_auth):
                         "titleLocked": True,
                     },
                     "bookCount": row["book_count"],
-                    "latestUploadedChapter": row["latest_date"] or ""
+                    "latestUploadedChapter": row["latest_date"] or "",
+                    "url": f"{prefix}{row['id']}",
                 })
 
-            logger.warning(f"[OPDS DEBUG] series/updated returning {len(series_list)} series: {[s['metadata']['title'] for s in series_list]}")
             return Response(json.dumps({"series": series_list}), mimetype='application/json')
 
         except Exception as e:
             import traceback
-            logger.warning(f"[OPDS DEBUG] series/updated error: {e}\n{traceback.format_exc()}")
+            logger.warning(f"[OPDS] _komga_series_response error: {e}\n{traceback.format_exc()}")
             return Response('{"series":[]}', mimetype='application/json')
 
     @app.route('/opds/api/v1/series/<series_id>/books')
