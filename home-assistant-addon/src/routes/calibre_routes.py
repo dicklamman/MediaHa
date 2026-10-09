@@ -981,19 +981,14 @@ def register_calibre_routes(app):
                 if error_count > 0:
                     yield json.dumps({'type': 'error', 'message': f'Completed: {success_count} comics, {error_count} errors'}) + '\n'
                 else:
-                # Force flush
-            import sys
-            sys.stdout.flush()
+                    yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} comics imported to Komga library'}) + '\n'
 
-            yield json.dumps({'type': 'log', 'message': f'[DEBUG] Database file: {metadata_db}', 'level': 'info'}) + '\n'
-            yield json.dumps({'type': 'log', 'message': f'[DEBUG] Database exists: {metadata_db.exists()}', 'level': 'info'}) + '\n'
-            success_msg = f'Sync completed! {success_count} comics imported to Komga library'
-            yield json.dumps({'type': 'success', 'message': success_msg}) + '\n'
-            yield json.dumps({'type': 'log', 'message': '[DEBUG] All done, returning success', 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': f'[DEBUG] Database file: {metadata_db}', 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': f'[DEBUG] Database exists: {metadata_db.exists()}', 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': '[DEBUG] All done, returning success', 'level': 'info'}) + '\n'
 
             except Exception as e:
                 import traceback
-                tb = traceback.format_exc()
-                yield json.dumps({'type': 'error', 'message': f'Sync failed: {str(e)}\n{tb}'}) + '\n'
+                yield json.dumps({'type': 'error', 'message': f'Sync failed: {str(e)}\n{traceback.format_exc()}'}) + '\n'
 
         return app.response_class(generate(), mimetype='application/json')
