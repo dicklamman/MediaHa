@@ -922,33 +922,25 @@ def register_komga_routes(app, check_auth):
         return Response(json.dumps({"results": results}), mimetype='application/json')
 
     # ── Komga Sync ─────────────────────────────────────────────────────────────
+    # NOTE: /api/komga/sync is now defined in calibre_routes.py
+    # This avoids duplicate route conflicts
 
-    @app.route('/api/komga/sync', methods=['POST'])
-    def komga_sync():
-        """Sync comics from comic folder to Calibre library (Komga-standard SSE streaming)."""
-        err = _require_auth()
-        if err:
-            return err
-        return Response(_komga_sync_generate(), mimetype='text/event-stream')
+    @app.route('/api/komga/settings', methods=['GET', 'POST'])
+    def komga_settings():
+        """Get or save Komga library settings."""
+        if request.method == 'GET':
+            if os.path.exists(KOMGA_CONFIG_PATH):
+                with open(KOMGA_CONFIG_PATH, 'r') as f:
+                    return jsonify(json.load(f))
+            return jsonify({
+                'komga_library_path': '/media/comic',
+                'comic_folder': '/media/comic'
+            })
 
-    def _komga_sync_generate():
-        """Generator for Komga SSE sync events."""
-        import shutil
-        import traceback
-        try:
-            if os.path.exists(CALIBRE_CONFIG_PATH):
-                with open(CALIBRE_CONFIG_PATH, 'r') as f:
-                    config = json.load(f)
-            else:
-                yield 'data: ' + json.dumps({'type': 'error', 'message': 'Please configure Calibre settings first'}) + '\n\n'
-                return
-
-            comic_folder = config.get('comic_folder', '/media/comic')
-            calibre_library_path = config.get('calibre_library_path', '')
-
-            if not comic_folder or not calibre_library_path:
-                yield 'data: ' + json.dumps({'type': 'error', 'message': 'Please configure comic folder and Calibre library path first'}) + '\n\n'
-                return
+        data = request.get_json()
+        with open(KOMGA_CONFIG_PATH, 'w') as f:
+            json.dump(data, f, indent=2)
+        return jsonify({'status': 'ok'})
 
             comic_path = Path(comic_folder)
             calibre_path = Path(calibre_library_path)
