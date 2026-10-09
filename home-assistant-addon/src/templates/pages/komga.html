@@ -59,6 +59,28 @@
     <button class="komga-btn komga-btn-secondary" onclick="loadSeries()">Refresh</button>
   </div>
 
+  <!-- Sync Action Bar (always visible) -->
+  <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; margin-bottom: 24px;">
+    <div>
+      <label for="komga-comic-folder" style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: var(--color-text-muted);">Comic Folder Path</label>
+      <input type="text" id="komga-comic-folder" style="padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 14px; width: 100%;" placeholder="/media/comic" value="/media/comic">
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button class="komga-btn komga-btn-primary" id="komga-calibre-btn" onclick="startCalibreSync()" style="background: #7c4dff; white-space: nowrap;">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle;">sync</span>
+        Calibre
+      </button>
+      <button class="komga-btn komga-btn-primary" id="komga-sync-btn" onclick="startKomgaSync()" style="white-space: nowrap;">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle;">cloud_sync</span>
+        Komga
+      </button>
+    </div>
+  </div>
+  <div class="komga-progress" id="komga-progress" style="display:none; margin-bottom: 16px;">
+    <div class="komga-progress-fill" id="komga-progress-fill" style="width:0%"></div>
+  </div>
+  <div class="komga-log" id="komga-log" style="display:none; margin-bottom: 24px;"></div>
+
   <div class="komga-stats">
     <div class="komga-stat">
       <h3>Total Series</h3>
@@ -86,7 +108,7 @@
     <button class="komga-tab" data-tab="settings">API Settings</button>
   </div>
 
-  <!-- Series Tab -->
+  <!-- All Series Tab -->
   <div class="komga-content active" id="tab-series">
     <div id="series-grid" class="komga-grid"></div>
     <div class="komga-empty" id="series-empty" style="display:none">
@@ -105,33 +127,13 @@
     <div id="updated-grid" class="komga-grid"></div>
   </div>
 
-  <!-- Import Tab -->
+  <!-- Import Comics Tab -->
   <div class="komga-content" id="tab-import">
     <div class="komga-import-section">
       <h3>Import Comics from Folder</h3>
-      <p style="margin:0 0 16px 0; color:#666; font-size:14px;">
-        Import comic files (CBZ, PDF, CBR) from a folder. Each subfolder is treated as a series.
+      <p style="margin:0; color:#666; font-size:14px;">
+        Use the sync buttons above the stats to import comics. Each subfolder in the comic folder becomes a series.
       </p>
-      <div class="komga-folder-config">
-        <div>
-          <label for="komga-comic-folder">Comic Folder Path</label>
-          <input type="text" id="komga-comic-folder" placeholder="/media/comic" value="/media/comic">
-        </div>
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
-        <button class="komga-btn komga-btn-primary" id="komga-calibre-btn" onclick="startCalibreSync()" style="background: #7c4dff;">
-          <span class="material-icons" style="font-size:18px;vertical-align:middle;">sync</span>
-          Sync to Calibre Library
-        </button>
-        <button class="komga-btn komga-btn-primary" id="komga-sync-btn" onclick="startKomgaSync()">
-          <span class="material-icons" style="font-size:18px;vertical-align:middle;">cloud_sync</span>
-          Sync to Komga Library
-        </button>
-      </div>
-      <div class="komga-progress" id="komga-progress" style="display:none; margin-top: 16px;">
-        <div class="komga-progress-fill" id="komga-progress-fill" style="width:0%"></div>
-      </div>
-      <div class="komga-log" id="komga-log" style="display:none"></div>
     </div>
   </div>
 
