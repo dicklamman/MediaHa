@@ -20,6 +20,9 @@ KOMGA_CONFIG_PATH = '/data/komga_options.json'
 
 def register_calibre_routes(app):
     """Register Calibre sync routes."""
+    print("="*60)
+    print("DEBUG: calibre_routes module LOADED!")
+    print("="*60)
 
     def extract_epub_metadata(epub_path):
         """Extract metadata from EPUB file."""
