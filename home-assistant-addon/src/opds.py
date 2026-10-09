@@ -880,13 +880,13 @@ def register_routes(app, check_auth):
             for row in rows:
                 row_dict = dict(row)
                 # Compute page count dynamically for CBZ/image directories
-                ext = row.get("format", "").lower()
+                ext = row_dict.get("format", "").lower()
                 if ext in ('cbz', 'zip'):
-                    row_dict["_computed_pages"] = _get_book_page_count(row["id"], ext, calibre_path)
+                    row_dict["_computed_pages"] = _get_book_page_count(row_dict["id"], ext, calibre_path)
                 elif ext in ('cbr', 'rar'):
                     row_dict["_computed_pages"] = 0  # Can't determine without rarfile
                 elif ext in ('jpg', 'jpeg', 'png', 'gif', 'webp'):
-                    row_dict["_computed_pages"] = _get_book_page_count(row["id"], ext, calibre_path)
+                    row_dict["_computed_pages"] = _get_book_page_count(row_dict["id"], ext, calibre_path)
                 books.append(_make_book_dto(row_dict, base_url=base_url))
             
             resp = _page_response(books, len(books))
@@ -1118,9 +1118,9 @@ def register_routes(app, check_auth):
             books = []
             for row in rows:
                 row_dict = dict(row)
-                ext = row.get("format", "").lower()
+                ext = row_dict.get("format", "").lower()
                 if ext in ('cbz', 'zip'):
-                    row_dict["_computed_pages"] = _get_book_page_count(row["id"], ext, calibre_path)
+                    row_dict["_computed_pages"] = _get_book_page_count(row_dict["id"], ext, calibre_path)
                 elif ext in ('cbr', 'rar'):
                     row_dict["_computed_pages"] = 0
                 books.append(_make_book_dto(row_dict))
@@ -1168,7 +1168,7 @@ def register_routes(app, check_auth):
 
             row_dict = dict(row)
             # Compute page count dynamically for CBZ/image directories
-            ext = row.get("format", "").lower()
+            ext = row_dict.get("format", "").lower()
             if ext in ('cbz', 'zip'):
                 row_dict["_computed_pages"] = _get_book_page_count(book_id, ext, calibre_path)
             elif ext in ('cbr', 'rar'):
@@ -1363,6 +1363,53 @@ def register_routes(app, check_auth):
             import traceback
             logger.warning(f"[OPDS] komga_api_book_page error: {e}\n{traceback.format_exc()}")
             return Response('Error', status=500, mimetype='text/plain')
+
+    @app.route('/opds/api/v1/series/<series_id>/thumbnail')
+    @app.route('/api/v1/series/<series_id>/thumbnail')
+    def komga_api_series_thumbnail(series_id):
+        """Komga API - get thumbnail image for a series.
+
+        Returns the cover of the first book in the series.
+        """
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('{"error":"Unauthorized"}', status=401, mimetype='application/json',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+
+        try:
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                return Response('Not found', status=404, mimetype='text/plain')
+
+            conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
+
+            # Get the first book in the series
+            cursor.execute("""
+                SELECT b.id
+                FROM books b
+                JOIN books_series_link bsl ON b.id = bsl.book
+                JOIN books_tags_link btl ON b.id = btl.book
+                JOIN tags t ON btl.tag = t.id
+                WHERE bsl.series = ? AND t.name = 'Comics'
+                ORDER BY b.series_index
+                LIMIT 1
+            """, (series_id,))
+            row = cursor.fetchone()
+            conn.close()
+
+            if not row:
+                return Response('Not found', status=404, mimetype='text/plain')
+
+            # Redirect to the book cover
+            book_id = row["id"]
+            logger.warning(f"[OPDS] series_thumbnail: series_id={series_id} -> book_id={book_id}")
+            return send_file(str(calibre_path / str(book_id)), mimetype='image/jpeg')
+
+        except Exception as e:
+            import traceback
+            logger.warning(f"[OPDS] komga_api_series_thumbnail error: {e}\n{traceback.format_exc()}")
+            return Response('Error: ' + str(e), status=500)
 
     @app.route('/opds/<path:unknown>')
     def opds_catchall(unknown):
