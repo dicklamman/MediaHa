@@ -171,6 +171,10 @@ def register_web_routes(app):
         if filename.startswith('api/'):
             return f"File not found: {filename}", 404
 
+        # Block Komga UI paths from being served as static files
+        if filename.startswith('komga/') and not filename.startswith('komga/api/'):
+            return f"Not found: {filename}", 404
+
         # Try root ui folder first
         root_path = os.path.join(ui_folder, filename)
         if os.path.exists(root_path) and os.path.isfile(root_path):
