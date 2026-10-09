@@ -534,6 +534,7 @@ def register_komga_routes(app, check_auth):
         return Response(json.dumps(_page_response(books, page, size, total)), mimetype='application/json')
 
     @app.route('/api/v1/series/<series_id>/thumbnail')
+    @app.route('/komga/api/v1/series/<series_id>/thumbnail')
     def komga_series_thumbnail(series_id):
         """Get series thumbnail (first book's cover)."""
         err = _require_auth()
@@ -733,7 +734,7 @@ def register_komga_routes(app, check_auth):
 
         conn = _get_db_conn(mdb)
         cursor = conn.cursor()
-        cursor.execute("SELECT id, format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
+        cursor.execute("SELECT b.id, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
         row = cursor.fetchone()
         conn.close()
         if not row:
@@ -785,7 +786,7 @@ def register_komga_routes(app, check_auth):
 
         conn = _get_db_conn(mdb)
         cursor = conn.cursor()
-        cursor.execute("SELECT id, format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
+        cursor.execute("SELECT b.id, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
         row = cursor.fetchone()
         conn.close()
         if not row:
@@ -837,7 +838,7 @@ def register_komga_routes(app, check_auth):
 
         conn = _get_db_conn(mdb)
         cursor = conn.cursor()
-        cursor.execute("SELECT id, format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
+        cursor.execute("SELECT b.id, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
         row = cursor.fetchone()
         conn.close()
         if not row:

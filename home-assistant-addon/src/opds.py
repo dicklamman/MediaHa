@@ -1404,8 +1404,18 @@ def register_routes(app, check_auth):
             # Redirect to the book cover
             book_id = row["id"]
             logger.warning(f"[OPDS] series_thumbnail: series_id={series_id} -> book_id={book_id}")
-            return send_file(str(calibre_path / str(book_id)), mimetype='image/jpeg')
-
+            book_dir = calibre_path / str(book_id)
+            if not book_dir.is_dir():
+                return Response('Not found', status=404, mimetype='text/plain')
+            # Find cover image
+            for ext in ('jpg', 'jpeg', 'png', 'webp', 'gif'):
+                cover_path = book_dir / f'cover.{ext}'
+                if cover_path.is_file():
+                    return send_file(str(cover_path), mimetype='image/jpeg')
+            for img in book_dir.iterdir():
+                if img.suffix.lower() in ('.jpg', '.jpeg', '.png', '.webp', '.gif'):
+                    return send_file(str(img), mimetype='image/jpeg')
+            return Response('Not found', status=404, mimetype='text/plain')
         except Exception as e:
             import traceback
             logger.warning(f"[OPDS] komga_api_series_thumbnail error: {e}\n{traceback.format_exc()}")
