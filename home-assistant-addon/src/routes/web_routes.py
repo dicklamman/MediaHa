@@ -137,6 +137,12 @@ def register_web_routes(app):
             return send_from_directory(ui_folder, 'login.html')
         return render_page('pages/komga.html', 'komga', 'Komga Comics')
 
+    @app.route('/komga')
+    @app.route('/komga/')
+    def komga_root():
+        """Redirect /komga to /pages/komga."""
+        return redirect('/pages/komga', code=302)
+
     @app.route('/login.html')
     def login_page():
         """Serve the login page if not authenticated."""
