@@ -1,0 +1,306 @@
+{% extends "inc/base.html" %}
+{% block title %}Komga - Comic Reader{% endblock %}
+{% block content %}
+<style>
+  .komga-page { padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .komga-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .komga-header h1 { margin: 0; font-size: 24px; }
+  .komga-tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px; }
+  .komga-tab { padding: 8px 20px; border: none; background: transparent; cursor: pointer; font-size: 14px; font-weight: 500; color: #666; border-radius: 8px 8px 0 0; transition: all 0.2s; }
+  .komga-tab:hover { background: #f0f0f0; color: #333; }
+  .komga-tab.active { background: #2196F3; color: white; }
+  .komga-content { display: none; }
+  .komga-content.active { display: block; }
+  .komga-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .komga-stat { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; }
+  .komga-stat.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+  .komga-stat.orange { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+  .komga-stat.blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+  .komga-stat h3 { margin: 0 0 8px 0; font-size: 14px; opacity: 0.9; }
+  .komga-stat p { margin: 0; font-size: 28px; font-weight: bold; }
+  .komga-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
+  .komga-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+  .komga-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  .komga-card-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; background: #f0f0f0; }
+  .komga-card-info { padding: 12px; }
+  .komga-card-info h4 { margin: 0 0 4px 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .komga-card-info p { margin: 0; font-size: 12px; color: #888; }
+  .komga-btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+  .komga-btn-primary { background: #2196F3; color: white; }
+  .komga-btn-primary:hover { background: #1976D2; }
+  .komga-btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+  .komga-btn-secondary { background: #f0f0f0; color: #333; }
+  .komga-btn-secondary:hover { background: #e0e0e0; }
+  .komga-import-section { background: white; padding: 24px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .komga-import-section h3 { margin: 0 0 16px 0; font-size: 18px; }
+  .komga-folder-config { display: grid; grid-template-columns: 1fr auto; gap: 12px; margin-bottom: 16px; align-items: end; }
+  .komga-folder-config label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .komga-folder-config input { padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; width: 100%; }
+  .komga-log { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 8px; max-height: 300px; overflow-y: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; line-height: 1.6; margin-top: 16px; }
+  .komga-log-line { margin: 0; }
+  .komga-log-line.success { color: #4ec9b0; }
+  .komga-log-line.error { color: #f48771; }
+  .komga-log-line.info { color: #9cdcfe; }
+  .komga-log-line.warning { color: #dcdcaa; }
+  .komga-series-list { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .komga-series-item { display: flex; align-items: center; gap: 16px; padding: 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s; }
+  .komga-series-item:hover { background: #f9f9f9; }
+  .komga-series-item:last-child { border-bottom: none; }
+  .komga-series-thumb { width: 60px; height: 80px; object-fit: cover; border-radius: 4px; background: #f0f0f0; }
+  .komga-series-meta h4 { margin: 0 0 4px 0; font-size: 16px; }
+  .komga-series-meta p { margin: 0; font-size: 13px; color: #888; }
+  .komga-progress-bar { width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+  .komga-progress-fill { height: 100%; background: #2196F3; transition: width 0.3s; }
+  .komga-empty { text-align: center; padding: 60px; color: #888; }
+  .komga-empty h3 { margin: 0 0 8px 0; font-size: 18px; }
+  .komga-empty p { margin: 0; font-size: 14px; }
+</style>
+
+<div class="komga-page">
+  <div class="komga-header">
+    <h1>Komga Comic Reader</h1>
+    <div style="flex:1"></div>
+    <button class="komga-btn komga-btn-secondary" onclick="loadSeries()">Refresh</button>
+  </div>
+
+  <div class="komga-stats">
+    <div class="komga-stat">
+      <h3>Total Series</h3>
+      <p id="stat-series">-</p>
+    </div>
+    <div class="komga-stat green">
+      <h3>Total Comics</h3>
+      <p id="stat-books">-</p>
+    </div>
+    <div class="komga-stat orange">
+      <h3>Library</h3>
+      <p id="stat-library">Comics</p>
+    </div>
+    <div class="komga-stat blue">
+      <h3>API Status</h3>
+      <p id="stat-api">OK</p>
+    </div>
+  </div>
+
+  <div class="komga-tabs">
+    <button class="komga-tab active" data-tab="series">All Series</button>
+    <button class="komga-tab" data-tab="new">Recently Added</button>
+    <button class="komga-tab" data-tab="updated">Recently Updated</button>
+    <button class="komga-tab" data-tab="import">Import Comics</button>
+    <button class="komga-tab" data-tab="settings">Settings</button>
+  </div>
+
+  <!-- Series Tab -->
+  <div class="komga-content active" id="tab-series">
+    <div id="series-grid" class="komga-grid"></div>
+    <div class="komga-empty" id="series-empty" style="display:none">
+      <h3>No comics found</h3>
+      <p>Import comics from a folder to get started.</p>
+    </div>
+  </div>
+
+  <!-- Recently Added Tab -->
+  <div class="komga-content" id="tab-new">
+    <div id="new-grid" class="komga-grid"></div>
+  </div>
+
+  <!-- Recently Updated Tab -->
+  <div class="komga-content" id="tab-updated">
+    <div id="updated-grid" class="komga-grid"></div>
+  </div>
+
+  <!-- Import Tab -->
+  <div class="komga-content" id="tab-import">
+    <div class="komga-import-section">
+      <h3>Import Comics from Folder</h3>
+      <p style="margin:0 0 16px 0; color:#666; font-size:14px;">
+        Import comic files (CBZ, PDF, CBR) from a folder. Each subfolder will be treated as a series.
+      </p>
+      <div class="komga-folder-config">
+        <div>
+          <label for="comic-folder">Comic Folder Path</label>
+          <input type="text" id="comic-folder" placeholder="/media/comic" value="/media/comic">
+        </div>
+        <button class="komga-btn komga-btn-primary" id="btn-import" onclick="startImport()">Import Comics</button>
+      </div>
+      <div class="komga-progress-bar" id="import-progress" style="display:none">
+        <div class="komga-progress-fill" id="import-progress-fill" style="width:0%"></div>
+      </div>
+      <div class="komga-log" id="import-log" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Settings Tab -->
+  <div class="komga-content" id="tab-settings">
+    <div class="komga-import-section">
+      <h3>API Connection Settings</h3>
+      <p style="margin:0 0 16px 0; color:#666; font-size:14px;">
+        Configure your comic reader app to connect to this server using the endpoints below.
+      </p>
+      <div style="background:#f5f5f5; padding:20px; border-radius:8px; font-family:monospace; font-size:13px;">
+        <p><strong>Base URL:</strong> <span id="api-base-url">-</span></p>
+        <p><strong>API Root:</strong> <span id="api-root-url"></span>/api/v1</p>
+        <p><strong>Libraries:</strong> <span id="api-lib-url"></span>/api/v1/libraries</p>
+        <p><strong>Series:</strong> <span id="api-series-url"></span>/api/v1/series</p>
+        <p><strong>Books:</strong> <span id="api-books-url"></span>/api/v1/books</p>
+        <p><strong>On Deck:</strong> <span id="api-ondeck-url"></span>/api/v1/books/ondeck</p>
+      </div>
+      <div style="margin-top:20px; padding:16px; background:#fff3cd; border-radius:8px; border-left:4px solid #ffc107;">
+        <p style="margin:0; font-size:14px;"><strong>Note:</strong> Use HTTP Basic Auth with your MediaHa username and password to authenticate.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const apiBase = window.location.origin;
+
+  // Tab switching
+  document.querySelectorAll('.komga-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.komga-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.komga-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      if (tab.dataset.tab === 'new') loadSeries('new');
+      else if (tab.dataset.tab === 'updated') loadSeries('updated');
+      else if (tab.dataset.tab === 'series') loadSeries();
+    });
+  });
+
+  // Load series list
+  async function loadSeries(type = '') {
+    const endpoint = type ? `/api/v1/series/${type}` : '/api/v1/series';
+    try {
+      const resp = await fetch(endpoint);
+      const data = await resp.json();
+      const content = data.content || [];
+      const gridId = type ? `${type}-grid` : 'series-grid';
+      const grid = document.getElementById(gridId);
+      grid.innerHTML = '';
+
+      document.getElementById('stat-series').textContent = data.totalElements || content.length;
+      document.getElementById('stat-books').textContent = content.reduce ? content.reduce((a, s) => a + (s.booksCount || 0), 0) : 0;
+
+      if (content.length === 0) {
+        document.getElementById('series-empty').style.display = 'block';
+        return;
+      }
+      document.getElementById('series-empty').style.display = 'none';
+
+      for (const series of content) {
+        const card = document.createElement('div');
+        card.className = 'komga-card';
+        card.innerHTML = `
+          <img class="komga-card-img" src="${apiBase}/api/v1/series/${series.id}/thumbnail" 
+               onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 150%22><rect fill=%22%23e0e0e0%22 width=%22100%22 height=%22150%22/><text x=%2250%22 y=%2275%22 text-anchor=%22middle%22 fill=%22%23999%22 font-size=%2212%22>No Cover</text></svg>'">
+          <div class="komga-card-info">
+            <h4>${escapeHtml(series.name)}</h4>
+            <p>${series.booksCount || 0} books</p>
+          </div>
+        `;
+        card.onclick = () => showSeriesDetail(series.id, series.name);
+        grid.appendChild(card);
+      }
+    } catch (e) {
+      console.error('Failed to load series:', e);
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function showSeriesDetail(seriesId, seriesName) {
+    window.open(`${apiBase}/pages/komga-series?seriesId=${seriesId}`, '_blank');
+  }
+
+  // Import comics
+  async function startImport() {
+    const btn = document.getElementById('btn-import');
+    const log = document.getElementById('import-log');
+    const progress = document.getElementById('import-progress');
+    const progressFill = document.getElementById('import-progress-fill');
+    const folder = document.getElementById('comic-folder').value;
+
+    btn.disabled = true;
+    log.style.display = 'block';
+    log.innerHTML = '';
+    progress.style.display = 'block';
+    progressFill.style.width = '0%';
+
+    function addLog(msg, level = '') {
+      const p = document.createElement('p');
+      p.className = 'komga-log-line ' + level;
+      p.textContent = msg;
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    try {
+      // First update the config with the comic folder
+      const configResp = await fetch('/api/calibre/settings');
+      const config = await configResp.json();
+      config.comic_folder = folder;
+      await fetch('/api/calibre/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(config)
+      });
+
+      addLog('Starting comic import...', 'info');
+
+      const resp = await fetch('/api/comic/sync', { method: 'POST' });
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value);
+        const lines = text.split('\n').filter(l => l.trim());
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            if (data.type === 'progress') {
+              const pct = Math.round((data.current / data.total) * 100);
+              progressFill.style.width = pct + '%';
+              addLog(data.message || `Progress: ${data.current}/${data.total}`, 'info');
+            } else if (data.type === 'log') {
+              addLog(data.message, data.level === 'success' ? 'success' : data.level === 'error' ? 'error' : '');
+            } else if (data.type === 'success') {
+              addLog('✓ ' + data.message, 'success');
+            } else if (data.type === 'error') {
+              addLog('✗ ' + data.message, 'error');
+            }
+          } catch (e) { }
+        }
+      }
+
+      addLog('Import complete!', 'success');
+      setTimeout(() => loadSeries(), 1000);
+    } catch (e) {
+      addLog('Import failed: ' + e.message, 'error');
+    }
+
+    btn.disabled = false;
+  }
+
+  // Update API URLs in settings
+  function updateApiUrls() {
+    const base = apiBase;
+    document.getElementById('api-base-url').textContent = base;
+    document.getElementById('api-root-url').textContent = base;
+    document.getElementById('api-lib-url').textContent = base;
+    document.getElementById('api-series-url').textContent = base;
+    document.getElementById('api-books-url').textContent = base;
+    document.getElementById('api-ondeck-url').textContent = base;
+  }
+
+  // Init
+  updateApiUrls();
+  loadSeries();
+</script>
+{% endblock %}

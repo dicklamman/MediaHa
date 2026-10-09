@@ -7,6 +7,7 @@ from .config_routes import register_config_routes
 from .special_routes import register_special_routes
 from .subtitle_routes import register_subtitle_routes
 from .calibre_routes import register_calibre_routes
+from .komga_routes import register_komga_routes
 
 __all__ = [
     'register_auth_routes',
@@ -17,4 +18,5 @@ __all__ = [
     'register_special_routes',
     'register_subtitle_routes',
     'register_calibre_routes',
+    'register_komga_routes',
 ]

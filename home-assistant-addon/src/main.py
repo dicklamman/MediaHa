@@ -124,6 +124,8 @@ def enforce_login():
 
     # Block unauthenticated API access (except public ones handled above)
     if path.startswith("/api"):
+        if path.startswith("/api/v1"):
+            return  # Komga API uses Basic Auth
         if not session.get("authenticated"):
             return jsonify({"error": "Unauthorized"}), 401
         return
@@ -165,6 +167,9 @@ register_epub_routes(app)
 
 from routes.photo_routes import register_photo_routes
 register_photo_routes(app)
+
+from routes.komga_routes import register_komga_routes
+register_komga_routes(app, lambda u, p: u == AUTH_USERNAME and p == AUTH_PASSWORD)
 
 
 # =============================================================================

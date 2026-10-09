@@ -7,6 +7,7 @@ from flask import send_from_directory, redirect, session, render_template
 # Shared navigation items
 NAV_ITEMS = [
     ('home', 'home', 'Home', '/pages/home'),
+    ('komga', 'auto_stories', 'Komga Comics', '/pages/komga'),
     ('epub', 'menu_book', 'EPUB Converter', '/pages/epub'),
     ('mp3', 'library_music', 'MP3 Converter', '/pages/mp3'),
     ('music-player', 'music_note', 'Music Player', '/pages/music-player'),
@@ -128,6 +129,13 @@ def register_web_routes(app):
         if not session.get("authenticated"):
             return send_from_directory(ui_folder, 'login.html')
         return render_page('pages/calibre.html', 'calibre', 'Calibre Library Sync')
+
+    @app.route('/pages/komga')
+    def komga():
+        """Serve the Komga comic reader page."""
+        if not session.get("authenticated"):
+            return send_from_directory(ui_folder, 'login.html')
+        return render_page('pages/komga.html', 'komga', 'Komga Comics')
 
     @app.route('/login.html')
     def login_page():
