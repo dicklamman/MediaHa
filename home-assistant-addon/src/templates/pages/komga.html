@@ -1,6 +1,5 @@
 {% extends "inc/base.html" %}
-{% block title %}Komga - Comic Reader{% endblock %}
-{% block content %}
+{% block page_content %}
 <style>
   .komga-page { padding: 24px; max-width: 1400px; margin: 0 auto; }
   .komga-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
@@ -303,4 +302,4 @@
   updateApiUrls();
   loadSeries();
 </script>
-{% endblock %}
+{% endblock page_content %}
