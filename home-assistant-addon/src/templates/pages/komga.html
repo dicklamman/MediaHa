@@ -117,12 +117,18 @@
           <label for="komga-comic-folder">Comic Folder Path</label>
           <input type="text" id="komga-comic-folder" placeholder="/media/comic" value="/media/comic">
         </div>
-        <button class="komga-btn komga-btn-primary" id="komga-import-btn" onclick="startKomgaImport()">
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+        <button class="komga-btn komga-btn-primary" id="komga-calibre-btn" onclick="startCalibreSync()" style="background: #7c4dff;">
           <span class="material-icons" style="font-size:18px;vertical-align:middle;">sync</span>
-          Import Comics
+          Sync to Calibre Library
+        </button>
+        <button class="komga-btn komga-btn-primary" id="komga-sync-btn" onclick="startKomgaSync()">
+          <span class="material-icons" style="font-size:18px;vertical-align:middle;">cloud_sync</span>
+          Sync to Komga Library
         </button>
       </div>
-      <div class="komga-progress-bar" id="komga-progress" style="display:none">
+      <div class="komga-progress" id="komga-progress" style="display:none; margin-top: 16px;">
         <div class="komga-progress-fill" id="komga-progress-fill" style="width:0%"></div>
       </div>
       <div class="komga-log" id="komga-log" style="display:none"></div>
@@ -212,16 +218,16 @@
     return div.innerHTML;
   }
 
-  // Import comics
-  async function startKomgaImport() {
-    const btn = document.getElementById('komga-import-btn');
+  // Sync to Calibre Library (old /api/comic/sync endpoint)
+  async function startCalibreSync() {
+    const btn = document.getElementById('komga-calibre-btn');
     const log = document.getElementById('komga-log');
     const progress = document.getElementById('komga-progress');
     const progressFill = document.getElementById('komga-progress-fill');
     const folder = document.getElementById('komga-comic-folder').value;
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle;">hourglass</span> Importing...';
+    btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle;">hourglass</span> Syncing...';
     log.style.display = 'block';
     log.innerHTML = '';
     progress.style.display = 'block';
@@ -246,7 +252,7 @@
         body: JSON.stringify(config)
       });
 
-      addLog('Starting comic import...', 'info');
+      addLog('Starting Calibre sync...', 'info');
 
       const resp = await fetch('/api/comic/sync', { method: 'POST' });
       if (resp.status === 401) { window.location.href = '/login.html'; return; }
@@ -277,14 +283,87 @@
         }
       }
 
-      addLog('Import complete!', 'success');
+      addLog('Calibre sync complete!', 'success');
       setTimeout(loadSeries, 1000);
     } catch (e) {
-      addLog('Import failed: ' + e.message, 'error');
+      addLog('Sync failed: ' + e.message, 'error');
     }
 
     btn.disabled = false;
-    btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle;">sync</span> Import Comics';
+    btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle;">sync</span> Sync to Calibre Library';
+  }
+
+  // Sync to Komga Library (Komga-standard SSE /api/komga/sync endpoint)
+  async function startKomgaSync() {
+    const btn = document.getElementById('komga-sync-btn');
+    const log = document.getElementById('komga-log');
+    const progress = document.getElementById('komga-progress');
+    const progressFill = document.getElementById('komga-progress-fill');
+    const folder = document.getElementById('komga-comic-folder').value;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle;">hourglass</span> Syncing...';
+    log.style.display = 'block';
+    log.innerHTML = '';
+    progress.style.display = 'block';
+    progressFill.style.width = '0%';
+
+    function addLog(msg, level) {
+      level = level || '';
+      const p = document.createElement('p');
+      p.className = 'komga-log-line ' + level;
+      p.textContent = msg;
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    try {
+      // Save comic folder to config
+      const configResp = await fetch('/api/calibre/settings');
+      const config = await configResp.json();
+      config.comic_folder = folder;
+      await fetch('/api/calibre/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(config)
+      });
+
+      addLog('Starting Komga sync...', 'info');
+
+      // Use Komga-standard SSE endpoint
+      const resp = await fetch('/api/komga/sync', { method: 'POST' });
+      if (resp.status === 401) { window.location.href = '/login.html'; return; }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value);
+        // SSE format: "data: {...}\n\n"
+        const match = text.match(/^data: (.+)$/m);
+        if (!match) continue;
+        try {
+          const data = JSON.parse(match[1]);
+          if (data.type === 'log') {
+            addLog(data.message || '', data.level || '');
+          } else if (data.type === 'success') {
+            addLog('\u2713 ' + data.message, 'success');
+          } else if (data.type === 'error') {
+            addLog('\u2717 ' + data.message, 'error');
+          }
+        } catch (e) { }
+      }
+
+      addLog('Komga sync complete!', 'success');
+      setTimeout(loadSeries, 1000);
+    } catch (e) {
+      addLog('Sync failed: ' + e.message, 'error');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle;">cloud_sync</span> Sync to Komga Library';
   }
 
   // Update API URLs
