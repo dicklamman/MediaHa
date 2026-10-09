@@ -658,23 +658,6 @@ def register_calibre_routes(app):
         time.sleep(0.5)
         return jsonify({'status': 'ok', 'time': time.time()})
 
-    @app.route('/api/komga/settings', methods=['GET', 'POST'])
-    def komga_settings():
-        """Get or save Komga library settings."""
-        if request.method == 'GET':
-            if os.path.exists(KOMGA_CONFIG_PATH):
-                with open(KOMGA_CONFIG_PATH, 'r') as f:
-                    return jsonify(json.load(f))
-            return jsonify({
-                'komga_library_path': '/media/comic',
-                'comic_folder': '/media/comic'
-            })
-
-        data = request.get_json()
-        with open(KOMGA_CONFIG_PATH, 'w') as f:
-            json.dump(data, f, indent=2)
-        return jsonify({'status': 'ok'})
-
     @app.route('/api/komga/sync', methods=['POST'])
     def sync_komga():
         """Sync comic files to Komga library (/media/comic/).
