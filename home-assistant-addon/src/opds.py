@@ -1421,6 +1421,117 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] komga_api_series_thumbnail error: {e}\n{traceback.format_exc()}")
             return Response('Error: ' + str(e), status=500)
 
+    @app.route('/opds/book/<int:book_id>')
+    def opds_book_detail(book_id):
+        """OPDS book detail - serve a single book as XML entry (Paperback-compatible)."""
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('Authentication required', status=401, mimetype='text/plain',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+
+        try:
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                return error
+
+            conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
+                       d.format, d.name as filename, d.uncompressed_size as file_size,
+                       s.id as series_id, s.name as series_name
+                FROM books b
+                LEFT JOIN books_series_link bsl ON b.id = bsl.book
+                LEFT JOIN series s ON bsl.series = s.id
+                LEFT JOIN data d ON b.id = d.book
+                WHERE b.id = ?
+            """, (book_id,))
+            row = cursor.fetchone()
+            conn.close()
+
+            if not row:
+                return Response('<?xml version="1.0"?><opds><error>Book not found</error></opds>',
+                              mimetype='application/xml', status=404)
+
+            row_dict = dict(row)
+            row_dict["author_name"] = row_dict.get("author_name", "Unknown")
+            row_dict["author_id"] = None  # not needed for OPDS entry
+
+            # Build a minimal OPDS feed with a single book entry
+            now = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00')
+            entry_xml = make_book_entry(None, row_dict)
+
+            xml_parts = [
+                '<?xml version="1.0" encoding="UTF-8"?>',
+                '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:thr="http://purl.org/syndication/thread/1.0">',
+                '  <title>Book ' + str(book_id) + '</title>',
+                '  <id>mediaha:book:' + str(book_id) + '</id>',
+                '  <updated>' + now + '</updated>',
+                '  <link href="/opds" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
+                '  <link href="/opds/book/' + str(book_id) + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="self"/>',
+                entry_xml,
+                '</feed>'
+            ]
+
+            return Response('\n'.join(xml_parts), mimetype='application/atom+xml; charset=utf-8')
+
+        except Exception as e:
+            import traceback
+            logger.warning(f"[OPDS] opds_book_detail error: {e}\n{traceback.format_exc()}")
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
+                            mimetype='application/xml', status=500)
+
+    def _build_opds_book_entry(row, now):
+        """Build a minimal OPDS entry XML for a single book."""
+        book_id = row["id"]
+        title = escape_xml(row.get("title", f"Book {book_id}"))
+        uuid_str = row.get("uuid") or str(book_id)
+        entry_uuid = 'urn:uuid:' + uuid_str
+
+        series_name = row.get("series_name", "")
+        series_index = row.get("series_index")
+        series_id = row.get("series_id")
+
+        series_content = ''
+        series_link = ''
+        if series_name and series_index:
+            series_slug = slugify(series_name)
+            series_content = '<strong>Series:</strong>Book ' + str(int(float(series_index))) + ' in the ' + escape_xml(series_name) + ' series<br />'
+            series_link = '  <link href="/opds/series/' + str(series_id) + '/' + series_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Book ' + str(int(float(series_index))) + ' in the ' + escape_xml(series_name) + ' series"/>'
+
+        author_name = row.get("author_name", "Unknown")
+
+        pubdate = str(row.get("pubdate", ""))[:10] or now[:10]
+        ext = str(row.get("format", "epub")).lower()
+        mime_map = {
+            'epub': 'application/epub+zip', 'pdf': 'application/pdf',
+            'cbr': 'application/vnd.comicbook-rar', 'cbz': 'application/vnd.comicbook+zip',
+        }
+        mime = mime_map.get(ext, 'application/octet-stream')
+        file_url = '/opds/fetch/' + str(book_id) + '/' + ext
+        file_size = row.get("file_size") or 0
+
+        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://opds-spec.org/acquisition"'
+        if file_size:
+            acq_link += ' length="' + str(file_size) + '"'
+        acq_link += ' />'
+
+        return '\n'.join([
+            '  <entry>',
+            '    <title>' + title + '</title>',
+            '    <updated>' + now + '</updated>',
+            '    <id>' + entry_uuid + '</id>',
+            '    <content type="text">' + series_content + '</content>',
+            '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image"/>',
+            '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>',
+            acq_link,
+            series_link,
+            '    <author><name>' + escape_xml(author_name) + '</name></author>',
+            '    <dcterms:issued>' + pubdate + '</dcterms:issued>',
+            '  </entry>'
+        ])
+
     @app.route('/opds/<path:unknown>')
     def opds_catchall(unknown):
         """Catch-all for unexpected OPDS paths."""

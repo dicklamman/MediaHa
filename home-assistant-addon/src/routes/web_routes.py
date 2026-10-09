@@ -139,8 +139,8 @@ def register_web_routes(app):
     @app.route('/komga')
     @app.route('/komga/')
     def komga_root():
-        """Redirect /komga to /pages/komga."""
-        return redirect('/pages/komga', code=302)
+        """Redirect /komga to the Komga API root."""
+        return redirect('/komga/api/v1', code=302)
 
     @app.route('/login.html')
     def login_page():
