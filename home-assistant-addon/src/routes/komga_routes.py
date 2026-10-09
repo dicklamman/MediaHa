@@ -925,7 +925,7 @@ def register_komga_routes(app, check_auth):
     # NOTE: /api/komga/sync is now defined in calibre_routes.py
     # This avoids duplicate route conflicts
 
-    @app.route('/komga/book/<book_id>')
+    @app.route('/komga/read/<book_id>')
     def komga_book_page(book_id):
         """Serve the Komga book reader page."""
         if not session.get("authenticated"):
