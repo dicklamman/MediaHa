@@ -515,6 +515,10 @@ def register_calibre_routes(app):
                             old_dir = books_folder / str(bid)
                             if old_dir.exists():
                                 shutil.rmtree(old_dir)
+                        # Also clean up old series-named folders
+                        for old_dir in books_folder.iterdir():
+                            if old_dir.is_dir():
+                                shutil.rmtree(old_dir)
 
                 cursor.execute("SELECT MAX(id) FROM books")
                 max_book_id = cursor.fetchone()[0] or 0
@@ -550,8 +554,8 @@ def register_calibre_routes(app):
                             max_book_id += 1
                             book_id = max_book_id
 
-                            book_dir = books_folder / str(book_id)
-                            book_dir.mkdir(exist_ok=True)
+                            book_dir = books_folder / safe_comic
+                            book_dir.mkdir(parents=True, exist_ok=True)
 
                             uuid_str = str(uuid.uuid4())
                             chapter_idx = idx + 1
@@ -559,7 +563,7 @@ def register_calibre_routes(app):
                             cursor.execute('''
                                 INSERT INTO books (id, title, sort, author_sort, series_index, path, uuid, has_cover, last_modified)
                                 VALUES (?, ?, ?, ?, ?, ?, ?, 0, '2000-01-01 00:00:00+00:00')
-                            ''', (book_id, f"{comic_name} - {Path(original_name).stem}", f"{comic_name} - {Path(original_name).stem}", 'Unknown', chapter_idx, f"books/{book_id}", uuid_str))
+                            ''', (book_id, f"{comic_name} - {Path(original_name).stem}", f"{comic_name} - {Path(original_name).stem}", 'Unknown', chapter_idx, f"books/{safe_comic}", uuid_str))
 
                             cursor.execute("INSERT OR IGNORE INTO books_series_link (book, series) VALUES (?, ?)", (book_id, series_id))
 
@@ -680,7 +684,7 @@ def register_calibre_routes(app):
                         config = json.load(f)
                     yield json.dumps({'type': 'log', 'message': f'[DEBUG] Loaded config: {config}', 'level': 'info'}) + '\n'
                 else:
-                    config = {'komga_library_path': '/media/comic', 'comic_folder': '/media/comic'}
+                    config = {'komga_library_path': '/media/comic/book', 'comic_folder': '/media/comic'}
                     yield json.dumps({'type': 'log', 'message': '[DEBUG] Using default config', 'level': 'info'}) + '\n'
 
                 comic_folder = config.get('comic_folder', '/media/comic')
@@ -710,10 +714,19 @@ def register_calibre_routes(app):
                 # Komga database path
                 metadata_db = komga_path / 'metadata.db'
 
+                # Clear and rebuild: remove old library folder and DB
+                if books_folder.exists():
+                    shutil.rmtree(books_folder)
+                    books_folder.mkdir(exist_ok=True)
+                if metadata_db.exists():
+                    metadata_db.unlink()
+
                 comic_extensions = {'.pdf', '.cbz', '.cbr', '.cb7'}
                 chapters = []
                 for ext in comic_extensions:
                     found = list(comic_path.rglob(f"*{ext}"))
+                    # Exclude the komga library folder itself
+                    found = [f for f in found if '/book/' not in str(f)]
                     chapters.extend(found)
                     yield json.dumps({'type': 'log', 'message': f'[DEBUG] Found {len(found)} files with {ext}', 'level': 'info'}) + '\n'
 

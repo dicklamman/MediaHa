@@ -246,12 +246,12 @@ export const calibreWeb = {
         if (this.komgaLogOutput) this.komgaLogOutput.textContent = '';
 
         this.showKomgaLog('Starting Komga Library sync...', 'info');
-        this.showKomgaLog('Comics will be synced to /media/comic/ with Komga-standard database', 'info');
+        this.showKomgaLog('Comics will be synced to /media/comic/book/ with Komga-standard database', 'info');
 
         try {
             // Save comic folder to Komga config
             const komgaSettings = {
-                komga_library_path: '/media/comic',
+                komga_library_path: '/media/comic/book',
                 comic_folder: this.comicFolderInput.value.trim()
             };
 

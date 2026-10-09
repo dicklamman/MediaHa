@@ -26,7 +26,7 @@ def _get_komga_config():
             config = json.load(f)
     else:
         config = {}
-    komga_library_path = config.get('komga_library_path', '/media/comic')
+    komga_library_path = config.get('komga_library_path', '/media/comic/book')
     comic_folder = config.get('comic_folder', '/media/comic')
     return komga_library_path, comic_folder
 
@@ -205,15 +205,30 @@ def register_komga_routes(app, check_auth):
         """Count pages in CBZ/image directories."""
         try:
             ext = ext.lower().strip('.')
+            db_path = None
+            # Try to get stored path from DB
+            if os.path.exists(KOMGA_CONFIG_PATH):
+                with open(KOMGA_CONFIG_PATH, 'r') as f:
+                    cfg = json.load(f)
+                komga_lib = cfg.get('komga_library_path', '/media/comic/book')
+                komga_db = Path(komga_lib) / 'metadata.db'
+                if komga_db.exists():
+                    conn2 = sqlite3.connect(str(komga_db))
+                    c2 = conn2.cursor()
+                    c2.execute("SELECT path FROM books WHERE id = ?", (book_id,))
+                    row2 = c2.fetchone()
+                    conn2.close()
+                    if row2 and row2[0]:
+                        db_path = row2[0]
             if ext in ('cbz', 'zip'):
-                book_path = _find_book_file(book_id, ext, calibre_path)
+                book_path = _find_book_file(book_id, ext, calibre_path, db_path)
                 if book_path and book_path.exists():
                     with zipfile.ZipFile(str(book_path), 'r') as zf:
                         image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
                         return sum(1 for n in zf.namelist()
                                   if os.path.splitext(n)[1].lower() in image_exts
                                   and not n.startswith('__MACOSX'))
-            book_folder = calibre_path / str(book_id)
+            book_folder = calibre_path / (db_path or str(book_id))
             if book_folder.exists() and book_folder.is_dir():
                 image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
                 return sum(1 for f in book_folder.iterdir()
@@ -304,9 +319,23 @@ def register_komga_routes(app, check_auth):
             },
         }
 
-    def _find_book_file(book_id, ext, calibre_path):
-        """Find a book file by ID and extension."""
+    def _find_book_file(book_id, ext, calibre_path, db_path=None):
+        """Find a book file by ID and extension.
+        
+        If db_path is provided (e.g. 'books/女神のスプリンター'), use it directly.
+        Otherwise fall back to book_id folder.
+        """
         ext = ext.lower().lstrip('.')
+        
+        # Try the stored path first
+        if db_path:
+            book_folder = calibre_path / db_path
+            if book_folder.exists() and book_folder.is_dir():
+                for f in book_folder.iterdir():
+                    if f.is_file() and f.suffix.lstrip('.').lower() == ext:
+                        return f
+        
+        # Fall back to book_id folder (legacy)
         book_folder = calibre_path / str(book_id)
         if book_folder.exists() and book_folder.is_dir():
             for f in book_folder.iterdir():
@@ -762,17 +791,18 @@ def register_komga_routes(app, check_auth):
 
         conn = _get_db_conn(mdb)
         cursor = conn.cursor()
-        cursor.execute("SELECT b.id, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
+        cursor.execute("SELECT b.id, b.path, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
         row = cursor.fetchone()
         conn.close()
         if not row:
             return Response(json.dumps([]), status=404, mimetype='application/json')
 
         ext = row["format"].lower() if row["format"] else ""
+        db_path = row["path"]
         pages = []
 
         if ext in ('cbz', 'zip'):
-            book_path = _find_book_file(book_id, ext, cpath)
+            book_path = _find_book_file(book_id, ext, cpath, db_path)
             if book_path and book_path.exists():
                 try:
                     with zipfile.ZipFile(str(book_path), 'r') as zf:
@@ -790,7 +820,7 @@ def register_komga_routes(app, check_auth):
             pages.append(_build_book_page_url(book_id, 1))
 
         else:
-            book_folder = cpath / str(book_id)
+            book_folder = cpath / (db_path or str(book_id))
             if book_folder.exists() and book_folder.is_dir():
                 image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
                 files = sorted([f for f in book_folder.iterdir() if f.suffix.lower() in image_exts],
@@ -814,18 +844,19 @@ def register_komga_routes(app, check_auth):
 
         conn = _get_db_conn(mdb)
         cursor = conn.cursor()
-        cursor.execute("SELECT b.id, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
+        cursor.execute("SELECT b.id, b.path, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
         row = cursor.fetchone()
         conn.close()
         if not row:
             return Response("Not found", status=404)
 
         ext = row["format"].lower() if row["format"] else ""
+        db_path = row["path"]
         mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
                     '.gif': 'image/gif', '.webp': 'image/webp'}
 
         if ext in ('cbz', 'zip'):
-            book_path = _find_book_file(book_id, ext, cpath)
+            book_path = _find_book_file(book_id, ext, cpath, db_path)
             if book_path and book_path.exists():
                 try:
                     with zipfile.ZipFile(str(book_path), 'r') as zf:
@@ -842,7 +873,7 @@ def register_komga_routes(app, check_auth):
                     logger.warning(f"[Komga] Error extracting page: {e}")
 
         else:
-            book_folder = cpath / str(book_id)
+            book_folder = cpath / (db_path or str(book_id))
             if book_folder.exists() and book_folder.is_dir():
                 image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
                 files = sorted([f for f in book_folder.iterdir() if f.suffix.lower() in image_exts],
@@ -866,19 +897,20 @@ def register_komga_routes(app, check_auth):
 
         conn = _get_db_conn(mdb)
         cursor = conn.cursor()
-        cursor.execute("SELECT b.id, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
+        cursor.execute("SELECT b.id, b.path, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
         row = cursor.fetchone()
         conn.close()
         if not row:
             return Response("Not found", status=404)
 
         ext = row["format"].lower() if row["format"] else "cbz"
+        db_path = row["path"]
         mime_map = {
             'epub': 'application/epub+zip', 'pdf': 'application/pdf',
             'cbz': 'application/vnd.comicbook+zip', 'cbr': 'application/vnd.comicbook-rar',
             'zip': 'application/zip',
         }
-        book_path = _find_book_file(book_id, ext, cpath)
+        book_path = _find_book_file(book_id, ext, cpath, db_path)
         if book_path and book_path.exists():
             return send_file(str(book_path), mimetype=mime_map.get(ext, 'application/octet-stream'),
                            as_attachment=True, download_name=book_path.name)
@@ -945,7 +977,7 @@ def register_komga_routes(app, check_auth):
                 with open(KOMGA_CONFIG_PATH, 'r') as f:
                     return jsonify(json.load(f))
             return jsonify({
-                'komga_library_path': '/media/comic',
+                'komga_library_path': '/media/comic/book',
                 'comic_folder': '/media/comic'
             })
 
