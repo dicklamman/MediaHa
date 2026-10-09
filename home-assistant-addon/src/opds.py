@@ -4,6 +4,8 @@ import re
 import base64
 import sqlite3
 import logging
+import zipfile
+import io
 from flask import request, Response, session, send_file
 from pathlib import Path
 import json
@@ -109,6 +111,46 @@ def register_routes(app, check_auth):
             },
         }
 
+    def _get_book_page_count(book_id, ext, calibre_path):
+        """Get the page count for a book by examining its file.
+        
+        Returns the number of pages in the book, or 0 if unknown.
+        """
+        try:
+            ext = ext.lower().strip('.')
+            
+            # Handle CBZ (ZIP) files
+            if ext in ('cbz', 'zip'):
+                book_path, _ = _get_book_file(book_id, ext, calibre_path)
+                if book_path and book_path.exists():
+                    with zipfile.ZipFile(str(book_path), 'r') as zf:
+                        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+                        count = 0
+                        for name in zf.namelist():
+                            ext_lower = os.path.splitext(name)[1].lower()
+                            if ext_lower in image_extensions and not name.startswith('__MACOSX'):
+                                count += 1
+                        return count
+            
+            # Handle image directories
+            book_folder = calibre_path / str(book_id)
+            if book_folder.exists() and book_folder.is_dir():
+                image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+                count = 0
+                for f in book_folder.iterdir():
+                    if f.suffix.lower() in image_extensions:
+                        count += 1
+                return count
+            
+            # PDF - return 1 as placeholder (actual count requires parsing PDF)
+            if ext == 'pdf':
+                return 1
+                
+        except Exception as e:
+            logger.warning(f"[OPDS] Error getting page count for book {book_id}: {e}")
+        
+        return 0
+
     def _make_book_dto(row, base_url="/api/v1"):
         """Build a Komga-standard BookDto from a query row dict."""
         book_id = str(row["id"])
@@ -128,6 +170,12 @@ def register_routes(app, check_auth):
         # size: Komga requires size as string AND sizeBytes as int
         size_bytes = row.get("file_size") or 0
         size_str = str(size_bytes)
+
+        # Determine page count - use dynamic count when available
+        pages_count = row.get("pages_count")
+        if not pages_count:
+            # Try to compute from file if we have the path hint
+            pages_count = row.get("_computed_pages", 0)
 
         return {
             "id": book_id,
@@ -152,7 +200,7 @@ def register_routes(app, check_auth):
             "media": {
                 "mediaType": media_type,
                 "status": "Ready",
-                "pagesCount": row.get("pages_count") or 0,
+                "pagesCount": pages_count or 0,
                 "mediaProfile": _media_profile(media_type),
                 "epubIsKepub": False,
                 "epubDivinaCompatible": False,
@@ -717,25 +765,30 @@ def register_routes(app, check_auth):
     @app.route('/api/v1/series/new')
     def paperback_api_series_new():
         """Paperback API - new series (no /opds prefix)."""
-        return _komga_series_response(prefix="/api/v1/series/")
+        return _komga_series_response(prefix="/api/v1/series/", order_by_date=True)
 
     @app.route('/api/v1/series/updated')
     def paperback_api_series_updated():
         """Paperback API - updated series (no /opds prefix)."""
-        return _komga_series_response(prefix="/api/v1/series/")
+        return _komga_series_response(prefix="/api/v1/series/", order_by_date=True)
 
     @app.route('/opds/api/v1/series/new')
     def opds_api_series_new():
         """OPDS Feed Update Protocol - return new series since a given time."""
-        return _komga_series_response(prefix="/opds/api/v1/series/")
+        return _komga_series_response(prefix="/opds/api/v1/series/", order_by_date=True)
 
     @app.route('/opds/api/v1/series/updated')
     def opds_api_series_updated():
         """OPDS Feed Update Protocol - return updated series since a given time."""
-        return _komga_series_response(prefix="/opds/api/v1/series/")
+        return _komga_series_response(prefix="/opds/api/v1/series/", order_by_date=True)
 
-    def _komga_series_response(prefix):
-        """Shared logic for series list endpoints (used by both OPDS and Paperback routes)."""
+    def _komga_series_response(prefix, order_by_date=False):
+        """Shared logic for series list endpoints (used by both OPDS and Paperback routes).
+        
+        Args:
+            prefix: URL prefix for series links
+            order_by_date: If True, order by latest book date descending (for /new and /updated)
+        """
         authenticated = _authenticate()
         if not authenticated:
             return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
@@ -748,7 +801,8 @@ def register_routes(app, check_auth):
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
 
-            cursor.execute("""
+            order_clause = "ORDER BY s.name" if not order_by_date else "ORDER BY latest_date DESC"
+            cursor.execute(f"""
                 SELECT s.id, s.name,
                        COUNT(DISTINCT b.id) as book_count,
                        MAX(b.pubdate) as latest_date
@@ -759,7 +813,7 @@ def register_routes(app, check_auth):
                 JOIN tags t ON btl.tag = t.id
                 WHERE t.name = 'Comics'
                 GROUP BY s.id, s.name
-                ORDER BY s.name
+                {order_clause}
             """)
             rows = cursor.fetchall()
             conn.close()
@@ -822,7 +876,19 @@ def register_routes(app, check_auth):
             rows = cursor.fetchall()
             conn.close()
 
-            books = [_make_book_dto(dict(row), base_url=base_url) for row in rows]
+            books = []
+            for row in rows:
+                row_dict = dict(row)
+                # Compute page count dynamically for CBZ/image directories
+                ext = row.get("format", "").lower()
+                if ext in ('cbz', 'zip'):
+                    row_dict["_computed_pages"] = _get_book_page_count(row["id"], ext, calibre_path)
+                elif ext in ('cbr', 'rar'):
+                    row_dict["_computed_pages"] = 0  # Can't determine without rarfile
+                elif ext in ('jpg', 'jpeg', 'png', 'gif', 'webp'):
+                    row_dict["_computed_pages"] = _get_book_page_count(row["id"], ext, calibre_path)
+                books.append(_make_book_dto(row_dict, base_url=base_url))
+            
             resp = _page_response(books, len(books))
             return Response(json.dumps(resp), mimetype='application/json')
 
@@ -1054,7 +1120,16 @@ def register_routes(app, check_auth):
             rows = cursor.fetchall()
             conn.close()
 
-            books = [_make_book_dto(dict(row)) for row in rows]
+            books = []
+            for row in rows:
+                row_dict = dict(row)
+                ext = row.get("format", "").lower()
+                if ext in ('cbz', 'zip'):
+                    row_dict["_computed_pages"] = _get_book_page_count(row["id"], ext, calibre_path)
+                elif ext in ('cbr', 'rar'):
+                    row_dict["_computed_pages"] = 0
+                books.append(_make_book_dto(row_dict))
+            
             resp = _page_response(books, len(books))
             return Response(json.dumps(resp), mimetype='application/json')
 
@@ -1096,12 +1171,205 @@ def register_routes(app, check_auth):
             if not row:
                 return Response(json.dumps({}), mimetype='application/json', status=404)
 
-            return Response(json.dumps(_make_book_dto(dict(row))), mimetype='application/json')
+            row_dict = dict(row)
+            # Compute page count dynamically for CBZ/image directories
+            ext = row.get("format", "").lower()
+            if ext in ('cbz', 'zip'):
+                row_dict["_computed_pages"] = _get_book_page_count(book_id, ext, calibre_path)
+            elif ext in ('cbr', 'rar'):
+                row_dict["_computed_pages"] = 0
+
+            return Response(json.dumps(_make_book_dto(row_dict)), mimetype='application/json')
 
         except Exception as e:
             import traceback
             logger.warning(f"[OPDS] komga_api_book_detail error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps({}), mimetype='application/json', status=500)
+
+    @app.route('/opds/api/v1/books/<book_id>/pages')
+    @app.route('/api/v1/books/<book_id>/pages')
+    def komga_api_book_pages(book_id):
+        """Komga API - get all page URLs for a book.
+        
+        Returns a list of page URLs in format:
+        ["http://host/opds/api/v1/books/<id>/pages/1", ...]
+        
+        Supports CBZ (ZIP), CBR (RAR - via filename extraction), and image directories.
+        """
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('{"error":"Unauthorized"}', status=401, mimetype='application/json',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+
+        try:
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                return Response(json.dumps([]), mimetype='application/json', status=404)
+
+            # Get book info from database
+            conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT b.id, d.format, d.name as filename
+                FROM books b
+                LEFT JOIN data d ON b.id = d.book
+                WHERE b.id = ?
+            """, (book_id,))
+            row = cursor.fetchone()
+            conn.close()
+
+            if not row:
+                return Response(json.dumps([]), mimetype='application/json', status=404)
+
+            book_id = row["id"]
+            ext = row["format"].lower() if row["format"] else ""
+            
+            pages = []
+            
+            # Handle CBZ (ZIP) files
+            if ext in ('cbz', 'zip'):
+                book_path, _ = _get_book_file(book_id, ext, calibre_path)
+                if book_path and book_path.exists():
+                    try:
+                        with zipfile.ZipFile(str(book_path), 'r') as zf:
+                            # Get image files sorted alphabetically (page order)
+                            image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+                            all_names = sorted(zf.namelist(), key=lambda x: x.lower())
+                            for name in all_names:
+                                ext_lower = os.path.splitext(name)[1].lower()
+                                if ext_lower in image_extensions and not name.startswith('__MACOSX'):
+                                    pages.append(f"/opds/api/v1/books/{book_id}/pages/{len(pages) + 1}")
+                    except Exception as e:
+                        logger.warning(f"[OPDS] Error reading CBZ {book_path}: {e}")
+            
+            # Handle CBR (RAR) files - try to list via rarfile or skip
+            elif ext in ('cbr', 'rar'):
+                # For RAR files, we can't easily extract without rarfile library
+                # Return empty pages - reader should handle gracefully
+                logger.warning(f"[OPDS] CBR/RAR files not supported for page listing: {book_id}")
+            
+            # Handle PDF files
+            elif ext == 'pdf':
+                # For PDFs, return the file itself as page 1
+                # The reader will handle PDF rendering
+                pages.append(f"/opds/api/v1/books/{book_id}/pages/1")
+            
+            # Handle image directories (comics stored as folders of images)
+            else:
+                book_folder = calibre_path / str(book_id)
+                if book_folder.exists() and book_folder.is_dir():
+                    image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+                    image_files = []
+                    for f in book_folder.iterdir():
+                        if f.suffix.lower() in image_extensions:
+                            image_files.append(f)
+                    # Sort by filename
+                    image_files.sort(key=lambda x: x.name.lower())
+                    for f in image_files:
+                        pages.append(f"/opds/api/v1/books/{book_id}/pages/{len(pages) + 1}")
+
+            logger.warning(f"[OPDS] book_pages: book_id={book_id} format={ext} pages_count={len(pages)}")
+            return Response(json.dumps(pages), mimetype='application/json')
+
+        except Exception as e:
+            import traceback
+            logger.warning(f"[OPDS] komga_api_book_pages error: {e}\n{traceback.format_exc()}")
+            return Response(json.dumps([]), mimetype='application/json', status=500)
+
+    @app.route('/opds/api/v1/books/<book_id>/pages/<int:page_num>')
+    @app.route('/api/v1/books/<book_id>/pages/<int:page_num>')
+    def komga_api_book_page(book_id, page_num):
+        """Komga API - serve a specific page of a book.
+        
+        Extracts and serves the image from CBZ files by page number.
+        """
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('{"error":"Unauthorized"}', status=401, mimetype='application/json',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+
+        try:
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                return Response('Not found', status=404, mimetype='text/plain')
+
+            # Get book format from database
+            conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT b.id, d.format
+                FROM books b
+                LEFT JOIN data d ON b.id = d.book
+                WHERE b.id = ?
+            """, (book_id,))
+            row = cursor.fetchone()
+            conn.close()
+
+            if not row:
+                return Response('Not found', status=404, mimetype='text/plain')
+
+            ext = row["format"].lower() if row["format"] else ""
+            
+            # Handle CBZ (ZIP) files
+            if ext in ('cbz', 'zip'):
+                book_path, _ = _get_book_file(book_id, ext, calibre_path)
+                if book_path and book_path.exists():
+                    try:
+                        with zipfile.ZipFile(str(book_path), 'r') as zf:
+                            image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+                            all_names = sorted(zf.namelist(), key=lambda x: x.lower())
+                            image_names = [n for n in all_names 
+                                          if os.path.splitext(n)[1].lower() in image_extensions
+                                          and not n.startswith('__MACOSX')]
+                            
+                            if 1 <= page_num <= len(image_names):
+                                page_name = image_names[page_num - 1]
+                                data = zf.read(page_name)
+                                
+                                # Determine MIME type
+                                mime_types = {
+                                    '.jpg': 'image/jpeg',
+                                    '.jpeg': 'image/jpeg',
+                                    '.png': 'image/png',
+                                    '.gif': 'image/gif',
+                                    '.webp': 'image/webp'
+                                }
+                                mime = mime_types.get(os.path.splitext(page_name)[1].lower(), 'image/jpeg')
+                                
+                                return Response(data, mimetype=mime)
+                    except Exception as e:
+                        logger.warning(f"[OPDS] Error extracting page from CBZ: {e}")
+            
+            # Handle image directories
+            book_folder = calibre_path / str(book_id)
+            if book_folder.exists() and book_folder.is_dir():
+                image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+                image_files = []
+                for f in book_folder.iterdir():
+                    if f.suffix.lower() in image_extensions:
+                        image_files.append(f)
+                image_files.sort(key=lambda x: x.name.lower())
+                
+                if 1 <= page_num <= len(image_files):
+                    page_file = image_files[page_num - 1]
+                    mime_types = {
+                        '.jpg': 'image/jpeg',
+                        '.jpeg': 'image/jpeg',
+                        '.png': 'image/png',
+                        '.gif': 'image/gif',
+                        '.webp': 'image/webp'
+                    }
+                    mime = mime_types.get(page_file.suffix.lower(), 'image/jpeg')
+                    return send_file(str(page_file), mimetype=mime)
+            
+            return Response('Page not found', status=404, mimetype='text/plain')
+
+        except Exception as e:
+            import traceback
+            logger.warning(f"[OPDS] komga_api_book_page error: {e}\n{traceback.format_exc()}")
+            return Response('Error', status=500, mimetype='text/plain')
 
     @app.route('/opds/<path:unknown>')
     def opds_catchall(unknown):
