@@ -683,12 +683,15 @@ def register_calibre_routes(app):
         """
         print("DEBUG: sync_komga route HIT!")  # Console debug
         import sys
+        import time
         sys.stdout.flush()
         def generate():
             print("DEBUG: generate() started!")  # Console debug
             sys.stdout.flush()
-            import sys
-            yield "DEBUG_JSON:{\"type\":\"log\",\"message\":\"[!!!] Python generator started!!!\",\"level\":\"info\"}\n"
+            import time
+            yield "DEBUG_JSON:{\"type\":\"log\",\"message\":\"[!!!] Python generator started!!! Waiting 5 seconds...\",\"level\":\"info\"}\n"
+            time.sleep(5)  # 5 second delay so we can see it
+            yield "DEBUG_JSON:{\"type\":\"log\",\"message\":\"[!!!] Done waiting, continuing...\",\"level\":\"info\"}\n"
             try:
                 import fitz
                 yield json.dumps({'type': 'log', 'message': '[DEBUG] fitz imported OK', 'level': 'info'}) + '\n'

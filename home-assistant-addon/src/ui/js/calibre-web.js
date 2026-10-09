@@ -274,18 +274,28 @@ export const calibreWeb = {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
 
+            this.showKomgaLog('[debug] Reader started, waiting for chunks...', 'info');
+
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
                 const chunk = decoder.decode(value);
+                console.log('DEBUG KOMGA: Received chunk, bytes:', chunk.length);
+
                 const lines = chunk.split('\n').filter(line => line.trim());
+                if (lines.length > 0) {
+                    this.showKomgaLog('[debug] Received ' + lines.length + ' lines', 'info');
+                }
 
                 for (const line of lines) {
                     try {
                         const data = JSON.parse(line);
                         this.showKomgaLog(data.message, data.level || 'info');
-                    } catch (e) {}
+                    } catch (e) {
+                        console.error('JSON parse error:', e, 'line:', line);
+                        this.showKomgaLog('[parse error: ' + line.substring(0, 50) + '...]', 'error');
+                    }
                 }
             }
 
