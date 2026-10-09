@@ -15,6 +15,7 @@ from flask import jsonify, request
 
 CALIBRE_CONFIG_PATH = '/data/calibre_options.json'
 KOMGA_DB_PATH = '/data/komga_options.json'
+KOMGA_CONFIG_PATH = '/data/komga_options.json'
 
 
 def register_calibre_routes(app):
@@ -647,6 +648,13 @@ def register_calibre_routes(app):
     # ── Komga Library Sync ──────────────────────────────────────────────────────
     # Sync comics to /media/comic/ with a separate Komga-standard database
 
+    @app.route('/api/komga/test', methods=['GET'])
+    def komga_test():
+        """Simple test endpoint."""
+        import time
+        time.sleep(0.5)
+        return jsonify({'status': 'ok', 'time': time.time()})
+
     @app.route('/api/komga/settings', methods=['GET', 'POST'])
     def komga_settings():
         """Get or save Komga library settings."""
@@ -670,10 +678,14 @@ def register_calibre_routes(app):
 
         Creates a Komga-standard database at /media/comic/metadata.db with proper schema.
         """
+        print("DEBUG: sync_komga route HIT!")  # Console debug
+        import sys
+        sys.stdout.flush()
         def generate():
+            print("DEBUG: generate() started!")  # Console debug
+            sys.stdout.flush()
             import sys
-            yield json.dumps({'type': 'log', 'message': '[DEBUG] Python started, sys.path=' + str(sys.path[:3]), 'level': 'info'}) + '\n'
-            yield json.dumps({'type': 'log', 'message': '[DEBUG] CWD=' + os.getcwd(), 'level': 'info'}) + '\n'
+            yield "DEBUG_JSON:{\"type\":\"log\",\"message\":\"[!!!] Python generator started!!!\",\"level\":\"info\"}\n"
             try:
                 import fitz
                 yield json.dumps({'type': 'log', 'message': '[DEBUG] fitz imported OK', 'level': 'info'}) + '\n'
