@@ -1,5 +1,6 @@
 """OPDS catalog routes for ebook readers"""
 import os
+import re
 import base64
 import sqlite3
 import logging
@@ -19,12 +20,10 @@ def escape_xml(text):
     return str(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&apos;')
 
 def slugify(text):
-    """Convert text to URL-safe slug"""
+    """Convert text to URL-safe slug."""
     if not text:
         return ''
     text = str(text)
-    # Replace spaces with underscores, remove special chars
-    import re
     text = re.sub(r'\s+', '_', text)
     text = re.sub(r'[^\w\-_]', '', text)
     return text
@@ -32,6 +31,193 @@ def slugify(text):
 def register_routes(app, check_auth):
     """Register OPDS routes with the Flask app"""
     logger.warning("[OPDS STARTUP] register_routes() called — starting route registration")
+
+    # ── Komga-standard DTO helpers ──────────────────────────────────────────
+
+    def _now_iso():
+        return datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    def _date_iso(val):
+        """Return ISO date string from a Calibre date value, or empty string."""
+        if not val:
+            return ""
+        s = str(val)
+        # Calibre stores as 'YYYY-MM-DD HH:MM:SS' or 'YYYY-MM-DDTHH:MM:SS'
+        if 'T' in s:
+            return s[:19] + 'Z'
+        return s[:10]
+
+    def _author_dto(name="", role="writer"):
+        return {"name": name or "Unknown", "role": role}
+
+    def _make_series_dto(row):
+        """Build a Komga-standard SeriesDto from a query row dict."""
+        return {
+            "id": str(row["id"]),
+            "name": row["name"],
+            "booksCount": row.get("books_count", 0),
+            "booksReadCount": row.get("books_read_count", 0),
+            "booksUnreadCount": row.get("books_unread_count", row.get("books_count", 0)),
+            "booksInProgressCount": row.get("books_in_progress_count", 0),
+            "created": _date_iso(row.get("created", "")),
+            "lastModified": _date_iso(row.get("last_modified", "")),
+            "fileLastModified": _date_iso(row.get("file_last_modified", "")),
+            "deleted": False,
+            "oneshot": row.get("oneshot", False),
+            "libraryId": "comics",
+            "url": f"/api/v1/series/{row['id']}",
+            "metadata": {
+                "title": row["name"],
+                "titleLock": True,
+                "titleSort": row["name"],
+                "titleSortLock": True,
+                "summary": row.get("summary", ""),
+                "summaryLock": True,
+                "ageRating": row.get("age_rating"),
+                "ageRatingLock": True,
+                "alternateTitles": [],
+                "alternateTitlesLock": True,
+                "publisher": row.get("publisher", ""),
+                "publisherLock": True,
+                "language": row.get("language", ""),
+                "languageLock": True,
+                "genres": [],
+                "genresLock": True,
+                "tags": [],
+                "tagsLock": True,
+                "readingDirection": "",
+                "readingDirectionLock": True,
+                "status": row.get("status", "ONGOING"),
+                "statusLock": True,
+                "sharingLabels": [],
+                "sharingLabelsLock": True,
+                "totalBookCount": row.get("books_count", 0),
+                "totalBookCountLock": True,
+                "created": _date_iso(row.get("metadata_created", "")),
+                "lastModified": _date_iso(row.get("metadata_last_modified", "")),
+                "links": [],
+                "linksLock": True,
+            },
+            "booksMetadata": {
+                "authors": [_author_dto(row.get("author_name", ""))] if row.get("author_name") else [],
+                "releaseDate": row.get("release_date", ""),
+                "summary": row.get("summary", ""),
+                "summaryNumber": "",
+                "tags": [],
+                "created": _date_iso(row.get("metadata_created", "")),
+                "lastModified": _date_iso(row.get("metadata_last_modified", "")),
+            },
+        }
+
+    def _make_book_dto(row, base_url="/api/v1"):
+        """Build a Komga-standard BookDto from a query row dict."""
+        book_id = str(row["id"])
+        media_type = f"application/{row['format'].lower()}" if row.get("format") else "application/octet-stream"
+        series_id = str(row["series_id"]) if row.get("series_id") else None
+        series_name = row.get("series_name") or None
+        series_slug = slugify(series_name) if series_name else ""
+        series_book_count = row.get("series_book_count", 0)
+
+        # Number fields: series_index is float in Calibre, Komga uses int
+        number_raw = row.get("series_index", 0) or 0
+        try:
+            number_int = int(float(number_raw))
+        except (TypeError, ValueError):
+            number_int = 0
+
+        # size: Komga requires size as string AND sizeBytes as int
+        size_bytes = row.get("file_size") or 0
+        size_str = str(size_bytes)
+
+        return {
+            "id": book_id,
+            "seriesId": series_id,
+            "seriesTitle": series_name,
+            "number": number_int,
+            "oneshot": row.get("oneshot", False),
+            "deleted": False,
+            "libraryId": "comics",
+            "name": row.get("title") or f"Book {book_id}",
+            "title": row.get("title") or f"Book {book_id}",
+            "size": size_str,
+            "sizeBytes": size_bytes,
+            "fileHash": row.get("file_hash") or "",
+            "fileLastModified": _date_iso(row.get("file_last_modified", "")),
+            "created": _date_iso(row.get("created", "")),
+            "lastModified": _date_iso(row.get("last_modified", "")),
+            "url": f"{base_url}/books/{book_id}",
+            "thumbnailUrl": f"/opds/cover/{book_id}",
+            "readableAt": _date_iso(row.get("pubdate", "")),
+            "readProgress": None,
+            "media": {
+                "mediaType": media_type,
+                "status": "Ready",
+                "pagesCount": row.get("pages_count") or 0,
+                "mediaProfile": _media_profile(media_type),
+                "epubIsKepub": False,
+                "epubDivinaCompatible": False,
+                "comment": "",
+            },
+            "metadata": {
+                "title": row.get("title") or f"Book {book_id}",
+                "titleLock": True,
+                "number": str(number_int),
+                "numberLock": True,
+                "numberSort": float(number_int),
+                "numberSortLock": True,
+                "authors": [_author_dto(row.get("author_name", ""))] if row.get("author_name") else [],
+                "authorsLock": True,
+                "releaseDate": _date_iso(row.get("pubdate", "")),
+                "releaseDateLock": True,
+                "summary": row.get("summary", ""),
+                "summaryLock": True,
+                "isbn": "",
+                "isbnLock": True,
+                "tags": [],
+                "tagsLock": True,
+                "links": [],
+                "linksLock": True,
+                "created": _date_iso(row.get("metadata_created", "")),
+                "lastModified": _date_iso(row.get("metadata_last_modified", "")),
+            },
+        }
+
+    def _media_profile(media_type):
+        mt = media_type.lower()
+        if mt == "application/epub+zip":
+            return "epub"
+        if mt in ("application/pdf", "application/x-cbz", "application/vnd.comicbook+zip",
+                  "application/vnd.comicbook+xml"):
+            return "pdf"
+        if mt in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+            return "image"
+        return "unknown"
+
+    def _page_response(content, total_elements, page=0, size=20, sort_empty=True):
+        """Build a Komga-standard PageDto wrapper."""
+        total_pages = max(1, (total_elements + size - 1) // size)
+        return {
+            "content": content,
+            "empty": len(content) == 0,
+            "first": True,
+            "last": page >= total_pages - 1,
+            "number": page,
+            "numberOfElements": len(content),
+            "pageable": {
+                "offset": page * size,
+                "pageNumber": page,
+                "pageSize": size,
+                "paged": True,
+                "sort": {"empty": sort_empty, "sorted": False, "unsorted": True},
+                "unpaged": False,
+            },
+            "size": size,
+            "sort": {"empty": sort_empty, "sorted": False, "unsorted": True},
+            "totalElements": total_elements,
+            "totalPages": total_pages,
+        }
+
+    # ── DB helpers ────────────────────────────────────────────────────────────
 
     # Log all registered routes at startup for debugging
     rules = [(r.rule, list(r.methods - {'OPTIONS', 'HEAD'})) for r in app.url_map.iter_rules()]
@@ -552,12 +738,12 @@ def register_routes(app, check_auth):
         """Shared logic for series list endpoints (used by both OPDS and Paperback routes)."""
         authenticated = _authenticate()
         if not authenticated:
-            return Response('{"series":[]}', mimetype='application/json')
+            return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
         try:
             calibre_path, metadata_db, error = _get_calibre_config()
             if error:
-                return Response('{"series":[]}', mimetype='application/json')
+                return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
@@ -580,60 +766,53 @@ def register_routes(app, check_auth):
 
             series_list = []
             for row in rows:
-                series_list.append({
-                    "id": str(row["id"]),
-                    "metadata": {
-                        "title": row["name"],
-                        "titleLocked": True,
-                    },
-                    "bookCount": row["book_count"],
-                    "latestUploadedChapter": row["latest_date"] or "",
-                    "url": f"{prefix}{row['id']}",
-                })
+                row_dict = dict(row)
+                row_dict["books_count"] = row_dict["book_count"]
+                row_dict["books_read_count"] = 0
+                row_dict["oneshot"] = False
+                row_dict["last_modified"] = row_dict["latest_date"]
+                row_dict["created"] = row_dict["latest_date"]
+                series_list.append(_make_series_dto(row_dict))
 
-            return Response(json.dumps({"series": series_list}), mimetype='application/json')
+            resp = _page_response(series_list, len(series_list))
+            return Response(json.dumps(resp), mimetype='application/json')
 
         except Exception as e:
             import traceback
             logger.warning(f"[OPDS] _komga_series_response error: {e}\n{traceback.format_exc()}")
-            return Response('{"series":[]}', mimetype='application/json')
+            return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
+
+    @app.route('/api/v1/series/<series_id>/books')
+    def paperback_api_series_books(series_id):
+        """Paperback API - books in a series."""
+        return _komga_series_books(series_id, base_url="/api/v1")
 
     @app.route('/opds/api/v1/series/<series_id>/books')
     def opds_api_series_books(series_id):
-        """OPDS Feed - return all books in a series."""
+        """Komga API - return all books in a series."""
+        return _komga_series_books(series_id, base_url="/api/v1")
+
+    def _komga_series_books(series_id, base_url="/api/v1"):
+        """Shared logic for series books endpoints."""
         authenticated = _authenticate()
         if not authenticated:
-            return Response('Authentication required', status=401, mimetype='text/plain',
-                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
-
-        accept = request.headers.get('Accept', '')
-        logger.warning(f"[OPDS DEBUG] series/{series_id}/books Accept={accept}")
+            return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
         try:
             calibre_path, metadata_db, error = _get_calibre_config()
             if error:
-                logger.warning(f"[OPDS DEBUG] series/{series_id}/books: config error - {error}")
-                return Response('{"books":[]}', mimetype='application/json')
+                return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
 
-            # Get series name first
-            cursor.execute("SELECT name FROM series WHERE id = ?", (series_id,))
-            series_row = cursor.fetchone()
-            if not series_row:
-                conn.close()
-                logger.warning(f"[OPDS DEBUG] series/{series_id}/books: series not found")
-                return Response('{"books":[]}', mimetype='application/json')
-
-            series_name = series_row["name"]
-
-            # Get all comic books in this series
             cursor.execute("""
                 SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
-                       d.format, d.name as filename, d.uncompressed_size as file_size
+                       d.format, d.name as filename, d.uncompressed_size as file_size,
+                       s.id as series_id, s.name as series_name
                 FROM books b
                 JOIN books_series_link bsl ON b.id = bsl.book
+                JOIN series s ON bsl.series = s.id
                 JOIN books_tags_link btl ON b.id = btl.book
                 JOIN tags t ON btl.tag = t.id
                 LEFT JOIN data d ON b.id = d.book
@@ -643,26 +822,14 @@ def register_routes(app, check_auth):
             rows = cursor.fetchall()
             conn.close()
 
-            books_list = []
-            for row in rows:
-                books_list.append({
-                    "id": str(row["id"]),
-                    "title": row["title"],
-                    "seriesIndex": row["series_index"] or "",
-                    "pubDate": row["pubdate"] or "",
-                    "uuid": row["uuid"] or "",
-                    "format": row["format"] or "",
-                    "filename": row["filename"] or "",
-                    "fileSize": row["file_size"] or 0
-                })
-
-            logger.warning(f"[OPDS DEBUG] series/{series_id}/books returning {len(books_list)} books in '{series_name}': {[b['title'] for b in books_list]}")
-            return Response(json.dumps({"series": series_name, "books": books_list}), mimetype='application/json')
+            books = [_make_book_dto(dict(row), base_url=base_url) for row in rows]
+            resp = _page_response(books, len(books))
+            return Response(json.dumps(resp), mimetype='application/json')
 
         except Exception as e:
             import traceback
-            logger.warning(f"[OPDS DEBUG] series/{series_id}/books error: {e}\n{traceback.format_exc()}")
-            return Response('{"books":[]}', mimetype='application/json')
+            logger.warning(f"[OPDS] _komga_series_books error: {e}\n{traceback.format_exc()}")
+            return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
     @app.route('/opds/api/v1/search')
     def opds_api_search():
@@ -722,19 +889,16 @@ def register_routes(app, check_auth):
     @app.route('/opds/api/v1/series')
     @app.route('/api/v1/series')
     def komga_api_series():
-        """Komga API - list all series (idempotent, no auth for now)."""
+        """Komga API - list all series (PageSeriesDto)."""
         authenticated = _authenticate()
         if not authenticated:
-            return Response('Authentication required', status=401, mimetype='application/json',
+            return Response('{"error":"Unauthorized"}', status=401, mimetype='application/json',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
-
-        accept = request.headers.get('Accept', '')
-        logger.warning(f"[OPDS DEBUG] komga /api/v1/series Accept={accept}")
 
         try:
             calibre_path, metadata_db, error = _get_calibre_config()
             if error:
-                return Response(json.dumps({"content": [], "totalPages": 1, "totalElements": 0}), mimetype='application/json')
+                return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
@@ -757,26 +921,21 @@ def register_routes(app, check_auth):
 
             content = []
             for row in rows:
-                series_id = str(row["id"])
-                series_slug = slugify(row["name"])
-                content.append({
-                    "id": series_id,
-                    "metadata": {"title": row["name"]},
-                    "name": row["name"],
-                    "nameSort": row["name"],
-                    "booksCount": row["book_count"],
-                    "url": f"/api/v1/series/{series_id}",
-                    "thumbnailUrl": f"/opds/series/{series_id}/{series_slug}/thumbnail",
-                })
+                row_dict = dict(row)
+                row_dict["books_count"] = row_dict["book_count"]
+                row_dict["books_read_count"] = 0
+                row_dict["oneshot"] = False
+                row_dict["last_modified"] = row_dict["latest_date"]
+                row_dict["created"] = row_dict["latest_date"]
+                content.append(_make_series_dto(row_dict))
 
-            resp = {"content": content, "totalPages": 1, "totalElements": len(content)}
-            logger.warning(f"[OPDS DEBUG] komga /api/v1/series returning: {json.dumps(resp)}")
+            resp = _page_response(content, len(content))
             return Response(json.dumps(resp), mimetype='application/json')
 
         except Exception as e:
             import traceback
-            logger.warning(f"[OPDS DEBUG] komga /api/v1/series error: {e}\n{traceback.format_exc()}")
-            return Response(json.dumps({"content": [], "totalPages": 1, "totalElements": 0}), mimetype='application/json')
+            logger.warning(f"[OPDS] komga_api_series error: {e}\n{traceback.format_exc()}")
+            return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
     @app.route('/opds/api/v1/libraries')
     def komga_api_libraries():
@@ -797,18 +956,16 @@ def register_routes(app, check_auth):
     @app.route('/opds/api/v1/series/<series_id>')
     @app.route('/api/v1/series/<series_id>')
     def komga_api_series_detail(series_id):
-        """Komga API - single series detail."""
+        """Komga API - single series detail (SeriesDto)."""
         authenticated = _authenticate()
         if not authenticated:
-            return Response('Authentication required', status=401, mimetype='application/json',
+            return Response('{"error":"Unauthorized"}', status=401, mimetype='application/json',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
-
-        logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id}")
 
         try:
             calibre_path, metadata_db, error = _get_calibre_config()
             if error:
-                return Response(json.dumps({}), mimetype='application/json')
+                return Response(json.dumps({}), mimetype='application/json', status=404)
 
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
@@ -831,100 +988,47 @@ def register_routes(app, check_auth):
             if not row:
                 return Response(json.dumps({}), mimetype='application/json', status=404)
 
-            series_slug = slugify(row["name"])
-            resp = json.dumps({
-                "id": str(row["id"]),
-                "metadata": {"title": row["name"]},
-                "name": row["name"],
-                "nameSort": row["name"],
-                "booksCount": row["book_count"],
-                "url": f"/api/v1/series/{series_id}",
-                "thumbnailUrl": f"/opds/series/{series_id}/{series_slug}/thumbnail",
-            })
-            logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id} returning: {resp}")
-            return Response(resp, mimetype='application/json')
+            row_dict = dict(row)
+            row_dict["books_count"] = row_dict["book_count"]
+            row_dict["books_read_count"] = 0
+            row_dict["oneshot"] = False
+            row_dict["last_modified"] = row_dict["latest_date"]
+            row_dict["created"] = row_dict["latest_date"]
+            return Response(json.dumps(_make_series_dto(row_dict)), mimetype='application/json')
 
         except Exception as e:
             import traceback
-            logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id} error: {e}\n{traceback.format_exc()}")
-            return Response(json.dumps({}), mimetype='application/json')
+            logger.warning(f"[OPDS] komga_api_series_detail error: {e}\n{traceback.format_exc()}")
+            return Response(json.dumps({}), mimetype='application/json', status=500)
 
     @app.route('/api/v1/series/<series_id>/books')
     def komga_api_series_books(series_id):
-        """Komga API - books in a series."""
-        authenticated = _authenticate()
-        if not authenticated:
-            return Response('Authentication required', status=401, mimetype='application/json',
-                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+        """Komga API - books in a series (delegates to helper)."""
+        return _komga_series_books(series_id, base_url="/api/v1")
 
-        logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id}/books")
-
-        try:
-            calibre_path, metadata_db, error = _get_calibre_config()
-            if error:
-                return Response(json.dumps({"content": [], "totalPages": 1, "totalElements": 0}), mimetype='application/json')
-
-            conn = _get_db_connection(metadata_db)
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
-                       d.format, d.name as filename, d.uncompressed_size as file_size,
-                       s.id as series_id, s.name as series_name
-                FROM books b
-                JOIN books_series_link bsl ON b.id = bsl.book
-                JOIN series s ON bsl.series = s.id
-                JOIN books_tags_link btl ON b.id = btl.book
-                JOIN tags t ON btl.tag = t.id
-                LEFT JOIN data d ON b.id = d.book
-                WHERE bsl.series = ? AND t.name = 'Comics'
-                ORDER BY b.series_index
-            """, (series_id,))
-            rows = cursor.fetchall()
-            conn.close()
-
-            content = []
-            for row in rows:
-                book_id = str(row["id"])
-                series_slug = slugify(row["series_name"])
-                content.append({
-                    "id": book_id,
-                    "seriesId": str(row["series_id"]),
-                    "seriesName": row["series_name"],
-                    "number": row["series_index"] or 0,
-                    "title": row["title"],
-                    "size": row["file_size"] or 0,
-                    "mediaType": f"application/{row['format'].lower()}" if row["format"] else "application/octet-stream",
-                    "url": f"/api/v1/books/{book_id}",
-                    "thumbnailUrl": f"/opds/cover/{book_id}",
-                    "readableAt": row["pubdate"] or "",
-                })
-
-            resp = {"content": content, "totalPages": 1, "totalElements": len(content)}
-            logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id}/books returning: {json.dumps(resp)}")
-            return Response(json.dumps(resp), mimetype='application/json')
-
-        except Exception as e:
-            import traceback
-            logger.warning(f"[OPDS DEBUG] komga /api/v1/series/{series_id}/books error: {e}\n{traceback.format_exc()}")
-            return Response(json.dumps({"content": [], "totalPages": 1, "totalElements": 0}), mimetype='application/json')
+    # Paperback-compatible book routes (no /opds prefix)
+    @app.route('/api/v1/books')
+    @app.route('/api/v1/books/ondeck')
+    def paperback_api_books():
+        """Paperback API - list all books / ondeck (flat)."""
+        return _komga_books_response(ondeck=request.path.endswith('/ondeck'))
 
     @app.route('/opds/api/v1/books')
     @app.route('/opds/api/v1/books/ondeck')
     def komga_api_books():
         """Komga API - list all books / ondeck (flat)."""
+        return _komga_books_response(ondeck=request.path.endswith('/ondeck'))
+
+    def _komga_books_response(ondeck=False):
+        """Shared logic for books/ondeck list endpoints (PageBookDto)."""
         authenticated = _authenticate()
         if not authenticated:
-            return Response('Authentication required', status=401, mimetype='application/json',
-                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
-
-        ondeck = request.path.endswith('/ondeck')
-        logger.warning(f"[OPDS DEBUG] komga {'ondeck' if ondeck else 'books'}")
+            return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
         try:
             calibre_path, metadata_db, error = _get_calibre_config()
             if error:
-                return Response(json.dumps({"content": [], "totalPages": 1, "totalElements": 0}), mimetype='application/json')
+                return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
@@ -950,46 +1054,28 @@ def register_routes(app, check_auth):
             rows = cursor.fetchall()
             conn.close()
 
-            content = []
-            for row in rows:
-                book_id = str(row["id"])
-                content.append({
-                    "id": book_id,
-                    "seriesId": str(row["series_id"]) if row["series_id"] else None,
-                    "seriesName": row["series_name"] or None,
-                    "number": row["series_index"] or 0,
-                    "title": row["title"],
-                    "size": row["file_size"] or 0,
-                    "mediaType": f"application/{row['format'].lower()}" if row["format"] else "application/octet-stream",
-                    "url": f"/api/v1/books/{book_id}",
-                    "thumbnailUrl": f"/opds/cover/{book_id}",
-                    "readableAt": row["pubdate"] or "",
-                })
-
-            resp = {"content": content, "totalPages": 1, "totalElements": len(content)}
-            logger.warning(f"[OPDS DEBUG] komga {'ondeck' if ondeck else 'books'} returning: {json.dumps(resp)}")
+            books = [_make_book_dto(dict(row)) for row in rows]
+            resp = _page_response(books, len(books))
             return Response(json.dumps(resp), mimetype='application/json')
 
         except Exception as e:
             import traceback
-            logger.warning(f"[OPDS DEBUG] komga books/ondeck error: {e}\n{traceback.format_exc()}")
-            return Response(json.dumps({"content": [], "totalPages": 1, "totalElements": 0}), mimetype='application/json')
+            logger.warning(f"[OPDS] _komga_books_response error: {e}\n{traceback.format_exc()}")
+            return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
     @app.route('/opds/api/v1/books/<book_id>')
     @app.route('/api/v1/books/<book_id>')
     def komga_api_book_detail(book_id):
-        """Komga API - single book detail."""
+        """Komga API - single book detail (BookDto)."""
         authenticated = _authenticate()
         if not authenticated:
-            return Response('Authentication required', status=401, mimetype='application/json',
+            return Response('{"error":"Unauthorized"}', status=401, mimetype='application/json',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
-
-        logger.warning(f"[OPDS DEBUG] komga /api/v1/books/{book_id}")
 
         try:
             calibre_path, metadata_db, error = _get_calibre_config()
             if error:
-                return Response(json.dumps({}), mimetype='application/json')
+                return Response(json.dumps({}), mimetype='application/json', status=404)
 
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
@@ -1010,26 +1096,12 @@ def register_routes(app, check_auth):
             if not row:
                 return Response(json.dumps({}), mimetype='application/json', status=404)
 
-            series_slug = slugify(row["series_name"]) if row["series_name"] else ""
-            resp = json.dumps({
-                "id": str(row["id"]),
-                "seriesId": str(row["series_id"]) if row["series_id"] else None,
-                "seriesName": row["series_name"] or None,
-                "number": row["series_index"] or 0,
-                "title": row["title"],
-                "size": row["file_size"] or 0,
-                "mediaType": f"application/{row['format'].lower()}" if row["format"] else "application/octet-stream",
-                "url": f"/api/v1/books/{book_id}",
-                "thumbnailUrl": f"/opds/cover/{book_id}",
-                "readableAt": row["pubdate"] or "",
-            })
-            logger.warning(f"[OPDS DEBUG] komga /api/v1/books/{book_id} returning: {resp}")
-            return Response(resp, mimetype='application/json')
+            return Response(json.dumps(_make_book_dto(dict(row))), mimetype='application/json')
 
         except Exception as e:
             import traceback
-            logger.warning(f"[OPDS DEBUG] komga /api/v1/books/{book_id} error: {e}\n{traceback.format_exc()}")
-            return Response(json.dumps({}), mimetype='application/json')
+            logger.warning(f"[OPDS] komga_api_book_detail error: {e}\n{traceback.format_exc()}")
+            return Response(json.dumps({}), mimetype='application/json', status=500)
 
     @app.route('/opds/<path:unknown>')
     def opds_catchall(unknown):
