@@ -1067,11 +1067,6 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] komga_api_series_detail error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps({}), mimetype='application/json', status=500)
 
-    @app.route('/api/v1/series/<series_id>/books')
-    def komga_api_series_books(series_id):
-        """Komga API - books in a series (delegates to helper)."""
-        return _komga_series_books(series_id, base_url="/api/v1")
-
     # Paperback-compatible book routes (no /opds prefix)
     @app.route('/api/v1/books')
     @app.route('/api/v1/books/ondeck')
@@ -1186,15 +1181,20 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] komga_api_book_detail error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps({}), mimetype='application/json', status=500)
 
+    def _get_book_page_url(book_id, page_num):
+        """Build the absolute URL for a book page using request.host_url."""
+        base = request.host_url.rstrip('/')
+        return f"{base}/opds/api/v1/books/{book_id}/pages/{page_num}"
+
     @app.route('/opds/api/v1/books/<book_id>/pages')
     @app.route('/api/v1/books/<book_id>/pages')
     def komga_api_book_pages(book_id):
         """Komga API - get all page URLs for a book.
         
         Returns a list of page URLs in format:
-        ["http://host/opds/api/v1/books/<id>/pages/1", ...]
+        ["http://host:port/opds/api/v1/books/<id>/pages/1", ...]
         
-        Supports CBZ (ZIP), CBR (RAR - via filename extraction), and image directories.
+        Paperback expects absolute URLs (including scheme/host).
         """
         authenticated = _authenticate()
         if not authenticated:
@@ -1233,41 +1233,34 @@ def register_routes(app, check_auth):
                 if book_path and book_path.exists():
                     try:
                         with zipfile.ZipFile(str(book_path), 'r') as zf:
-                            # Get image files sorted alphabetically (page order)
                             image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
                             all_names = sorted(zf.namelist(), key=lambda x: x.lower())
                             for name in all_names:
                                 ext_lower = os.path.splitext(name)[1].lower()
                                 if ext_lower in image_extensions and not name.startswith('__MACOSX'):
-                                    pages.append(f"/opds/api/v1/books/{book_id}/pages/{len(pages) + 1}")
+                                    pages.append(_get_book_page_url(book_id, len(pages) + 1))
                     except Exception as e:
                         logger.warning(f"[OPDS] Error reading CBZ {book_path}: {e}")
             
-            # Handle CBR (RAR) files - try to list via rarfile or skip
+            # Handle CBR (RAR) files
             elif ext in ('cbr', 'rar'):
-                # For RAR files, we can't easily extract without rarfile library
-                # Return empty pages - reader should handle gracefully
                 logger.warning(f"[OPDS] CBR/RAR files not supported for page listing: {book_id}")
             
             # Handle PDF files
             elif ext == 'pdf':
-                # For PDFs, return the file itself as page 1
-                # The reader will handle PDF rendering
-                pages.append(f"/opds/api/v1/books/{book_id}/pages/1")
+                pages.append(_get_book_page_url(book_id, 1))
             
             # Handle image directories (comics stored as folders of images)
             else:
                 book_folder = calibre_path / str(book_id)
                 if book_folder.exists() and book_folder.is_dir():
                     image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
-                    image_files = []
-                    for f in book_folder.iterdir():
-                        if f.suffix.lower() in image_extensions:
-                            image_files.append(f)
-                    # Sort by filename
-                    image_files.sort(key=lambda x: x.name.lower())
+                    image_files = sorted(
+                        [f for f in book_folder.iterdir() if f.suffix.lower() in image_extensions],
+                        key=lambda x: x.name.lower()
+                    )
                     for f in image_files:
-                        pages.append(f"/opds/api/v1/books/{book_id}/pages/{len(pages) + 1}")
+                        pages.append(_get_book_page_url(book_id, len(pages) + 1))
 
             logger.warning(f"[OPDS] book_pages: book_id={book_id} format={ext} pages_count={len(pages)}")
             return Response(json.dumps(pages), mimetype='application/json')
