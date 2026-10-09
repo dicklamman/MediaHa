@@ -651,16 +651,16 @@ def register_calibre_routes(app):
     def komga_settings():
         """Get or save Komga library settings."""
         if request.method == 'GET':
-            if os.path.exists(KOMGA_DB_PATH):
-                with open(KOMGA_DB_PATH, 'r') as f:
+            if os.path.exists(KOMGA_CONFIG_PATH):
+                with open(KOMGA_CONFIG_PATH, 'r') as f:
                     return jsonify(json.load(f))
             return jsonify({
                 'komga_library_path': '/media/comic',
-                'comic_folder': '/media/comic/source'
+                'comic_folder': '/media/comic'
             })
 
         data = request.get_json()
-        with open(KOMGA_DB_PATH, 'w') as f:
+        with open(KOMGA_CONFIG_PATH, 'w') as f:
             json.dump(data, f, indent=2)
         return jsonify({'status': 'ok'})
 
@@ -674,11 +674,11 @@ def register_calibre_routes(app):
             try:
                 import fitz
 
-                if os.path.exists(KOMGA_DB_PATH):
-                    with open(KOMGA_DB_PATH, 'r') as f:
+                if os.path.exists(KOMGA_CONFIG_PATH):
+                    with open(KOMGA_CONFIG_PATH, 'r') as f:
                         config = json.load(f)
                 else:
-                    config = {'komga_library_path': '/media/comic', 'comic_folder': '/media/comic/source'}
+                    config = {'komga_library_path': '/media/comic', 'comic_folder': '/media/comic'}
 
                 comic_folder = config.get('comic_folder', '/media/comic/source')
                 komga_library_path = config.get('komga_library_path', '/media/comic')

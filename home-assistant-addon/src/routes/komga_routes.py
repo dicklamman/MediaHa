@@ -27,7 +27,7 @@ def _get_komga_config():
     else:
         config = {}
     komga_library_path = config.get('komga_library_path', '/media/comic')
-    comic_folder = config.get('comic_folder', '/media/comic/source')
+    comic_folder = config.get('comic_folder', '/media/comic')
     return komga_library_path, comic_folder
 
 
