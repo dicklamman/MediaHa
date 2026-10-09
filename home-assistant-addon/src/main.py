@@ -141,6 +141,9 @@ register_opds_routes(app, lambda u, p: u == AUTH_USERNAME and p == AUTH_PASSWORD
 from routes.auth_routes import register_auth_routes
 register_auth_routes(app, AUTH_USERNAME, AUTH_PASSWORD)
 
+from routes.komga_routes import register_komga_routes
+register_komga_routes(app, lambda u, p: u == AUTH_USERNAME and p == AUTH_PASSWORD)
+
 from routes.web_routes import register_web_routes
 register_web_routes(app)
 
@@ -167,9 +170,6 @@ register_epub_routes(app)
 
 from routes.photo_routes import register_photo_routes
 register_photo_routes(app)
-
-from routes.komga_routes import register_komga_routes
-register_komga_routes(app, lambda u, p: u == AUTH_USERNAME and p == AUTH_PASSWORD)
 
 
 # =============================================================================
