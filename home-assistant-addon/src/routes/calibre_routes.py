@@ -6,12 +6,15 @@ import json
 import shutil
 import uuid
 import zipfile
+import sqlite3
+import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from flask import jsonify
+from flask import jsonify, request
 
 
 CALIBRE_CONFIG_PATH = '/data/calibre_options.json'
+KOMGA_DB_PATH = '/data/komga_options.json'
 
 
 def register_calibre_routes(app):
@@ -634,6 +637,333 @@ def register_calibre_routes(app):
                     yield json.dumps({'type': 'error', 'message': f'Completed: {success_count} comics, {error_count} errors'}) + '\n'
                 else:
                     yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} comics imported'}) + '\n'
+
+            except Exception as e:
+                import traceback
+                yield json.dumps({'type': 'error', 'message': f'Sync failed: {str(e)}\n{traceback.format_exc()}'}) + '\n'
+
+        return app.response_class(generate(), mimetype='application/json')
+
+    # ── Komga Library Sync ──────────────────────────────────────────────────────
+    # Sync comics to /media/comic/ with a separate Komga-standard database
+
+    @app.route('/api/komga/settings', methods=['GET', 'POST'])
+    def komga_settings():
+        """Get or save Komga library settings."""
+        if request.method == 'GET':
+            if os.path.exists(KOMGA_DB_PATH):
+                with open(KOMGA_DB_PATH, 'r') as f:
+                    return jsonify(json.load(f))
+            return jsonify({
+                'komga_library_path': '/media/comic',
+                'comic_folder': '/media/comic/source'
+            })
+
+        data = request.get_json()
+        with open(KOMGA_DB_PATH, 'w') as f:
+            json.dump(data, f, indent=2)
+        return jsonify({'status': 'ok'})
+
+    @app.route('/api/komga/sync', methods=['POST'])
+    def sync_komga():
+        """Sync comic files to Komga library (/media/comic/).
+
+        Creates a Komga-standard database at /media/comic/metadata.db with proper schema.
+        """
+        def generate():
+            try:
+                import fitz
+
+                if os.path.exists(KOMGA_DB_PATH):
+                    with open(KOMGA_DB_PATH, 'r') as f:
+                        config = json.load(f)
+                else:
+                    config = {'komga_library_path': '/media/comic', 'comic_folder': '/media/comic/source'}
+
+                comic_folder = config.get('comic_folder', '/media/comic/source')
+                komga_library_path = config.get('komga_library_path', '/media/comic')
+
+                if not comic_folder:
+                    yield json.dumps({'type': 'error', 'message': 'Please configure comic source folder'}) + '\n'
+                    return
+
+                comic_path = Path(comic_folder)
+                komga_path = Path(komga_library_path)
+
+                if not comic_path.exists():
+                    yield json.dumps({'type': 'error', 'message': f'Comic source folder not found: {comic_folder}'}) + '\n'
+                    return
+
+                # Create library folder structure
+                komga_path.mkdir(parents=True, exist_ok=True)
+                books_folder = komga_path / 'books'
+                books_folder.mkdir(exist_ok=True)
+
+                # Komga database path
+                metadata_db = komga_path / 'metadata.db'
+
+                comic_extensions = {'.pdf', '.cbz', '.cbr', '.cb7'}
+                chapters = []
+                for ext in comic_extensions:
+                    chapters.extend(comic_path.rglob(f"*{ext}"))
+
+                total = len(chapters)
+                if total == 0:
+                    yield json.dumps({'type': 'error', 'message': 'No comic files found in ' + comic_folder}) + '\n'
+                    return
+
+                yield json.dumps({'type': 'log', 'message': f'Found {total} comic chapters', 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': f'Komga library: {komga_library_path}', 'level': 'info'}) + '\n'
+
+                # Connect to or create Komga database
+                conn = sqlite3.connect(str(metadata_db))
+                cursor = conn.cursor()
+
+                # Create Komga-standard schema (matches Calibre + Komga expectations)
+                schema = """
+                    CREATE TABLE IF NOT EXISTS authors (
+                        id INTEGER PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        normalize_name TEXT
+                    );
+                    CREATE TABLE IF NOT EXISTS series (
+                        id INTEGER PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        name_sort TEXT
+                    );
+                    CREATE TABLE IF NOT EXISTS tags (
+                        id INTEGER PRIMARY KEY,
+                        name TEXT UNIQUE NOT NULL
+                    );
+                    CREATE TABLE IF NOT EXISTS books (
+                        id INTEGER PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        title_sort TEXT,
+                        author_sort TEXT,
+                        series_index REAL DEFAULT 0,
+                        series_index_sort REAL DEFAULT 0,
+                        path TEXT,
+                        uuid TEXT,
+                        has_cover INTEGER DEFAULT 0,
+                        last_modified TEXT,
+                        created TEXT,
+                        pubdate TEXT
+                    );
+                    CREATE TABLE IF NOT EXISTS books_series_link (
+                        id INTEGER PRIMARY KEY,
+                        book INTEGER NOT NULL,
+                        series INTEGER NOT NULL,
+                        series_index REAL DEFAULT 0,
+                        UNIQUE(book, series)
+                    );
+                    CREATE TABLE IF NOT EXISTS books_authors_link (
+                        id INTEGER PRIMARY KEY,
+                        book INTEGER NOT NULL,
+                        author INTEGER NOT NULL,
+                        UNIQUE(book, author)
+                    );
+                    CREATE TABLE IF NOT EXISTS books_tags_link (
+                        id INTEGER PRIMARY KEY,
+                        book INTEGER NOT NULL,
+                        tag INTEGER NOT NULL,
+                        UNIQUE(book, tag)
+                    );
+                    CREATE TABLE IF NOT EXISTS data (
+                        id INTEGER PRIMARY KEY,
+                        book INTEGER NOT NULL,
+                        format TEXT,
+                        name TEXT,
+                        uncompressed_size INTEGER
+                    );
+                    CREATE TABLE IF NOT EXISTS comments (
+                        id INTEGER PRIMARY KEY,
+                        book INTEGER NOT NULL,
+                        text TEXT
+                    );
+                    CREATE TABLE IF NOT EXISTS identifiers (
+                        id INTEGER PRIMARY KEY,
+                        book INTEGER NOT NULL,
+                        type TEXT,
+                        val TEXT
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_books_series ON books_series_link(series);
+                    CREATE INDEX IF NOT EXISTS idx_books_tags ON books_tags_link(tag);
+                    CREATE INDEX IF NOT EXISTS idx_books_authors ON books_authors_link(author);
+                    CREATE INDEX IF NOT EXISTS idx_data_book ON data(book);
+                """
+                for stmt in schema.strip().split(';'):
+                    stmt = stmt.strip()
+                    if stmt:
+                        try:
+                            cursor.execute(stmt)
+                        except:
+                            pass
+
+                conn.commit()
+
+                # Clean up existing comic entries
+                cursor.execute("""
+                    SELECT b.id FROM books b
+                    JOIN books_tags_link btl ON b.id = btl.book
+                    JOIN tags t ON btl.tag = t.id
+                    WHERE t.name = 'Comics'
+                """)
+                old_book_ids = [b[0] for b in cursor.fetchall()]
+
+                if old_book_ids:
+                    yield json.dumps({'type': 'log', 'message': f'Cleaning up {len(old_book_ids)} old entries...', 'level': 'info'}) + '\n'
+                    for bid in old_book_ids:
+                        cursor.execute("DELETE FROM books_tags_link WHERE book = ?", (bid,))
+                        cursor.execute("DELETE FROM books_authors_link WHERE book = ?", (bid,))
+                        cursor.execute("DELETE FROM books_series_link WHERE book = ?", (bid,))
+                        cursor.execute("DELETE FROM data WHERE book = ?", (bid,))
+                        cursor.execute("DELETE FROM books WHERE id = ?", (bid,))
+                        old_dir = books_folder / str(bid)
+                        if old_dir.exists():
+                            shutil.rmtree(old_dir)
+
+                conn.commit()
+
+                cursor.execute("SELECT MAX(id) FROM books")
+                max_book_id = cursor.fetchone()[0] or 0
+
+                # Group files by parent folder (series)
+                comics = {}
+                for chapter_file in chapters:
+                    comic_name = chapter_file.parent.name
+                    original_name = chapter_file.name
+                    file_format = chapter_file.suffix[1:].upper()
+                    if comic_name not in comics:
+                        comics[comic_name] = []
+                    comics[comic_name].append((original_name, str(chapter_file), file_format))
+
+                yield json.dumps({'type': 'log', 'message': f'Found {len(comics)} comic series', 'level': 'info'}) + '\n'
+
+                success_count = 0
+                error_count = 0
+
+                def natural_sort_key(s):
+                    return [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', s)]
+
+                for comic_name, chapter_list in sorted(comics.items()):
+                    try:
+                        # Create series
+                        cursor.execute("SELECT id FROM series WHERE name = ?", (comic_name,))
+                        row = cursor.fetchone()
+                        series_id = row[0] if row else None
+                        if not series_id:
+                            cursor.execute("INSERT INTO series (name, name_sort) VALUES (?, ?)", (comic_name, comic_name))
+                            series_id = cursor.lastrowid
+
+                        # Sort chapters naturally
+                        chapter_list.sort(key=lambda x: natural_sort_key(x[0]))
+
+                        for idx, (original_name, file_path, file_format) in enumerate(chapter_list):
+                            max_book_id += 1
+                            book_id = max_book_id
+                            book_dir = books_folder / str(book_id)
+                            book_dir.mkdir(exist_ok=True)
+
+                            uuid_str = str(uuid.uuid4())
+                            chapter_idx = idx + 1
+                            book_title = f"{comic_name} - {Path(original_name).stem}"
+
+                            now = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S+00:00')
+
+                            # Insert book
+                            cursor.execute('''
+                                INSERT INTO books (id, title, title_sort, author_sort, series_index, series_index_sort, path, uuid, has_cover, last_modified, created, pubdate)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+                            ''', (book_id, book_title, book_title, 'Unknown', chapter_idx, chapter_idx, f"books/{book_id}", uuid_str, now, now, now))
+
+                            # Link to series
+                            cursor.execute("INSERT INTO books_series_link (book, series, series_index) VALUES (?, ?, ?)",
+                                         (book_id, series_id, chapter_idx))
+
+                            # Ensure Comics tag exists
+                            cursor.execute("SELECT id FROM tags WHERE name = 'Comics'")
+                            row = cursor.fetchone()
+                            tag_id = row[0] if row else None
+                            if not tag_id:
+                                cursor.execute("INSERT INTO tags (name) VALUES ('Comics')")
+                                tag_id = cursor.lastrowid
+                            cursor.execute("INSERT INTO books_tags_link (book, tag) VALUES (?, ?)", (book_id, tag_id))
+
+                            # Author
+                            cursor.execute("SELECT id FROM authors WHERE name = 'Unknown'")
+                            row = cursor.fetchone()
+                            author_id = row[0] if row else None
+                            if not author_id:
+                                cursor.execute("INSERT INTO authors (name, normalize_name) VALUES ('Unknown', 'unknown')")
+                                author_id = cursor.lastrowid
+                            cursor.execute("INSERT INTO books_authors_link (book, author) VALUES (?, ?)", (book_id, author_id))
+
+                            # Copy file to library
+                            dest_file = book_dir / original_name
+                            shutil.copy2(Path(file_path), dest_file)
+
+                            # Extract cover
+                            has_cover = 0
+                            if file_format == 'CBZ':
+                                try:
+                                    with zipfile.ZipFile(Path(file_path), 'r') as zf:
+                                        images = [f for f in zf.namelist() if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not f.startswith('__MACOSX')]
+                                        if images:
+                                            first_img = sorted(images)[0]
+                                            img_data = zf.read(first_img)
+                                            cover_path = book_dir / 'cover.jpg'
+                                            with open(cover_path, 'wb') as cf:
+                                                cf.write(img_data)
+                                            has_cover = 1
+                                except:
+                                    pass
+                            elif file_format == 'PDF':
+                                try:
+                                    doc = fitz.open(Path(file_path))
+                                    if len(doc) > 0:
+                                        page = doc[0]
+                                        mat = fitz.Matrix(2, 2)
+                                        pix = page.get_pixmap(matrix=mat)
+                                        cover_path = book_dir / 'cover.jpg'
+                                        pix.save(str(cover_path))
+                                        has_cover = 1
+                                    doc.close()
+                                except:
+                                    pass
+
+                            if has_cover:
+                                cursor.execute('UPDATE books SET has_cover = 1 WHERE id = ?', (book_id,))
+
+                            # Data entry
+                            file_size = Path(file_path).stat().st_size
+                            cursor.execute('''
+                                INSERT INTO data (book, format, name, uncompressed_size)
+                                VALUES (?, ?, ?, ?)
+                            ''', (book_id, file_format, Path(original_name).stem, file_size))
+
+                        conn.commit()
+                        success_count += 1
+                        yield json.dumps({'type': 'log', 'message': f'✓ {comic_name} ({len(chapter_list)} chapters)', 'level': 'success'}) + '\n'
+
+                    except Exception as e:
+                        error_count += 1
+                        yield json.dumps({'type': 'log', 'message': f'✗ {comic_name}: {str(e)}', 'level': 'error'}) + '\n'
+
+                # Clean empty folders
+                try:
+                    for item in books_folder.iterdir():
+                        if item.is_dir() and not any(item.iterdir()):
+                            shutil.rmtree(item)
+                except:
+                    pass
+
+                conn.close()
+
+                yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
+                if error_count > 0:
+                    yield json.dumps({'type': 'error', 'message': f'Completed: {success_count} comics, {error_count} errors'}) + '\n'
+                else:
+                    yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} comics imported to Komga library'}) + '\n'
 
             except Exception as e:
                 import traceback

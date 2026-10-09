@@ -16,6 +16,19 @@ from flask import request, Response, session, send_file, jsonify, redirect
 logger = logging.getLogger("komga")
 
 CALIBRE_CONFIG_PATH = '/data/calibre_options.json' if os.path.exists('/data') else os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../config/calibre_options.json')
+KOMGA_CONFIG_PATH = '/data/komga_options.json'
+KOMGA_DB_PATH = '/media/comic/metadata.db'
+
+def _get_komga_config():
+    """Load Komga library config and return (komga_library_path, comic_folder) or defaults."""
+    if os.path.exists(KOMGA_CONFIG_PATH):
+        with open(KOMGA_CONFIG_PATH, 'r') as f:
+            config = json.load(f)
+    else:
+        config = {}
+    komga_library_path = config.get('komga_library_path', '/media/comic')
+    comic_folder = config.get('comic_folder', '/media/comic/source')
+    return komga_library_path, comic_folder
 
 
 def register_komga_routes(app, check_auth):
@@ -58,7 +71,20 @@ def register_komga_routes(app, check_auth):
         return authenticated
 
     def _get_calibre_config():
-        """Load Calibre config and return (calibre_path, metadata_db) or error tuple."""
+        """Load Calibre/Komga config and return (calibre_path, metadata_db) or error tuple.
+        
+        Priority: Komga DB > Calibre config
+        """
+        # Check Komga database first
+        komga_lib, _ = _get_komga_config()
+        komga_db = Path(komga_lib) / 'metadata.db'
+        if komga_db.exists():
+            komga_path = Path(komga_lib)
+            if (komga_path / 'books').exists() and (komga_path / 'books').is_dir():
+                komga_path = komga_path / 'books'
+            return komga_path, komga_db, None
+
+        # Fall back to Calibre config
         if os.path.exists(CALIBRE_CONFIG_PATH):
             with open(CALIBRE_CONFIG_PATH, 'r') as f:
                 config = json.load(f)

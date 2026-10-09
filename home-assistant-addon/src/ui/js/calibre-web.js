@@ -8,8 +8,10 @@ export const calibreWeb = {
         this.saveBtn = document.getElementById('save-calibre-settings');
         this.syncBtn = document.getElementById('sync-calibre-btn');
         this.syncComicBtn = document.getElementById('sync-comic-btn');
+        this.syncKomgaBtn = document.getElementById('sync-komga-btn');
         this.logOutput = document.getElementById('calibre-log-output');
         this.comicLogOutput = document.getElementById('comic-log-output');
+        this.komgaLogOutput = document.getElementById('komga-log-output');
 
         if (!this.libraryPathInput) return;
 
@@ -22,6 +24,9 @@ export const calibreWeb = {
         this.syncBtn.addEventListener('click', () => this.syncEpub());
         if (this.syncComicBtn) {
             this.syncComicBtn.addEventListener('click', () => this.syncComics());
+        }
+        if (this.syncKomgaBtn) {
+            this.syncKomgaBtn.addEventListener('click', () => this.syncKomga());
         }
     },
 
@@ -226,6 +231,80 @@ export const calibreWeb = {
 
         this.comicLogOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
         this.comicLogOutput.scrollTop = this.comicLogOutput.scrollHeight;
+    },
+
+    async syncKomga() {
+        if (!this.syncKomgaBtn || this.syncKomgaBtn.disabled) return;
+
+        if (!this.comicFolderInput || !this.comicFolderInput.value.trim()) {
+            this.showKomgaLog('Please configure Comic Source Folder Path first!', 'error');
+            return;
+        }
+
+        this.syncKomgaBtn.disabled = true;
+        this.syncKomgaBtn.innerHTML = '<span class="spinner"></span> Syncing...';
+        if (this.komgaLogOutput) this.komgaLogOutput.textContent = '';
+
+        this.showKomgaLog('Starting Komga Library sync...', 'info');
+        this.showKomgaLog('Comics will be synced to /media/comic/ with Komga-standard database', 'info');
+
+        try {
+            // Save comic folder to Komga config
+            const komgaSettings = {
+                komga_library_path: '/media/comic',
+                comic_folder: this.comicFolderInput.value.trim()
+            };
+
+            await fetch('/api/komga/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(komgaSettings)
+            });
+
+            const response = await fetch('/api/komga/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.status === 401) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n').filter(line => line.trim());
+
+                for (const line of lines) {
+                    try {
+                        const data = JSON.parse(line);
+                        this.showKomgaLog(data.message, data.level || 'info');
+                    } catch (e) {}
+                }
+            }
+
+            this.showKomgaLog('=== Komga sync completed ===', 'success');
+        } catch (error) {
+            this.showKomgaLog('Komga sync failed: ' + error.message, 'error');
+        } finally {
+            this.syncKomgaBtn.disabled = false;
+            this.syncKomgaBtn.innerHTML = '<span class="material-icons" style="font-size: 20px; vertical-align: middle;">sync</span> Sync Comics to Komga Library';
+        }
+    },
+
+    showKomgaLog(message, level = 'info') {
+        if (!this.komgaLogOutput) return;
+        const timestamp = new Date().toLocaleTimeString();
+        const prefix = level === 'error' ? '❌' : level === 'success' ? '✅' : 'ℹ️';
+
+        this.komgaLogOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+        this.komgaLogOutput.scrollTop = this.komgaLogOutput.scrollHeight;
     }
 };
 
