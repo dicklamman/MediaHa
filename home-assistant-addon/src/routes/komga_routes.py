@@ -387,6 +387,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/libraries')
     @app.route('/komga/api/v1/libraries')
+    @app.route('/komga/libraries')
     def komga_libraries():
         """List libraries (always returns one 'Comics' library)."""
         err = _require_auth()
@@ -403,6 +404,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/libraries/<library_id>')
     @app.route('/komga/api/v1/libraries/<library_id>')
+    @app.route('/komga/libraries/<library_id>')
     def komga_library_detail(library_id):
         """Get library details."""
         err = _require_auth()
@@ -467,6 +469,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/libraries/<library_id>/series')
     @app.route('/komga/api/v1/libraries/<library_id>/series')
+    @app.route('/komga/libraries/<library_id>/series')
     def komga_library_series(library_id):
         """List all series in a library."""
         err = _require_auth()
@@ -483,6 +486,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/series')
     @app.route('/komga/api/v1/series')
+    @app.route('/komga/series')
     def komga_series_list():
         """List all series (flat endpoint)."""
         err = _require_auth()
@@ -499,6 +503,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/series/new')
     @app.route('/komga/api/v1/series/new')
+    @app.route('/komga/series/new')
     def komga_series_new():
         """New series - most recently added."""
         err = _require_auth()
@@ -514,6 +519,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/series/updated')
     @app.route('/komga/api/v1/series/updated')
+    @app.route('/komga/series/updated')
     def komga_series_updated():
         """Updated series - most recently modified."""
         err = _require_auth()
@@ -529,18 +535,41 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/series/<series_id>')
     @app.route('/komga/api/v1/series/<series_id>')
+    @app.route('/komga/series/<series_id>')
     def komga_series_detail(series_id):
-        """Get single series details."""
+        """Get single series details (bypass tag filter for direct lookups)."""
         err = _require_auth()
         if err:
             return err
-        rows, _ = _query_series(extra_where="s.id = ?", extra_params=(series_id,))
-        if not rows:
+        cpath, mdb, err = _get_calibre_config()
+        if err:
             return Response(json.dumps({"error": "Not found"}), status=404, mimetype='application/json')
-        return Response(json.dumps(_make_series_dto(rows[0])), mimetype='application/json')
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT s.id, s.name, s.name_sort,
+                   COUNT(DISTINCT b.id) as books_count,
+                   MAX(b.pubdate) as latest_date,
+                   MAX(b.last_modified) as last_modified,
+                   MIN(b.created) as created
+            FROM series s
+            LEFT JOIN books_series_link bsl ON s.id = bsl.series
+            LEFT JOIN books b ON bsl.book = b.id
+            WHERE s.id = ?
+            GROUP BY s.id
+        """, (series_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return Response(json.dumps({"error": "Not found"}), status=404, mimetype='application/json')
+        rd = dict(row)
+        rd["books_read_count"] = 0
+        rd["books_in_progress_count"] = 0
+        return Response(json.dumps(_make_series_dto(rd)), mimetype='application/json')
 
     @app.route('/api/v1/series/<series_id>/books')
     @app.route('/komga/api/v1/series/<series_id>/books')
+    @app.route('/komga/series/<series_id>/books')
     def komga_series_books(series_id):
         """Get all books in a series."""
         err = _require_auth()
@@ -592,6 +621,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/series/<series_id>/thumbnail')
     @app.route('/komga/api/v1/series/<series_id>/thumbnail')
+    @app.route('/komga/series/<series_id>/thumbnail')
     def komga_series_thumbnail(series_id):
         """Get series thumbnail (first book's cover)."""
         err = _require_auth()
@@ -622,6 +652,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/books')
     @app.route('/komga/api/v1/books')
+    @app.route('/komga/books')
     def komga_books_list():
         """List all books."""
         err = _require_auth()
@@ -672,6 +703,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/books/ondeck')
     @app.route('/komga/api/v1/books/ondeck')
+    @app.route('/komga/books/ondeck')
     def komga_books_ondeck():
         """Books on deck (recently read / next to read)."""
         err = _require_auth()
@@ -723,6 +755,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/books/<book_id>')
     @app.route('/komga/api/v1/books/<book_id>')
+    @app.route('/komga/books/<book_id>')
     def komga_book_detail(book_id):
         """Get single book details."""
         err = _require_auth()
@@ -756,6 +789,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/books/<book_id>/thumbnail')
     @app.route('/komga/api/v1/books/<book_id>/thumbnail')
+    @app.route('/komga/books/<book_id>/thumbnail')
     def komga_book_thumbnail(book_id):
         """Serve book cover image."""
         err = _require_auth()
@@ -780,6 +814,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/books/<book_id>/pages')
     @app.route('/komga/api/v1/books/<book_id>/pages')
+    @app.route('/komga/books/<book_id>/pages')
     def komga_book_pages(book_id):
         """Get list of page URLs for a book."""
         err = _require_auth()
@@ -833,6 +868,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/books/<book_id>/pages/<int:page_num>')
     @app.route('/komga/api/v1/books/<book_id>/pages/<int:page_num>')
+    @app.route('/komga/books/<book_id>/pages/<int:page_num>')
     def komga_book_page(book_id, page_num):
         """Serve a specific page image."""
         err = _require_auth()
@@ -886,6 +922,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/books/<book_id>/content')
     @app.route('/komga/api/v1/books/<book_id>/content')
+    @app.route('/komga/books/<book_id>/content')
     def komga_book_content(book_id):
         """Download the book file."""
         err = _require_auth()
@@ -920,6 +957,7 @@ def register_komga_routes(app, check_auth):
 
     @app.route('/api/v1/search')
     @app.route('/komga/api/v1/search')
+    @app.route('/komga/search')
     def komga_search():
         """Search series and books."""
         err = _require_auth()
