@@ -75,7 +75,7 @@ def register_komga_routes(app, check_auth):
         
         Priority: Komga DB > Calibre config
         """
-        # Check Komga database first
+        # Check Komga database first (via komga_options.json)
         komga_lib, _ = _get_komga_config()
         komga_db = Path(komga_lib) / 'metadata.db'
         if komga_db.exists():
@@ -84,27 +84,29 @@ def register_komga_routes(app, check_auth):
                 komga_path = komga_path / 'books'
             return komga_path, komga_db, None
 
-        # Fall back to Calibre config
+        # Fall back: Calibre config → /media/comic/metadata.db (Komga)
         if os.path.exists(CALIBRE_CONFIG_PATH):
             with open(CALIBRE_CONFIG_PATH, 'r') as f:
                 config = json.load(f)
-        else:
-            return None, None, ({"error": "Config not found"}, 404)
+            calibre_library_path = config.get('calibre_library_path', '')
+            if calibre_library_path:
+                calibre_path = Path(calibre_library_path)
+                if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
+                    calibre_path = calibre_path / 'books'
+                metadata_db = Path(calibre_library_path) / 'metadata.db'
+                if metadata_db.exists():
+                    return calibre_path, metadata_db, None
 
-        calibre_library_path = config.get('calibre_library_path', '')
-        if not calibre_library_path:
-            return None, None, ({"error": "Calibre path not set"}, 400)
+        # Final fallback: /media/comic/metadata.db
+        default_path = Path('/media/comic/metadata.db')
+        if default_path.exists():
+            default_base = Path('/media/comic')
+            books_path = default_base / 'books'
+            if books_path.exists() and books_path.is_dir():
+                return books_path, default_path, None
+            return default_base, default_path, None
 
-        calibre_path = Path(calibre_library_path)
-        # Handle Calibre's folder structure: library/books/{book_id}/
-        if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
-            calibre_path = calibre_path / 'books'
-        metadata_db = Path(calibre_library_path) / 'metadata.db'
-
-        if not metadata_db.exists():
-            return None, None, ({"error": "metadata.db not found"}, 404)
-
-        return calibre_path, metadata_db, None
+        return None, None, ({"error": "metadata.db not found"}, 404)
 
     def _get_db_conn(metadata_db):
         conn = sqlite3.connect(str(metadata_db), timeout=30)

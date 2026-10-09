@@ -397,26 +397,26 @@ def register_routes(app, check_auth):
         if os.path.exists(CALIBRE_CONFIG_PATH):
             with open(CALIBRE_CONFIG_PATH, 'r') as f:
                 config = json.load(f)
-        else:
-            return None, None, Response('<?xml version="1.0"?><opds><error>Config not found</error></opds>',
-                                       mimetype='application/xml')
+            calibre_library_path = config.get('calibre_library_path', '')
+            if calibre_library_path:
+                calibre_path = Path(calibre_library_path)
+                if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
+                    calibre_path = calibre_path / 'books'
+                metadata_db = Path(calibre_library_path) / 'metadata.db'
+                if metadata_db.exists():
+                    return calibre_path, metadata_db, None
 
-        calibre_library_path = config.get('calibre_library_path', '')
-        if not calibre_library_path:
-            return None, None, Response('<?xml version="1.0"?><opds><error>Calibre path not set</error></opds>',
-                                        mimetype='application/xml')
+        # Fall back: /media/book/metadata.db
+        default_path = Path('/media/book/metadata.db')
+        if default_path.exists():
+            default_base = Path('/media/book')
+            books_path = default_base / 'books'
+            if books_path.exists() and books_path.is_dir():
+                return books_path, default_path, None
+            return default_base, default_path, None
 
-        calibre_path = Path(calibre_library_path)
-        # Handle Calibre's folder structure: library/books/{book_id}/
-        if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
-            calibre_path = calibre_path / 'books'
-        metadata_db = Path(calibre_library_path) / 'metadata.db'
-
-        if not metadata_db.exists():
-            return None, None, Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
-                                        mimetype='application/xml')
-
-        return calibre_path, metadata_db, None
+        return None, None, Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
+                                    mimetype='application/xml')
 
     def _get_db_connection(metadata_db):
         """Create a SQLite connection with row factory"""
