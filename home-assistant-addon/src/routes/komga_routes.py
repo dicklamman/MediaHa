@@ -926,7 +926,7 @@ def register_komga_routes(app, check_auth):
     # This avoids duplicate route conflicts
 
     @app.route('/komga/read/<book_id>')
-    def komga_book_page(book_id):
+    def komga_book_reader(book_id):
         """Serve the Komga book reader page."""
         if not session.get("authenticated"):
             return redirect('/login.html', code=302)
