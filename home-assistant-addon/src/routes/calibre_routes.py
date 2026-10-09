@@ -674,14 +674,21 @@ def register_calibre_routes(app):
             try:
                 import fitz
 
+                yield json.dumps({'type': 'log', 'message': f'[DEBUG] KOMGA_CONFIG_PATH exists: {os.path.exists(KOMGA_CONFIG_PATH)}', 'level': 'info'}) + '\n'
+
                 if os.path.exists(KOMGA_CONFIG_PATH):
                     with open(KOMGA_CONFIG_PATH, 'r') as f:
                         config = json.load(f)
+                    yield json.dumps({'type': 'log', 'message': f'[DEBUG] Loaded config: {config}', 'level': 'info'}) + '\n'
                 else:
                     config = {'komga_library_path': '/media/comic', 'comic_folder': '/media/comic'}
+                    yield json.dumps({'type': 'log', 'message': '[DEBUG] Using default config', 'level': 'info'}) + '\n'
 
-                comic_folder = config.get('comic_folder', '/media/comic/source')
+                comic_folder = config.get('comic_folder', '/media/comic')
                 komga_library_path = config.get('komga_library_path', '/media/comic')
+
+                yield json.dumps({'type': 'log', 'message': f'[DEBUG] comic_folder: {comic_folder}', 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': f'[DEBUG] komga_library_path: {komga_library_path}', 'level': 'info'}) + '\n'
 
                 if not comic_folder:
                     yield json.dumps({'type': 'error', 'message': 'Please configure comic source folder'}) + '\n'
@@ -689,6 +696,8 @@ def register_calibre_routes(app):
 
                 comic_path = Path(comic_folder)
                 komga_path = Path(komga_library_path)
+
+                yield json.dumps({'type': 'log', 'message': f'[DEBUG] comic_path.exists(): {comic_path.exists()}', 'level': 'info'}) + '\n'
 
                 if not comic_path.exists():
                     yield json.dumps({'type': 'error', 'message': f'Comic source folder not found: {comic_folder}'}) + '\n'
@@ -705,9 +714,12 @@ def register_calibre_routes(app):
                 comic_extensions = {'.pdf', '.cbz', '.cbr', '.cb7'}
                 chapters = []
                 for ext in comic_extensions:
-                    chapters.extend(comic_path.rglob(f"*{ext}"))
+                    found = list(comic_path.rglob(f"*{ext}"))
+                    chapters.extend(found)
+                    yield json.dumps({'type': 'log', 'message': f'[DEBUG] Found {len(found)} files with {ext}', 'level': 'info'}) + '\n'
 
                 total = len(chapters)
+                yield json.dumps({'type': 'log', 'message': f'[DEBUG] Total chapters: {total}', 'level': 'info'}) + '\n'
                 if total == 0:
                     yield json.dumps({'type': 'error', 'message': 'No comic files found in ' + comic_folder}) + '\n'
                     return
@@ -800,6 +812,8 @@ def register_calibre_routes(app):
                             pass
 
                 conn.commit()
+
+                yield json.dumps({'type': 'log', 'message': '[DEBUG] Database schema created', 'level': 'info'}) + '\n'
 
                 # Clean up existing comic entries
                 cursor.execute("""
@@ -963,7 +977,9 @@ def register_calibre_routes(app):
                 if error_count > 0:
                     yield json.dumps({'type': 'error', 'message': f'Completed: {success_count} comics, {error_count} errors'}) + '\n'
                 else:
-                    yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} comics imported to Komga library'}) + '\n'
+                    yield json.dumps({'type': 'log', 'message': f'[DEBUG] Database file: {metadata_db}', 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'log', 'message': f'[DEBUG] Database exists: {metadata_db.exists()}', 'level': 'info'}) + '\n'
+                yield json.dumps({'type': 'success', 'message': f'Sync completed! {success_count} comics imported to Komga library'}) + '\n'
 
             except Exception as e:
                 import traceback
