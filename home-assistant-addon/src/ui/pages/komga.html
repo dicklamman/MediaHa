@@ -105,10 +105,22 @@
 
         <!-- All Series -->
         <div class="komga-section active" id="section-series">
-            <div class="komga-grid" id="series-grid"></div>
-            <div class="komga-empty" id="series-empty" style="display:none">
-                <h3>No comics found</h3>
-                <p>Import comics from a folder to get started.</p>
+            <div id="series-list">
+                <div class="komga-grid" id="series-grid"></div>
+                <div class="komga-empty" id="series-empty" style="display:none">
+                    <h3>No comics found</h3>
+                    <p>Import comics from a folder to get started.</p>
+                </div>
+            </div>
+            <div id="series-detail" style="display:none">
+                <button id="series-back-btn" style="background:none;border:none;color:var(--color-text);cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:16px;font-size:14px;">
+                    <span class="material-icons" style="font-size:20px;">arrow_back</span> Back to series
+                </button>
+                <h3 id="series-detail-title" style="margin:0 0 16px;font-size:18px;"></h3>
+                <div class="komga-grid" id="books-grid"></div>
+                <div class="komga-empty" id="books-empty" style="display:none">
+                    <h3>No books in this series</h3>
+                </div>
             </div>
         </div>
 
@@ -222,8 +234,7 @@
                         </div>
                     `;
                     card.addEventListener('click', () => {
-                        // Open series books in a new view
-                        window.open(`${apiBase}/komga/api/v1/series/${series.id}/books`, '_blank');
+                        loadSeriesBooks(series.id, series.name);
                     });
                     grid.appendChild(card);
                 }
@@ -238,6 +249,54 @@
             div.textContent = str;
             return div.innerHTML;
         }
+
+        async function loadSeriesBooks(seriesId, seriesName) {
+            document.getElementById('series-list').style.display = 'none';
+            document.getElementById('series-detail').style.display = 'block';
+            document.getElementById('series-detail-title').textContent = seriesName || 'Series';
+
+            const grid = document.getElementById('books-grid');
+            grid.innerHTML = '<p style="color:var(--color-text-muted);padding:20px;">Loading books...</p>';
+
+            try {
+                const resp = await fetch(`${apiBase}/api/v1/series/${seriesId}/books`);
+                if (resp.status === 401) { window.location.href = '/login.html'; return; }
+                const data = await resp.json();
+                const books = data.content || [];
+                grid.innerHTML = '';
+
+                if (books.length === 0) {
+                    document.getElementById('books-empty').style.display = 'block';
+                    return;
+                }
+                document.getElementById('books-empty').style.display = 'none';
+
+                for (const book of books) {
+                    const card = document.createElement('div');
+                    card.className = 'komga-card';
+                    card.innerHTML = `
+                        <img class="komga-card-img" src="${apiBase}/api/v1/books/${book.id}/thumbnail"
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 150%22><rect fill=%22%23e0e0e0%22 width=%22100%22 height=%22150%22/><text x=%2250%22 y=%2275%22 text-anchor=%22middle%22 fill=%22%23999%22 font-size=%2212%22>No Cover</text></svg>'">
+                        <div class="komga-card-info">
+                            <h4>${escapeHtml(book.name || book.title || '')}</h4>
+                            <p>${book.number ? 'Ch. ' + book.number : ''}</p>
+                        </div>
+                    `;
+                    card.addEventListener('click', () => {
+                        window.location.href = `${apiBase}/komga/book/${book.id}`;
+                    });
+                    grid.appendChild(card);
+                }
+            } catch (e) {
+                grid.innerHTML = '<p style="color:#f48771;padding:20px;">Failed to load books: ' + e.message + '</p>';
+            }
+        }
+
+        // Back button from series detail
+        document.getElementById('series-back-btn').addEventListener('click', () => {
+            document.getElementById('series-detail').style.display = 'none';
+            document.getElementById('series-list').style.display = 'block';
+        });
 
         // Import comics
         async function startKomgaImport() {

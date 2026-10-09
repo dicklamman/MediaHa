@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Komga Book - MediaHa</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0f0f0f;
+            --surface: #1a1a1a;
+            --surface2: #252525;
+            --border: #333;
+            --text: #e0e0e0;
+            --muted: #888;
+            --primary: #6c5ce7;
+            --primary-hover: #5a4bd4;
+        }
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+        #reader-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 52px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 12px;
+            z-index: 100;
+            user-select: none;
+        }
+        #reader-bar .back-btn {
+            background: none;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            font-size: 20px;
+        }
+        #reader-bar .back-btn:hover { background: var(--surface2); }
+        #reader-title {
+            flex: 1;
+            font-size: 14px;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--muted);
+        }
+        #reader-title strong {
+            color: var(--text);
+        }
+        .reader-btn {
+            background: none;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .reader-btn:hover { background: var(--surface2); }
+        .reader-btn.active { color: var(--primary); }
+
+        /* Page layout */
+        #reader-area {
+            position: fixed;
+            top: 52px; left: 0; right: 0; bottom: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #000;
+        }
+        #reader-area img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+            cursor: pointer;
+        }
+
+        /* Bottom bar */
+        #bottom-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: 48px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 8px;
+        }
+        #page-nav-btn {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+        }
+        #page-nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+        #page-slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border);
+            outline: none;
+            cursor: pointer;
+        }
+        #page-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+        }
+        #page-info {
+            font-size: 13px;
+            color: var(--muted);
+            min-width: 70px;
+            text-align: center;
+        }
+
+        /* Loading / Error */
+        #loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            flex-direction: column;
+            gap: 12px;
+            color: var(--muted);
+        }
+        #loading .spinner {
+            width: 36px; height: 36px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #error-msg {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: #f48771;
+        }
+
+        /* Click zones for prev/next */
+        .click-zone {
+            position: fixed;
+            top: 52px;
+            bottom: 48px;
+            width: 35%;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .click-zone:hover { opacity: 1; background: rgba(255,255,255,0.03); }
+        .click-zone span {
+            font-size: 32px;
+            color: rgba(255,255,255,0.4);
+            pointer-events: none;
+        }
+        #zone-prev { left: 0; }
+        #zone-next { right: 0; }
+
+        /* Fit modes */
+        .fit-fitwidth #reader-area img { width: 100%; max-height: none; }
+        .fit-smart #reader-area img { max-width: 100%; max-height: 100%; }
+    </style>
+</head>
+<body>
+
+<div id="reader-bar">
+    <button class="back-btn" id="back-btn" title="Back to series">
+        <span class="material-icons">arrow_back</span>
+    </button>
+    <div id="reader-title">
+        <strong id="book-title">Loading...</strong>
+        <span id="series-name"></span>
+    </div>
+    <button class="reader-btn" id="fit-btn" title="Toggle fit mode">
+        <span class="material-icons" id="fit-icon">aspect_ratio</span>
+    </button>
+    <button class="reader-btn" id="fit-vertical-btn" title="Fit vertical">
+        <span class="material-icons">crop_portrait</span>
+    </button>
+</div>
+
+<div id="reader-area">
+    <div id="loading">
+        <div class="spinner"></div>
+        <span>Loading book...</span>
+    </div>
+    <div id="error-msg"></div>
+</div>
+
+<div class="click-zone" id="zone-prev"><span class="material-icons">chevron_left</span></div>
+<div class="click-zone" id="zone-next"><span class="material-icons">chevron_right</span></div>
+
+<div id="bottom-bar">
+    <button id="page-nav-btn" title="Previous page">◀</button>
+    <input type="range" id="page-slider" min="1" max="1" value="1">
+    <span id="page-info">1 / 1</span>
+    <button id="page-nav-btn-next" class="reader-btn" title="Next page">▶</button>
+</div>
+
+<script>
+(function() {
+    const apiBase = '';
+    const bookId = window.location.pathname.split('/komga/book/')[1] || '';
+
+    let bookData = null;
+    let pages = [];
+    let currentPage = 1;
+    let totalPages = 1;
+    let fitMode = 'smart'; // 'smart' | 'width' | 'vertical'
+
+    const readerArea = document.getElementById('reader-area');
+    const loading = document.getElementById('loading');
+    const errorMsg = document.getElementById('error-msg');
+    const slider = document.getElementById('page-slider');
+    const pageInfo = document.getElementById('page-info');
+    const bookTitle = document.getElementById('book-title');
+    const seriesName = document.getElementById('series-name');
+
+    function showError(msg) {
+        loading.style.display = 'none';
+        errorMsg.style.display = 'block';
+        errorMsg.textContent = msg;
+    }
+
+    function showLoading() {
+        loading.style.display = 'flex';
+        errorMsg.style.display = 'none';
+        readerArea.querySelectorAll('img').forEach(i => i.remove());
+    }
+
+    function renderPage(num) {
+        if (num < 1 || num > totalPages || !pages[num - 1]) return;
+        currentPage = num;
+        readerArea.querySelectorAll('img').forEach(i => i.remove());
+        loading.style.display = 'none';
+
+        const img = document.createElement('img');
+        img.src = pages[num - 1];
+        img.alt = `Page ${num}`;
+        img.id = 'page-img';
+        readerArea.appendChild(img);
+
+        slider.value = num;
+        pageInfo.textContent = `${num} / ${totalPages}`;
+
+        // Scroll to top
+        readerArea.scrollTop = 0;
+    }
+
+    function prevPage() {
+        if (currentPage > 1) renderPage(currentPage - 1);
+    }
+
+    function nextPage() {
+        if (currentPage < totalPages) renderPage(currentPage + 1);
+    }
+
+    function setFit(mode) {
+        fitMode = mode;
+        document.body.className = 'fit-' + mode;
+        document.getElementById('fit-icon').textContent =
+            mode === 'smart' ? 'aspect_ratio' : mode === 'width' ? 'width_normal' : 'crop_portrait';
+        // Re-render image with new fit
+        if (pages.length) renderPage(currentPage);
+    }
+
+    // Load book metadata
+    async function loadBook() {
+        showLoading();
+        try {
+            const resp = await fetch(`${apiBase}/api/v1/books/${bookId}`);
+            if (resp.status === 401) { window.location.href = '/login.html'; return; }
+            if (!resp.ok) throw new Error('Book not found');
+            bookData = await resp.json();
+
+            bookTitle.textContent = bookData.title || `Book ${bookId}`;
+            if (bookData.seriesTitle) {
+                seriesName.textContent = ' — ' + bookData.seriesTitle;
+            }
+
+            totalPages = bookData.pagesCount || 0;
+            if (totalPages === 0) throw new Error('No pages found for this book');
+
+            slider.max = totalPages;
+            pageInfo.textContent = `1 / ${totalPages}`;
+
+            // Load pages
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(`${apiBase}/api/v1/books/${bookId}/pages/${i}`);
+            }
+
+            renderPage(1);
+        } catch (e) {
+            showError('Failed to load book: ' + e.message);
+        }
+    }
+
+    // Events
+    document.getElementById('back-btn').addEventListener('click', () => {
+        if (bookData && bookData.seriesId) {
+            window.location.href = `${apiBase}/komga/series/${bookData.seriesId}`;
+        } else {
+            window.location.href = `${apiBase}/komga`;
+        }
+    });
+
+    slider.addEventListener('input', () => {
+        const p = parseInt(slider.value);
+        if (p !== currentPage) renderPage(p);
+    });
+
+    document.getElementById('page-nav-btn').addEventListener('click', prevPage);
+    document.getElementById('page-nav-btn-next').addEventListener('click', nextPage);
+
+    // Click zones
+    document.getElementById('zone-prev').addEventListener('click', prevPage);
+    document.getElementById('zone-next').addEventListener('click', nextPage);
+
+    // Keyboard navigation
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowLeft' || e.key === 'PageUp') prevPage();
+        if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); nextPage(); }
+        if (e.key === 'Home') renderPage(1);
+        if (e.key === 'End') renderPage(totalPages);
+    });
+
+    // Fit mode buttons
+    document.getElementById('fit-btn').addEventListener('click', () => {
+        setFit(fitMode === 'smart' ? 'width' : 'smart');
+    });
+    document.getElementById('fit-vertical-btn').addEventListener('click', () => {
+        setFit('vertical');
+    });
+
+    // Touch swipe
+    let touchStartX = 0;
+    readerArea.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+    readerArea.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(dx) > 50) {
+            if (dx < 0) nextPage(); else prevPage();
+        }
+    });
+
+    loadBook();
+})();
+</script>
+</body>
+</html>

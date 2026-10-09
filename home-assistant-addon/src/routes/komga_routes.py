@@ -11,7 +11,7 @@ import uuid
 import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from flask import request, Response, session, send_file, jsonify, redirect
+from flask import request, Response, session, send_file, send_from_directory, jsonify, redirect
 
 logger = logging.getLogger("komga")
 
@@ -924,6 +924,16 @@ def register_komga_routes(app, check_auth):
     # ── Komga Sync ─────────────────────────────────────────────────────────────
     # NOTE: /api/komga/sync is now defined in calibre_routes.py
     # This avoids duplicate route conflicts
+
+    @app.route('/komga/book/<book_id>')
+    def komga_book_page(book_id):
+        """Serve the Komga book reader page."""
+        if not session.get("authenticated"):
+            return redirect('/login.html', code=302)
+        return send_from_directory(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../ui/pages'),
+            'komga-book.html'
+        )
 
     @app.route('/api/komga/settings', methods=['GET', 'POST'])
     def komga_settings():
