@@ -902,11 +902,13 @@ def register_komga_routes(app, check_auth):
 
         ext = row["format"].lower() if row["format"] else ""
         db_path = row["path"]
+        logger.warning(f"[Komga] Page request: book_id={book_id}, ext={ext}, db_path={db_path}")
         mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
-                    '.gif': 'image/gif', '.webp': 'image/webp'}
+                    '.gif': 'image/gif', '.webp': 'image/webp', '.pdf': 'application/pdf'}
 
         if ext in ('cbz', 'zip'):
             book_path = _find_book_file(book_id, ext, cpath, db_path)
+            logger.warning(f"[Komga] CBZ path: {book_path}, exists={book_path.exists() if book_path else False}")
             if book_path and book_path.exists():
                 try:
                     with zipfile.ZipFile(str(book_path), 'r') as zf:
@@ -918,9 +920,33 @@ def register_komga_routes(app, check_auth):
                         if 1 <= page_num <= len(names):
                             data = zf.read(names[page_num - 1])
                             mime = mime_map.get(os.path.splitext(names[page_num - 1])[1].lower(), 'image/jpeg')
+                            logger.warning(f"[Komga] Serving CBZ page {page_num}, mime={mime}, size={len(data)}")
                             return Response(data, mimetype=mime)
                 except Exception as e:
                     logger.warning(f"[Komga] Error extracting page: {e}")
+
+        elif ext == 'pdf':
+            # For PDF, find and serve the PDF file directly
+            pdf_path = None
+            for base in [cpath, Path('/media/comic'), Path('/media/comic/book')]:
+                if not base.exists():
+                    continue
+                for candidate in [base / db_path, base / str(book_id), base / f"{book_id}.pdf"]:
+                    logger.warning(f"[Komga] Checking PDF: {candidate}")
+                    if candidate.exists() and candidate.suffix.lower() == '.pdf':
+                        pdf_path = candidate
+                        break
+                if pdf_path:
+                    break
+            if pdf_path:
+                try:
+                    with open(pdf_path, 'rb') as f:
+                        data = f.read()
+                    logger.warning(f"[Komga] Serving PDF file: {pdf_path}, size={len(data)}")
+                    return Response(data, mimetype='application/pdf')
+                except Exception as e:
+                    logger.warning(f"[Komga] Error reading PDF: {e}")
+            return Response("PDF not found", status=404)
 
         else:
             image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
