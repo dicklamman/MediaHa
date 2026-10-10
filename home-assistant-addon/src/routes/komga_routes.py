@@ -489,23 +489,6 @@ def register_komga_routes(app, check_auth):
 
     # ── Series ────────────────────────────────────────────────────────────────
 
-    def _derive_series_name(series_id, conn):
-        """Derive series name from first book's title, stripping volume/chapter prefixes."""
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT b.title FROM books b
-            JOIN books_series_link bsl ON b.id = bsl.book
-            WHERE bsl.series = ?
-            ORDER BY b.series_index
-            LIMIT 1
-        """, (series_id,))
-        row = cursor.fetchone()
-        if row and row["title"]:
-            name = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+\s*[-.]\s*)', '', row["title"])
-            name = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+)\s*$', '', name).strip()
-            return name
-        return None
-
     def _derive_series_name(series_id, cursor):
         """Derive series name from first book's title, stripping volume/chapter prefixes."""
         cursor.execute("""
@@ -519,6 +502,7 @@ def register_komga_routes(app, check_auth):
         if row and row["title"]:
             name = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+\s*[-.]\s*)', '', row["title"])
             name = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+)\s*$', '', name).strip()
+            name = re.sub(r'\s*[-–—―_]+\s*$', '', name).strip()
             return name
         return None
 
@@ -670,6 +654,7 @@ def register_komga_routes(app, check_auth):
         if rd.get("first_book_title"):
             series_name = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+\s*[-.]\s*)', '', rd["first_book_title"])
             series_name = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+)\s*$', '', series_name).strip()
+            series_name = re.sub(r'\s*[-–—―_]+\s*$', '', series_name).strip()
         else:
             series_name = rd.get("name", "")
 
@@ -942,6 +927,7 @@ def register_komga_routes(app, check_auth):
         if series_id and rd.get("title"):
             derived = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+\s*[-.]\s*)', '', rd["title"])
             derived = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+)\s*$', '', derived).strip()
+            derived = re.sub(r'\s*[-–—―_]+\s*$', '', derived).strip()
             rd["series_name"] = derived
         else:
             rd["series_name"] = ""
