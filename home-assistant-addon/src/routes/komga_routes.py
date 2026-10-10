@@ -465,6 +465,21 @@ def register_komga_routes(app, check_auth):
             "lastModified": _now_iso(),
         }]), mimetype='application/json')
 
+    @app.route('/comic/komga')
+    def komga_main():
+        """Komga API root - returns library info."""
+        err = _require_auth()
+        if err:
+            return err
+        return Response(json.dumps({
+            "id": "comics",
+            "name": "Comics",
+            "type": "COMIC",
+            "url": "/comic/api/v1/libraries/comics",
+            "created": _now_iso(),
+            "lastModified": _now_iso(),
+        }), mimetype='application/json')
+
     @app.route('/comic/api/v1/libraries/<library_id>')
     def komga_library_detail(library_id):
         """Get library details."""

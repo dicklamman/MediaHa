@@ -158,16 +158,6 @@ def register_web_routes(app):
         """Redirect /comic to /comic/komga."""
         return redirect('/comic/komga', code=302)
 
-    @app.route('/comic/komga')
-    @app.route('/comic/komga/')
-    @app.route('/comic/komga/<path:rest>')
-    def comic_komga(rest=None):
-        """Serve the Komga comic reader page (Komga-standard SPA)."""
-        return send_from_directory(
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../ui/pages'),
-            'komga.html'
-        )
-
     @app.route('/comic/<path:rest>')
     def comic_subpath(rest):
         """Redirect any /comic/* subpaths to /comic/komga."""
