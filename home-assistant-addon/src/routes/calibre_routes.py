@@ -761,7 +761,7 @@ def register_calibre_routes(app):
                         name TEXT UNIQUE NOT NULL
                     );
                     CREATE TABLE IF NOT EXISTS books (
-                        id INTEGER PRIMARY KEY,
+                        id TEXT PRIMARY KEY,
                         title TEXT NOT NULL,
                         title_sort TEXT,
                         author_sort TEXT,

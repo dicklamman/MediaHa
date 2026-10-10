@@ -139,8 +139,17 @@ def register_web_routes(app):
     @app.route('/komga')
     @app.route('/komga/')
     def komga_root():
-        """Redirect /komga to the Komga API root."""
-        return redirect('/komga/api/v1', code=302)
+        """Redirect /komga to the Komga UI page."""
+        return redirect('/komga.html', code=302)
+
+    @app.route('/comic')
+    @app.route('/comic/')
+    def comic_root():
+        """Serve the comic/Komga library page."""
+        return send_from_directory(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../ui/pages'),
+            'komga.html'
+        )
 
     @app.route('/login.html')
     def login_page():

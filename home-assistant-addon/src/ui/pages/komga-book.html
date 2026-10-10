@@ -238,7 +238,7 @@
 <script>
 (function() {
     const apiBase = '';
-    const bookId = window.location.pathname.split('/komga/book/')[1] || '';
+    const bookId = window.location.pathname.split('/comic/book/')[1] || '';
 
     let bookData = null;
     let pages = [];
@@ -306,7 +306,7 @@
     async function loadBook() {
         showLoading();
         try {
-            const resp = await fetch(`${apiBase}/api/v1/books/${bookId}`);
+            const resp = await fetch(`${apiBase}/comic/api/v1/books/${bookId}`);
             if (resp.status === 401) { window.location.href = '/login.html'; return; }
             if (!resp.ok) throw new Error('Book not found');
             bookData = await resp.json();
@@ -324,7 +324,7 @@
 
             // Load pages
             for (let i = 1; i <= totalPages; i++) {
-                pages.push(`${apiBase}/api/v1/books/${bookId}/pages/${i}`);
+                pages.push(`${apiBase}/comic/api/v1/books/${bookId}/pages/${i}`);
             }
 
             renderPage(1);
@@ -336,9 +336,9 @@
     // Events
     document.getElementById('back-btn').addEventListener('click', () => {
         if (bookData && bookData.seriesId) {
-            window.location.href = `${apiBase}/komga/series/${bookData.seriesId}`;
+            window.location.href = `${apiBase}/comic/api/v1/series/${bookData.seriesId}`;
         } else {
-            window.location.href = `${apiBase}/komga`;
+            window.location.href = `${apiBase}/comic`;
         }
     });
 

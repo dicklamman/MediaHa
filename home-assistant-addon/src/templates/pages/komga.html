@@ -201,10 +201,10 @@
       for (const series of content) {
         const card = document.createElement('div');
         card.className = 'komga-card';
-        card.innerHTML = '<img class="komga-card-img" src="' + apiBase + '/api/v1/series/' + series.id + '/thumbnail" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 150%22><rect fill=%22%23e0e0e0%22 width=%22100%22 height=%22150%22/><text x=%2250%22 y=%2275%22 text-anchor=%22middle%22 fill=%22%23999%22 font-size=%2212%22>No Cover</text></svg>\'">' +
+        card.innerHTML = '<img class="komga-card-img" src="' + apiBase + '/comic/api/v1/series/' + series.id + '/thumbnail" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 150%22><rect fill=%22%23e0e0e0%22 width=%22100%22 height=%22150%22/><text x=%2250%22 y=%2275%22 text-anchor=%22middle%22 fill=%22%23999%22 font-size=%2212%22>No Cover</text></svg>\'">' +
           '<div class="komga-card-info"><h4>' + escapeHtml(series.name || '') + '</h4><p>' + (series.booksCount || 0) + ' books</p></div>';
         card.addEventListener('click', () => {
-          window.open(apiBase + '/komga/api/v1/series/' + series.id + '/books', '_blank');
+          window.open(apiBase + '/comic/api/v1/series/' + series.id + '/books', '_blank');
         });
         grid.appendChild(card);
       }

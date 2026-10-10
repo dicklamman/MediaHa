@@ -67,7 +67,7 @@ def register_routes(app, check_auth):
             "deleted": False,
             "oneshot": row.get("oneshot", False),
             "libraryId": "comics",
-            "url": f"/api/v1/series/{row['id']}",
+            "url": f"/book/api/v1/series/{row['id']}",
             "metadata": {
                 "title": row["name"],
                 "titleLock": True,
@@ -194,7 +194,7 @@ def register_routes(app, check_auth):
             "created": _date_iso(row.get("created", "")),
             "lastModified": _date_iso(row.get("last_modified", "")),
             "url": f"{base_url}/books/{book_id}",
-            "thumbnailUrl": f"/opds/cover/{book_id}",
+            "thumbnailUrl": f"/book/cover/{book_id}",
             "readableAt": _date_iso(row.get("pubdate", "")),
             "readProgress": None,
             "media": {
@@ -275,14 +275,14 @@ def register_routes(app, check_auth):
         now = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00')
         return [
             '<?xml version="1.0" encoding="UTF-8"?>',
-            '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:thr="http://purl.org/syndication/thread/1.0">',
+            '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://book-spec.org/2010/catalog" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:thr="http://purl.org/syndication/thread/1.0">',
             '  <title>' + escape_xml(title) + '</title>',
             '  <id>' + feed_id + '</id>',
             '  <updated>' + now + '</updated>',
             '  <icon>/media/books/book.png</icon>',
-            '  <link href="/opds" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
+            '  <link href="/book" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
             '  <link href="' + self_path + '" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="self"/>',
-            '  <link href="/opds/search" type="application/opensearchdescription+xml" rel="search" title="Search here"/>'
+            '  <link href="/book/search" type="application/opensearchdescription+xml" rel="search" title="Search here"/>'
         ]
 
     def make_book_entry(cursor, book_row):
@@ -305,7 +305,7 @@ def register_routes(app, check_auth):
         if series_name and series_index:
             series_slug = slugify(series_name)
             series_content = '<strong>Series:</strong>Book ' + str(int(series_index)) + ' in the ' + escape_xml(series_name) + ' series<br />'
-            series_link = '  <link href="/opds/series/' + str(series_id) + '/' + series_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Book ' + str(int(series_index)) + ' in the ' + escape_xml(series_name) + ' series"/>'
+            series_link = '  <link href="/book/series/' + str(series_id) + '/' + series_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Book ' + str(int(series_index)) + ' in the ' + escape_xml(series_name) + ' series"/>'
         
         # Get author info
         author_name = book_row["author_name"] if "author_name" in book_row.keys() else ""
@@ -313,7 +313,7 @@ def register_routes(app, check_auth):
         author_content = ''
         if author_name:
             author_slug = slugify(author_name)
-            author_content = '<author><name>' + escape_xml(author_name) + '</name><uri>/opds/authors/' + str(author_id if author_id else '0') + '/' + author_slug + '</uri></author>'
+            author_content = '<author><name>' + escape_xml(author_name) + '</name><uri>/book/authors/' + str(author_id if author_id else '0') + '/' + author_slug + '</uri></author>'
         
         # Get metadata
         pubdate = book_row["pubdate"] if "pubdate" in book_row.keys() else ""
@@ -321,7 +321,7 @@ def register_routes(app, check_auth):
         language = "en"  # Default to 'en' if not found
         ext = book_row["format"] if "format" in book_row.keys() else "epub"
         ext = ext.lower()
-        file_url = '/opds/fetch/' + str(book_id) + '/' + ext
+        file_url = '/book/fetch/' + str(book_id) + '/' + ext
         file_length = book_row["file_size"] if "file_size" in book_row.keys() and book_row["file_size"] else 0
         
         # Build entry
@@ -331,8 +331,8 @@ def register_routes(app, check_auth):
             '    <updated>' + now + '</updated>',
             '    <id>' + entry_uuid + '</id>',
             '    <content type="text">Book ' + str(int(series_index)) + ' of ' + escape_xml(series_name) + '</content>',
-            '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image"/>',
-            '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>'
+            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://book-spec.org/image"/>',
+            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://book-spec.org/image/thumbnail"/>'
         ]
         
         # Map extension to MIME type (used in both feed entries and download)
@@ -350,7 +350,7 @@ def register_routes(app, check_auth):
         mime = mime_map.get(ext, 'application/octet-stream')
 
         # Add acquisition link with correct MIME type and file size
-        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://opds-spec.org/acquisition"'
+        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://book-spec.org/acquisition"'
         if file_length:
             acq_link += ' length="' + str(file_length) + '"'
         acq_link += ' />'
@@ -359,7 +359,7 @@ def register_routes(app, check_auth):
         # Add author link if available
         if author_name and author_id:
             author_slug = slugify(author_name)
-            entry.append('    <link href="/opds/authors/' + str(author_id) + '/' + author_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Other books by ' + escape_xml(author_name) + '"/>')
+            entry.append('    <link href="/book/authors/' + str(author_id) + '/' + author_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Other books by ' + escape_xml(author_name) + '"/>')
         
         # Add series link
         if series_link:
@@ -415,7 +415,7 @@ def register_routes(app, check_auth):
                 return books_path, default_path, None
             return default_base, default_path, None
 
-        return None, None, Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
+        return None, None, Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></book>',
                                     mimetype='application/xml')
 
     def _get_db_connection(metadata_db):
@@ -452,8 +452,8 @@ def register_routes(app, check_auth):
 
         return None, None
 
-    @app.route('/opds')
-    @app.route('/opds/')
+    @app.route('/book')
+    @app.route('/book/')
     def opds_root():
         """OPDS root - Books and Comics"""
         logger.warning(f"[OPDS DEBUG] path={request.path} method={request.method} auth={request.headers.get('Authorization','')[:30]}...")
@@ -471,7 +471,7 @@ def register_routes(app, check_auth):
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
 
-            xml_parts = make_opds_header('MediaHa Library', 'mediaha:root', '/opds')
+            xml_parts = make_opds_header('MediaHa Library', 'mediaha:root', '/book')
 
             # Books entry with count
             cursor.execute("""
@@ -479,7 +479,7 @@ def register_routes(app, check_auth):
                 JOIN data d ON b.id = d.book WHERE d.format = 'EPUB'
             """)
             book_count = cursor.fetchone()["cnt"]
-            xml_parts.append('  <entry><title>Books</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:nav:books</id><content type="text">' + str(book_count) + ' books</content><icon>/media/books/book.png</icon><link href="/opds/books" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(book_count) + '"/></entry>')
+            xml_parts.append('  <entry><title>Books</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:nav:books</id><content type="text">' + str(book_count) + ' books</content><icon>/media/books/book.png</icon><link href="/book/books" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(book_count) + '"/></entry>')
 
             # Comics entry with count
             cursor.execute("""
@@ -489,7 +489,7 @@ def register_routes(app, check_auth):
                 WHERE t.name = 'Comics'
             """)
             comic_count = cursor.fetchone()["cnt"]
-            xml_parts.append('  <entry><title>Comics</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:nav:comics</id><content type="text">' + str(comic_count) + ' comics</content><icon>/media/books/comic.png</icon><link href="/opds/comics" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(comic_count) + '"/></entry>')
+            xml_parts.append('  <entry><title>Comics</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:nav:comics</id><content type="text">' + str(comic_count) + ' comics</content><icon>/media/books/comic.png</icon><link href="/book/comics" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(comic_count) + '"/></entry>')
 
             xml_parts.append('</feed>')
             conn.close()
@@ -499,10 +499,10 @@ def register_routes(app, check_auth):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></book>',
                             mimetype='application/xml')
 
-    @app.route('/opds/books')
+    @app.route('/book/books')
     def opds_books():
         """OPDS books list - shows series and standalone books"""
         authenticated = _authenticate()
@@ -518,7 +518,7 @@ def register_routes(app, check_auth):
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
 
-            xml_parts = make_opds_header('Books', 'mediaha:books', '/opds/books')
+            xml_parts = make_opds_header('Books', 'mediaha:books', '/book/books')
 
             # Show book series with counts
             cursor.execute("""
@@ -533,7 +533,7 @@ def register_routes(app, check_auth):
             """)
             for row in cursor.fetchall():
                 series_slug = slugify(row["name"])
-                xml_parts.append('  <entry><title>' + escape_xml(row["name"]) + '</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:series:' + str(row["id"]) + '</id><content type="text">' + str(row["book_count"]) + ' books</content><link href="/opds/series/' + str(row["id"]) + '/' + series_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(row["book_count"]) + '"/></entry>')
+                xml_parts.append('  <entry><title>' + escape_xml(row["name"]) + '</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:series:' + str(row["id"]) + '</id><content type="text">' + str(row["book_count"]) + ' books</content><link href="/book/series/' + str(row["id"]) + '/' + series_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(row["book_count"]) + '"/></entry>')
 
             xml_parts.append('</feed>')
             conn.close()
@@ -543,10 +543,10 @@ def register_routes(app, check_auth):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></book>',
                             mimetype='application/xml')
 
-    @app.route('/opds/comics')
+    @app.route('/book/comics')
     def opds_comics():
         """OPDS comics list - shows comic series"""
         authenticated = _authenticate()
@@ -562,9 +562,9 @@ def register_routes(app, check_auth):
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
 
-            xml_parts = make_opds_header('Comics', 'mediaha:comics', '/opds/comics')
+            xml_parts = make_opds_header('Comics', 'mediaha:comics', '/book/comics')
 
-            # Show comic series with counts - use /opds/series/ for detail pages
+            # Show comic series with counts - use /book/series/ for detail pages
             cursor.execute("""
                 SELECT s.id, s.name, COUNT(DISTINCT b.id) as book_count
                 FROM series s
@@ -578,7 +578,7 @@ def register_routes(app, check_auth):
             """)
             for row in cursor.fetchall():
                 series_slug = slugify(row["name"])
-                xml_parts.append('  <entry><title>' + escape_xml(row["name"]) + '</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:series:' + str(row["id"]) + '</id><content type="text">' + str(row["book_count"]) + ' books</content><link href="/opds/series/' + str(row["id"]) + '/' + series_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(row["book_count"]) + '"/></entry>')
+                xml_parts.append('  <entry><title>' + escape_xml(row["name"]) + '</title><updated>' + datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00') + '</updated><id>mediaha:series:' + str(row["id"]) + '</id><content type="text">' + str(row["book_count"]) + ' books</content><link href="/book/series/' + str(row["id"]) + '/' + series_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" thr:count="' + str(row["book_count"]) + '"/></entry>')
 
             xml_parts.append('</feed>')
             conn.close()
@@ -588,10 +588,10 @@ def register_routes(app, check_auth):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></book>',
                             mimetype='application/xml')
 
-    @app.route('/opds/series/<series_id>/<path:series_name>')
+    @app.route('/book/series/<series_id>/<path:series_name>')
     def opds_series_detail(series_id, series_name):
         """OPDS series detail - shows all books in a series"""
         authenticated = _authenticate()
@@ -620,14 +620,14 @@ def register_routes(app, check_auth):
 
             if not series_row:
                 conn.close()
-                return Response('<?xml version="1.0"?><opds><error>Series not found</error></opds>',
+                return Response('<?xml version="1.0"?><opds><error>Series not found</error></book>',
                               mimetype='application/xml')
 
             series_title = series_row["name"]
             comic_count = series_row["comic_count"]
             is_comic = comic_count > 0
 
-            self_path = '/opds/series/' + series_id + '/' + slugify(series_title)
+            self_path = '/book/series/' + series_id + '/' + slugify(series_title)
             xml_parts = make_opds_header(series_title, 'mediaha:series:' + series_id, self_path)
 
             # Get books in series
@@ -669,10 +669,10 @@ def register_routes(app, check_auth):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></book>',
                             mimetype='application/xml')
 
-    @app.route('/opds/cover/<int:book_id>')
+    @app.route('/book/cover/<int:book_id>')
     def opds_cover(book_id):
         """Serve book cover images for OPDS readers"""
         authenticated = _authenticate()
@@ -716,7 +716,7 @@ def register_routes(app, check_auth):
             traceback.print_exc()
             return Response('Error: ' + str(e), status=500)
 
-    @app.route('/opds/fetch/<int:book_id>/<path:ext>')
+    @app.route('/book/fetch/<int:book_id>/<path:ext>')
     def opds_fetch(book_id, ext):
         """Serve book files for OPDS readers (Paperback-compatible download endpoint).
 
@@ -761,26 +761,16 @@ def register_routes(app, check_auth):
             download_name=book_path.name
         )
 
-    # Paperback-compatible routes (no /opds prefix)
-    @app.route('/api/v1/series/new')
+    # Paperback-compatible routes (no /book prefix)
+    @app.route('/book/api/v1/series/new')
     def paperback_api_series_new():
-        """Paperback API - new series (no /opds prefix)."""
-        return _komga_series_response(prefix="/api/v1/series/", order_by_date=True)
+        """Paperback API - new series."""
+        return _komga_series_response(prefix="/book/api/v1/series/", order_by_date=True)
 
-    @app.route('/api/v1/series/updated')
+    @app.route('/book/api/v1/series/updated')
     def paperback_api_series_updated():
-        """Paperback API - updated series (no /opds prefix)."""
-        return _komga_series_response(prefix="/api/v1/series/", order_by_date=True)
-
-    @app.route('/opds/api/v1/series/new')
-    def opds_api_series_new():
-        """OPDS Feed Update Protocol - return new series since a given time."""
-        return _komga_series_response(prefix="/opds/api/v1/series/", order_by_date=True)
-
-    @app.route('/opds/api/v1/series/updated')
-    def opds_api_series_updated():
-        """OPDS Feed Update Protocol - return updated series since a given time."""
-        return _komga_series_response(prefix="/opds/api/v1/series/", order_by_date=True)
+        """Paperback API - updated series."""
+        return _komga_series_response(prefix="/book/api/v1/series/", order_by_date=True)
 
     def _komga_series_response(prefix, order_by_date=False):
         """Shared logic for series list endpoints (used by both OPDS and Paperback routes).
@@ -836,17 +826,12 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] _komga_series_response error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
-    @app.route('/api/v1/series/<series_id>/books')
-    def paperback_api_series_books(series_id):
-        """Paperback API - books in a series."""
-        return _komga_series_books(series_id, base_url="/api/v1")
-
-    @app.route('/opds/api/v1/series/<series_id>/books')
-    def opds_api_series_books(series_id):
+    @app.route('/book/api/v1/series/<series_id>/books')
+    def komga_api_series_books(series_id):
         """Komga API - return all books in a series."""
-        return _komga_series_books(series_id, base_url="/api/v1")
+        return _komga_series_books(series_id, base_url="/book/api/v1")
 
-    def _komga_series_books(series_id, base_url="/api/v1"):
+    def _komga_series_books(series_id, base_url="/book/api/v1"):
         """Shared logic for series books endpoints."""
         authenticated = _authenticate()
         if not authenticated:
@@ -897,7 +882,7 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] _komga_series_books error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
-    @app.route('/opds/api/v1/search')
+    @app.route('/book/api/v1/search')
     def opds_api_search():
         """OPDS API - search for series/books."""
         authenticated = _authenticate()
@@ -952,8 +937,7 @@ def register_routes(app, check_auth):
 
     # ─── Komga-compatible API endpoints ───────────────────────────────────────
 
-    @app.route('/opds/api/v1/series')
-    @app.route('/api/v1/series')
+    @app.route('/book/api/v1/series')
     def komga_api_series():
         """Komga API - list all series (PageSeriesDto)."""
         authenticated = _authenticate()
@@ -1003,7 +987,7 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] komga_api_series error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
-    @app.route('/opds/api/v1/libraries')
+    @app.route('/book/api/v1/libraries')
     def komga_api_libraries():
         """Komga API - list libraries (returns one "Comics" library)."""
         authenticated = _authenticate()
@@ -1014,13 +998,12 @@ def register_routes(app, check_auth):
         resp = json.dumps([{
             "id": "comics",
             "name": "Comics",
-            "url": "/opds/api/v1/series"
+            "url": "/book/api/v1/series"
         }])
         logger.warning(f"[OPDS DEBUG] komga /api/v1/libraries returning: {resp}")
         return Response(resp, mimetype='application/json')
 
-    @app.route('/opds/api/v1/series/<series_id>')
-    @app.route('/api/v1/series/<series_id>')
+    @app.route('/book/api/v1/series/<series_id>')
     def komga_api_series_detail(series_id):
         """Komga API - single series detail (SeriesDto)."""
         authenticated = _authenticate()
@@ -1067,15 +1050,9 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] komga_api_series_detail error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps({}), mimetype='application/json', status=500)
 
-    # Paperback-compatible book routes (no /opds prefix)
-    @app.route('/api/v1/books')
-    @app.route('/api/v1/books/ondeck')
-    def paperback_api_books():
-        """Paperback API - list all books / ondeck (flat)."""
-        return _komga_books_response(ondeck=request.path.endswith('/ondeck'))
-
-    @app.route('/opds/api/v1/books')
-    @app.route('/opds/api/v1/books/ondeck')
+    # Paperback-compatible book routes
+    @app.route('/book/api/v1/books')
+    @app.route('/book/api/v1/books/ondeck')
     def komga_api_books():
         """Komga API - list all books / ondeck (flat)."""
         return _komga_books_response(ondeck=request.path.endswith('/ondeck'))
@@ -1133,9 +1110,7 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] _komga_books_response error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
-    @app.route('/api/v1/opds/books/<book_id>')
-    @app.route('/opds/api/v1/books/<book_id>')
-    @app.route('/api/v1/books/<book_id>')
+    @app.route('/book/api/v1/books/<book_id>')
     def komga_api_book_detail(book_id):
         """Komga API - single book detail (BookDto)."""
         authenticated = _authenticate()
@@ -1185,16 +1160,14 @@ def register_routes(app, check_auth):
     def _get_book_page_url(book_id, page_num):
         """Build the absolute URL for a book page using request.host_url."""
         base = request.host_url.rstrip('/')
-        return f"{base}/api/v1/opds/books/{book_id}/pages/{page_num}"
+        return f"{base}/book/api/v1/books/{book_id}/pages/{page_num}"
 
-    @app.route('/api/v1/opds/books/<book_id>/pages')
-    @app.route('/opds/api/v1/books/<book_id>/pages')
-    @app.route('/api/v1/books/<book_id>/pages')
+    @app.route('/book/api/v1/books/<book_id>/pages')
     def komga_api_book_pages(book_id):
         """Komga API - get all page URLs for a book.
         
         Returns a list of page URLs in format:
-        ["http://host:port/opds/api/v1/books/<id>/pages/1", ...]
+        ["http://host:port/book/api/v1/books/<id>/pages/1", ...]
         
         Paperback expects absolute URLs (including scheme/host).
         """
@@ -1272,9 +1245,7 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] komga_api_book_pages error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps([]), mimetype='application/json', status=500)
 
-    @app.route('/api/v1/opds/books/<book_id>/pages/<int:page_num>')
-    @app.route('/opds/api/v1/books/<book_id>/pages/<int:page_num>')
-    @app.route('/api/v1/books/<book_id>/pages/<int:page_num>')
+    @app.route('/book/api/v1/books/<book_id>/pages/<int:page_num>')
     def komga_api_book_page(book_id, page_num):
         """Komga API - serve a specific page of a book.
         
@@ -1367,8 +1338,7 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] komga_api_book_page error: {e}\n{traceback.format_exc()}")
             return Response('Error', status=500, mimetype='text/plain')
 
-    @app.route('/opds/api/v1/series/<series_id>/thumbnail')
-    @app.route('/api/v1/series/<series_id>/thumbnail')
+    @app.route('/book/api/v1/series/<series_id>/thumbnail')
     def komga_api_series_thumbnail(series_id):
         """Komga API - get thumbnail image for a series.
 
@@ -1424,7 +1394,7 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] komga_api_series_thumbnail error: {e}\n{traceback.format_exc()}")
             return Response('Error: ' + str(e), status=500)
 
-    @app.route('/opds/book/<int:book_id>')
+    @app.route('/book/book/<int:book_id>')
     def opds_book_detail(book_id):
         """OPDS book detail - serve a single book as XML entry (Paperback-compatible)."""
         authenticated = _authenticate()
@@ -1454,7 +1424,7 @@ def register_routes(app, check_auth):
             conn.close()
 
             if not row:
-                return Response('<?xml version="1.0"?><opds><error>Book not found</error></opds>',
+                return Response('<?xml version="1.0"?><opds><error>Book not found</error></book>',
                               mimetype='application/xml', status=404)
 
             row_dict = dict(row)
@@ -1467,12 +1437,12 @@ def register_routes(app, check_auth):
 
             xml_parts = [
                 '<?xml version="1.0" encoding="UTF-8"?>',
-                '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:thr="http://purl.org/syndication/thread/1.0">',
+                '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://book-spec.org/2010/catalog" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:thr="http://purl.org/syndication/thread/1.0">',
                 '  <title>Book ' + str(book_id) + '</title>',
                 '  <id>mediaha:book:' + str(book_id) + '</id>',
                 '  <updated>' + now + '</updated>',
-                '  <link href="/opds" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
-                '  <link href="/opds/book/' + str(book_id) + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="self"/>',
+                '  <link href="/book" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
+                '  <link href="/book/book/' + str(book_id) + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="self"/>',
                 entry_xml,
                 '</feed>'
             ]
@@ -1482,7 +1452,7 @@ def register_routes(app, check_auth):
         except Exception as e:
             import traceback
             logger.warning(f"[OPDS] opds_book_detail error: {e}\n{traceback.format_exc()}")
-            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></book>',
                             mimetype='application/xml', status=500)
 
     def _build_opds_book_entry(row, now):
@@ -1501,7 +1471,7 @@ def register_routes(app, check_auth):
         if series_name and series_index:
             series_slug = slugify(series_name)
             series_content = '<strong>Series:</strong>Book ' + str(int(float(series_index))) + ' in the ' + escape_xml(series_name) + ' series<br />'
-            series_link = '  <link href="/opds/series/' + str(series_id) + '/' + series_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Book ' + str(int(float(series_index))) + ' in the ' + escape_xml(series_name) + ' series"/>'
+            series_link = '  <link href="/book/series/' + str(series_id) + '/' + series_slug + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Book ' + str(int(float(series_index))) + ' in the ' + escape_xml(series_name) + ' series"/>'
 
         author_name = row.get("author_name", "Unknown")
 
@@ -1512,10 +1482,10 @@ def register_routes(app, check_auth):
             'cbr': 'application/vnd.comicbook-rar', 'cbz': 'application/vnd.comicbook+zip',
         }
         mime = mime_map.get(ext, 'application/octet-stream')
-        file_url = '/opds/fetch/' + str(book_id) + '/' + ext
+        file_url = '/book/fetch/' + str(book_id) + '/' + ext
         file_size = row.get("file_size") or 0
 
-        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://opds-spec.org/acquisition"'
+        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://book-spec.org/acquisition"'
         if file_size:
             acq_link += ' length="' + str(file_size) + '"'
         acq_link += ' />'
@@ -1526,8 +1496,8 @@ def register_routes(app, check_auth):
             '    <updated>' + now + '</updated>',
             '    <id>' + entry_uuid + '</id>',
             '    <content type="text">' + series_content + '</content>',
-            '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image"/>',
-            '    <link href="/opds/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>',
+            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://book-spec.org/image"/>',
+            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://book-spec.org/image/thumbnail"/>',
             acq_link,
             series_link,
             '    <author><name>' + escape_xml(author_name) + '</name></author>',
@@ -1535,16 +1505,16 @@ def register_routes(app, check_auth):
             '  </entry>'
         ])
 
-    @app.route('/opds/<path:unknown>')
+    @app.route('/book/<path:unknown>')
     def opds_catchall(unknown):
         """Catch-all for unexpected OPDS paths."""
-        logger.warning(f"[OPDS DEBUG] catchall hit: /opds/{unknown}")
+        logger.warning(f"[OPDS DEBUG] catchall hit: /book/{unknown}")
         authenticated = _authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
         return Response(
-            '<?xml version="1.0"?><opds><error>Unknown OPDS path</error></opds>',
+            '<?xml version="1.0"?><opds><error>Unknown OPDS path</error></book>',
             mimetype='application/xml',
             status=404
         )

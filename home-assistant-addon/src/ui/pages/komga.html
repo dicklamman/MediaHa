@@ -226,7 +226,7 @@
                     const card = document.createElement('div');
                     card.className = 'komga-card';
                     card.innerHTML = `
-                        <img class="komga-card-img" src="${apiBase}/api/v1/series/${series.id}/thumbnail"
+                        <img class="komga-card-img" src="${apiBase}/comic/api/v1/series/${series.id}/thumbnail"
                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 150%22><rect fill=%22%23e0e0e0%22 width=%22100%22 height=%22150%22/><text x=%2250%22 y=%2275%22 text-anchor=%22middle%22 fill=%22%23999%22 font-size=%2212%22>No Cover</text></svg>'">
                         <div class="komga-card-info">
                             <h4>${escapeHtml(series.name || '')}</h4>
@@ -259,7 +259,7 @@
             grid.innerHTML = '<p style="color:var(--color-text-muted);padding:20px;">Loading books...</p>';
 
             try {
-                const resp = await fetch(`${apiBase}/api/v1/series/${seriesId}/books`);
+                const resp = await fetch(`${apiBase}/comic/api/v1/series/${seriesId}/books`);
                 if (resp.status === 401) { window.location.href = '/login.html'; return; }
                 const data = await resp.json();
                 const books = data.content || [];
@@ -275,7 +275,7 @@
                     const card = document.createElement('div');
                     card.className = 'komga-card';
                     card.innerHTML = `
-                        <img class="komga-card-img" src="${apiBase}/api/v1/books/${book.id}/thumbnail"
+                        <img class="komga-card-img" src="${apiBase}/comic/api/v1/books/${book.id}/thumbnail"
                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 150%22><rect fill=%22%23e0e0e0%22 width=%22100%22 height=%22150%22/><text x=%2250%22 y=%2275%22 text-anchor=%22middle%22 fill=%22%23999%22 font-size=%2212%22>No Cover</text></svg>'">
                         <div class="komga-card-info">
                             <h4>${escapeHtml(book.name || book.title || '')}</h4>
@@ -283,7 +283,7 @@
                         </div>
                     `;
                     card.addEventListener('click', () => {
-                        window.location.href = `${apiBase}/komga/book/${book.id}`;
+                        window.location.href = `${apiBase}/comic/book/${book.id}`;
                     });
                     grid.appendChild(card);
                 }
