@@ -140,16 +140,32 @@ def register_web_routes(app):
     @app.route('/komga/')
     def komga_root():
         """Redirect /komga to the Komga UI page."""
-        return redirect('/komga.html', code=302)
+        return redirect('/pages/komga', code=302)
+
+    @app.route('/komga.html')
+    def komga_html():
+        """Serve the komga.html page (redirect to auth-protected route)."""
+        if not session.get("authenticated"):
+            return redirect('/login.html', code=302)
+        return render_template('pages/komga.html', page_id='komga', page_title='Komga Comics')
+
+    @app.route('/komga/<path:rest>')
+    def komga_subpath(rest):
+        """Redirect any /komga/* subpaths to /komga root."""
+        return redirect('/komga', code=302)
 
     @app.route('/comic')
     @app.route('/comic/')
     def comic_root():
         """Serve the comic/Komga library page."""
-        return send_from_directory(
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../ui/pages'),
-            'komga.html'
-        )
+        if not session.get("authenticated"):
+            return redirect('/login.html', code=302)
+        return render_template('pages/komga.html', page_id='komga', page_title='Komga Comics')
+
+    @app.route('/comic/<path:rest>')
+    def comic_subpath(rest):
+        """Redirect any /comic/* subpaths to /comic root."""
+        return redirect('/comic', code=302)
 
     @app.route('/login.html')
     def login_page():
