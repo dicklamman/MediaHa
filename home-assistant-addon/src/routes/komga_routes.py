@@ -838,10 +838,12 @@ def register_komga_routes(app, check_auth):
                                       and not n.startswith('__MACOSX')],
                                       key=lambda x: x.lower())
                         logger.warning(f"[Komga] CBZ pages found: {len(names)}")
+                        cbz_name = book_path.name
                         for i, name in enumerate(names, 1):
                             pages.append({
                                 "number": i,
                                 "size": zf.getinfo(name).file_size,
+                                "fileName": os.path.basename(name),
                                 "mediaType": "image/" + (os.path.splitext(name)[1].lstrip('.').lower() or 'jpeg'),
                             })
                 except Exception as e:
@@ -852,6 +854,7 @@ def register_komga_routes(app, check_auth):
             pages.append({
                 "number": 1,
                 "size": 0,
+                "fileName": f"book_{book_id}.pdf",
                 "mediaType": "application/pdf",
             })
         else:
@@ -883,11 +886,12 @@ def register_komga_routes(app, check_auth):
                 files = sorted([f for f in found_folder.iterdir() if f.suffix.lower() in image_exts],
                               key=lambda x: x.name.lower())
                 logger.warning(f"[Komga] Found {len(files)} pages in {found_folder}")
-                for i, _ in enumerate(files, 1):
+                for i, f in enumerate(files, 1):
                     pages.append({
                         "number": i,
-                        "size": 0,
-                        "mediaType": "image/" + (files[i-1].suffix.lstrip('.').lower() if files[i-1].suffix else 'jpeg'),
+                        "size": f.stat().st_size,
+                        "fileName": f.name,
+                        "mediaType": "image/" + (f.suffix.lstrip('.').lower() if f.suffix else 'jpeg'),
                     })
 
         logger.warning(f"[Komga] Returning pages response: {json.dumps(pages)}")
