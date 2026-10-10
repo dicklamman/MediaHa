@@ -1216,6 +1216,657 @@ def register_komga_routes(app, check_auth):
             json.dump(data, f, indent=2)
         return jsonify({'status': 'ok'})
 
+    @app.route('/komga/api/v1')
+    def komga_api_root_v2():
+        """Komga API root (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        return Response(json.dumps({"name": "MediaHa", "version": "1.0"}),
+                       mimetype='application/json')
+
+    @app.route('/komga/api/v1/libraries')
+    def komga_libraries_v2():
+        """List libraries (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        return Response(json.dumps([{
+            "id": "comics",
+            "name": "Comics",
+            "type": "COMIC",
+            "url": "/komga/api/v1/libraries/comics",
+            "created": _now_iso(),
+            "lastModified": _now_iso(),
+        }]), mimetype='application/json')
+
+    @app.route('/komga/api/v1/libraries/<library_id>')
+    def komga_library_detail_v2(library_id):
+        """Get library details (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        if library_id != "comics":
+            return Response(json.dumps({"error": "Not found"}), status=404, mimetype='application/json')
+        return Response(json.dumps({
+            "id": "comics",
+            "name": "Comics",
+            "type": "COMIC",
+            "url": "/komga/api/v1/libraries/comics",
+            "created": _now_iso(),
+            "lastModified": _now_iso(),
+        }), mimetype='application/json')
+
+    @app.route('/komga/api/v1/series')
+    def komga_series_list_v2():
+        """List all series (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        page = int(request.args.get('page', 0))
+        size = int(request.args.get('size', 50))
+
+        rows, total = _query_series()
+        rows = rows[size * page: size * page + size]
+        series_list = [_make_series_dto(r) for r in rows]
+        return Response(json.dumps(_page_response(series_list, page, size, total)), mimetype='application/json')
+
+    @app.route('/komga/api/v1/series/new')
+    def komga_series_new_v2():
+        """New series (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        page = int(request.args.get('page', 0))
+        size = int(request.args.get('size', 50))
+
+        rows, total = _query_series(order_by="latest_date DESC")
+        rows = rows[size * page: size * page + size]
+        series_list = [_make_series_dto(r) for r in rows]
+        return Response(json.dumps(_page_response(series_list, page, size, total)), mimetype='application/json')
+
+    @app.route('/komga/api/v1/series/updated')
+    def komga_series_updated_v2():
+        """Updated series (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        page = int(request.args.get('page', 0))
+        size = int(request.args.get('size', 50))
+
+        rows, total = _query_series(order_by="latest_date DESC")
+        rows = rows[size * page: size * page + size]
+        series_list = [_make_series_dto(r) for r in rows]
+        return Response(json.dumps(_page_response(series_list, page, size, total)), mimetype='application/json')
+
+    @app.route('/komga/api/v1/libraries/<library_id>/series')
+    def komga_library_series_v2(library_id):
+        """List series in library (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        page = int(request.args.get('page', 0))
+        size = int(request.args.get('size', 50))
+
+        rows, total = _query_series()
+        rows = rows[size * page: size * page + size]
+        series_list = [_make_series_dto(r) for r in rows]
+        return Response(json.dumps(_page_response(series_list, page, size, total)), mimetype='application/json')
+
+    @app.route('/komga/api/v1/series/<series_id>')
+    def komga_series_detail_v2(series_id):
+        """Get series details (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response(json.dumps({"error": "Not found"}), status=404, mimetype='application/json')
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT s.id, s.name, s.name_sort,
+                   b.id as first_book_id, b.title as first_book_title
+            FROM series s
+            LEFT JOIN books_series_link bsl ON s.id = bsl.series
+            LEFT JOIN books b ON bsl.book = b.id
+            WHERE s.id = ?
+            LIMIT 1
+        """, (series_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return Response(json.dumps({"error": "Not found"}), status=404, mimetype='application/json')
+        rd = dict(row)
+
+        if rd.get("first_book_title"):
+            series_name = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+\s*[-.]\s*)', '', rd["first_book_title"])
+            series_name = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+)\s*$', '', series_name).strip()
+            series_name = re.sub(r'\s*[-–—―_]+\s*$', '', series_name).strip()
+        else:
+            series_name = rd.get("name", "")
+
+        cursor.execute("""
+            SELECT COUNT(DISTINCT b.id) as books_count,
+                   MAX(b.pubdate) as latest_date,
+                   MAX(b.last_modified) as last_modified,
+                   MIN(b.created) as created
+            FROM series s
+            LEFT JOIN books_series_link bsl ON s.id = bsl.series
+            LEFT JOIN books b ON bsl.book = b.id
+            WHERE s.id = ?
+        """, (series_id,))
+        meta = cursor.fetchone()
+        conn.close()
+
+        rd["name"] = series_name
+        rd["books_count"] = meta["books_count"] if meta else 0
+        rd["latest_date"] = meta["latest_date"] if meta else None
+        rd["last_modified"] = meta["last_modified"] if meta else None
+        rd["created"] = meta["created"] if meta else None
+        rd["books_read_count"] = 0
+        rd["books_in_progress_count"] = 0
+        return Response(json.dumps(_make_series_dto(rd)), mimetype='application/json')
+
+    @app.route('/komga/api/v1/series/<series_id>/books')
+    def komga_series_books_v2(series_id):
+        """Get books in series (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        page = int(request.args.get('page', 0))
+        size = int(request.args.get('size', 500))
+
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response(json.dumps(_page_response([], page, size)), mimetype='application/json')
+
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT COUNT(*) as cnt FROM books b
+            JOIN books_series_link bsl ON b.id = bsl.book
+            JOIN books_tags_link btl ON b.id = btl.book
+            JOIN tags t ON btl.tag = t.id
+            WHERE bsl.series = ? AND t.name = 'Comics'
+        """, (series_id,))
+        total = cursor.fetchone()["cnt"]
+
+        derived_series_name = _derive_series_name(series_id, cursor)
+        if not derived_series_name:
+            cursor.execute("SELECT name FROM series WHERE id = ?", (series_id,))
+            row = cursor.fetchone()
+            derived_series_name = row["name"] if row else ""
+
+        cursor.execute("""
+            SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
+                   d.format, d.name as filename, d.uncompressed_size as file_size,
+                   s.id as series_id
+            FROM books b
+            JOIN books_series_link bsl ON b.id = bsl.book
+            JOIN series s ON bsl.series = s.id
+            JOIN books_tags_link btl ON b.id = btl.book
+            JOIN tags t ON btl.tag = t.id
+            LEFT JOIN data d ON b.id = d.book
+            WHERE bsl.series = ? AND t.name = 'Comics'
+            ORDER BY b.series_index
+            LIMIT ? OFFSET ?
+        """, (series_id, size, page * size))
+
+        books = []
+        for row in cursor.fetchall():
+            rd = dict(row)
+            rd["series_name"] = derived_series_name
+            ext = rd.get("format", "").lower()
+            if ext in ('cbz', 'zip'):
+                rd["_pages_count"] = _get_book_page_count(rd["id"], ext, cpath)
+            books.append(_make_book_dto(rd))
+        conn.close()
+        return Response(json.dumps(_page_response(books, page, size, total)), mimetype='application/json')
+
+    @app.route('/komga/api/v1/series/<series_id>/thumbnail')
+    def komga_series_thumbnail_v2(series_id):
+        """Get series thumbnail (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response("Not found", status=404)
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT b.id FROM books b
+            JOIN books_series_link bsl ON b.id = bsl.book
+            JOIN books_tags_link btl ON b.id = btl.book
+            JOIN tags t ON btl.tag = t.id
+            WHERE bsl.series = ? AND t.name = 'Comics'
+            ORDER BY b.series_index LIMIT 1
+        """, (series_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return Response("Not found", status=404)
+        book_id = row["id"]
+        return redirect(f"/komga/api/v1/books/{book_id}/thumbnail", code=302)
+
+    @app.route('/komga/api/v1/books/<book_id>/thumbnail')
+    def komga_book_thumbnail_v2(book_id):
+        """Serve book cover (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response("Not found", status=404)
+
+        book_folder = cpath / str(book_id)
+        if book_folder.exists() and book_folder.is_dir():
+            for f in book_folder.iterdir():
+                if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+                    name_lower = f.name.lower()
+                    if 'cover' in name_lower or 'thumbnail' in name_lower or f.stem == 'cover':
+                        return send_file(str(f))
+            for f in book_folder.iterdir():
+                if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+                    return send_file(str(f))
+
+        for base in ('/media/comic', '/media/comic/book'):
+            try:
+                base_path = Path(base)
+                if not base_path.is_dir():
+                    continue
+                for sub in base_path.iterdir():
+                    if not sub.is_dir() or sub.stem != str(book_id):
+                        continue
+                    for f in sub.iterdir():
+                        if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp') and 'cover' in f.name.lower():
+                            return send_file(str(f))
+                    for f in sub.iterdir():
+                        if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+                            return send_file(str(f))
+            except PermissionError:
+                pass
+        return Response("Not found", status=404)
+
+    @app.route('/komga/api/v1/books/<book_id>/pages')
+    def komga_book_pages_v2(book_id):
+        """Get book pages (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response(json.dumps([]), status=404, mimetype='application/json')
+
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+        cursor.execute("SELECT b.id, b.path, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return Response(json.dumps([]), status=404, mimetype='application/json')
+
+        ext = row["format"].lower() if row["format"] else ""
+        db_path = row["path"]
+        pages = []
+
+        if ext in ('cbz', 'zip'):
+            book_path = _find_book_file(book_id, ext, cpath, db_path)
+            if book_path and book_path.exists():
+                try:
+                    with zipfile.ZipFile(str(book_path), 'r') as zf:
+                        image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+                        names = sorted([n for n in zf.namelist()
+                                      if os.path.splitext(n)[1].lower() in image_exts
+                                      and not n.startswith('__MACOSX')],
+                                      key=lambda x: x.lower())
+                        for i, _ in enumerate(names, 1):
+                            pages.append(f"{request.host_url.rstrip('/')}/komga/api/v1/books/{book_id}/pages/{i}")
+                except Exception as e:
+                    logger.warning(f"[Komga] Error reading CBZ: {e}")
+
+        elif ext == 'pdf':
+            pages.append(f"{request.host_url.rstrip('/')}/komga/api/v1/books/{book_id}/pages/1")
+        else:
+            image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+            found_folder = None
+            for base in ('/media/comic', '/media/comic/book'):
+                try:
+                    base_path = Path(base)
+                    if not base_path.is_dir():
+                        continue
+                    for sub in base_path.iterdir():
+                        if not sub.is_dir() or sub.stem != str(book_id):
+                            continue
+                        files = [f for f in sub.iterdir() if f.suffix.lower() in image_exts]
+                        if files:
+                            found_folder = sub
+                            break
+                except PermissionError:
+                    pass
+                if found_folder:
+                    break
+            if not found_folder:
+                found_folder = cpath / (db_path or str(book_id))
+            if found_folder.exists() and found_folder.is_dir():
+                files = sorted([f for f in found_folder.iterdir() if f.suffix.lower() in image_exts],
+                              key=lambda x: x.name.lower())
+                for i, _ in enumerate(files, 1):
+                    pages.append(f"{request.host_url.rstrip('/')}/komga/api/v1/books/{book_id}/pages/{i}")
+
+        return Response(json.dumps(pages), mimetype='application/json')
+
+    @app.route('/komga/api/v1/books/<book_id>/pages/<int:page_num>')
+    def komga_book_page_v2(book_id, page_num):
+        """Serve book page (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response("Not found", status=404)
+
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+        cursor.execute("SELECT b.id, b.path, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return Response("Not found", status=404)
+
+        ext = row["format"].lower() if row["format"] else ""
+        db_path = row["path"]
+        mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+                    '.gif': 'image/gif', '.webp': 'image/webp'}
+
+        if ext in ('cbz', 'zip'):
+            book_path = _find_book_file(book_id, ext, cpath, db_path)
+            if book_path and book_path.exists():
+                try:
+                    with zipfile.ZipFile(str(book_path), 'r') as zf:
+                        image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+                        names = sorted([n for n in zf.namelist()
+                                      if os.path.splitext(n)[1].lower() in image_exts
+                                      and not n.startswith('__MACOSX')],
+                                      key=lambda x: x.lower())
+                        if 1 <= page_num <= len(names):
+                            data = zf.read(names[page_num - 1])
+                            mime = mime_map.get(os.path.splitext(names[page_num - 1])[1].lower(), 'image/jpeg')
+                            return Response(data, mimetype=mime)
+                except Exception as e:
+                    logger.warning(f"[Komga] Error extracting page: {e}")
+
+        else:
+            image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+            found_folder = None
+            for base in ('/media/comic', '/media/comic/book'):
+                try:
+                    base_path = Path(base)
+                    if not base_path.is_dir():
+                        continue
+                    for sub in base_path.iterdir():
+                        if not sub.is_dir() or sub.stem != str(book_id):
+                            continue
+                        files = [f for f in sub.iterdir() if f.suffix.lower() in image_exts]
+                        if files:
+                            found_folder = sub
+                            break
+                except PermissionError:
+                    pass
+                if found_folder:
+                    break
+            if not found_folder:
+                found_folder = cpath / (db_path or str(book_id))
+            if found_folder.exists() and found_folder.is_dir():
+                files = sorted([f for f in found_folder.iterdir() if f.suffix.lower() in image_exts],
+                              key=lambda x: x.name.lower())
+                if 1 <= page_num <= len(files):
+                    return send_file(str(files[page_num - 1]),
+                                   mimetype=mime_map.get(files[page_num - 1].suffix.lower(), 'image/jpeg'))
+
+        return Response("Page not found", status=404)
+
+    @app.route('/komga/api/v1/books/<book_id>/content')
+    def komga_book_content_v2(book_id):
+        """Download book file (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response("Not found", status=404)
+
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+        cursor.execute("SELECT b.id, b.path, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return Response("Not found", status=404)
+
+        ext = row["format"].lower() if row["format"] else "cbz"
+        db_path = row["path"]
+        mime_map = {
+            'epub': 'application/epub+zip', 'pdf': 'application/pdf',
+            'cbz': 'application/vnd.comicbook+zip', 'cbr': 'application/vnd.comicbook-rar',
+            'zip': 'application/zip',
+        }
+        book_path = _find_book_file(book_id, ext, cpath, db_path)
+        if book_path and book_path.exists():
+            return send_file(str(book_path), mimetype=mime_map.get(ext, 'application/octet-stream'),
+                           as_attachment=True, download_name=book_path.name)
+        return Response("File not found", status=404)
+
+    @app.route('/komga/api/v1/search')
+    def komga_search_v2():
+        """Search (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        query = request.args.get('query', request.args.get('q', ''))
+        if not query:
+            return Response(json.dumps({"results": []}), mimetype='application/json')
+
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response(json.dumps({"results": []}), mimetype='application/json')
+
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+
+        results = []
+        cursor.execute("""
+            SELECT DISTINCT s.id, COUNT(DISTINCT b.id) as book_count
+            FROM series s
+            JOIN books_series_link bsl ON s.id = bsl.series
+            JOIN books b ON bsl.book = b.id
+            JOIN books_tags_link btl ON b.id = btl.book
+            JOIN tags t ON btl.tag = t.id
+            WHERE t.name = 'Comics' AND s.name LIKE ?
+            GROUP BY s.id
+            ORDER BY s.name LIMIT 20
+        """, (f'%{query}%',))
+        for row in cursor.fetchall():
+            sid = row["id"]
+            derived = _derive_series_name(sid, cursor)
+            cursor.execute("SELECT name FROM series WHERE id = ?", (sid,))
+            fallback_row = cursor.fetchone()
+            fallback = fallback_row["name"] if fallback_row else ""
+            results.append({"type": "series", "id": str(sid),
+                          "name": derived or fallback, "bookCount": row["book_count"]})
+
+        conn.close()
+        return Response(json.dumps({"results": results}), mimetype='application/json')
+
+    @app.route('/komga/api/v1/books')
+    def komga_books_list_v2():
+        """List all books (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        page = int(request.args.get('page', 0))
+        size = int(request.args.get('size', 50))
+
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response(json.dumps(_page_response([], page, size)), mimetype='application/json')
+
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT COUNT(*) as cnt FROM books b
+            JOIN books_tags_link btl ON b.id = btl.book
+            JOIN tags t ON btl.tag = t.id
+            WHERE t.name = 'Comics'
+        """)
+        total = cursor.fetchone()["cnt"]
+
+        cursor.execute("""
+            SELECT DISTINCT bsl.series as series_id
+            FROM books b
+            JOIN books_tags_link btl ON b.id = btl.book
+            JOIN tags t ON btl.tag = t.id
+            LEFT JOIN books_series_link bsl ON b.id = bsl.book
+            WHERE t.name = 'Comics' AND bsl.series IS NOT NULL
+        """)
+        series_ids = [row["series_id"] for row in cursor.fetchall()]
+        series_name_map = {}
+        for sid in series_ids:
+            derived = _derive_series_name(sid, cursor)
+            cursor.execute("SELECT name FROM series WHERE id = ?", (sid,))
+            row = cursor.fetchone()
+            fallback = row["name"] if row else ""
+            series_name_map[sid] = derived or fallback
+
+        cursor.execute("""
+            SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
+                   d.format, d.name as filename, d.uncompressed_size as file_size,
+                   s.id as series_id
+            FROM books b
+            JOIN books_tags_link btl ON b.id = btl.book
+            JOIN tags t ON btl.tag = t.id
+            LEFT JOIN books_series_link bsl ON b.id = bsl.book
+            LEFT JOIN series s ON bsl.series = s.id
+            LEFT JOIN data d ON b.id = d.book
+            WHERE t.name = 'Comics'
+            ORDER BY b.series_index
+            LIMIT ? OFFSET ?
+        """, (size, page * size))
+
+        books = []
+        for row in cursor.fetchall():
+            rd = dict(row)
+            rd["series_name"] = series_name_map.get(rd["series_id"], "") if rd.get("series_id") else ""
+            ext = rd.get("format", "").lower()
+            if ext in ('cbz', 'zip'):
+                rd["_pages_count"] = _get_book_page_count(rd["id"], ext, cpath)
+            books.append(_make_book_dto(rd))
+        conn.close()
+        return Response(json.dumps(_page_response(books, page, size, total)), mimetype='application/json')
+
+    @app.route('/komga/api/v1/books/ondeck')
+    def komga_books_ondeck_v2():
+        """Books on deck (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        page = int(request.args.get('page', 0))
+        size = int(request.args.get('size', 20))
+
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response(json.dumps(_page_response([], page, size)), mimetype='application/json')
+
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT COUNT(*) as cnt FROM books b
+            JOIN books_tags_link btl ON b.id = btl.book
+            JOIN tags t ON btl.tag = t.id
+            WHERE t.name = 'Comics'
+        """)
+        total = cursor.fetchone()["cnt"]
+
+        cursor.execute("""
+            SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
+                   d.format, d.name as filename, d.uncompressed_size as file_size,
+                   s.id as series_id, s.name as series_name
+            FROM books b
+            JOIN books_tags_link btl ON b.id = btl.book
+            JOIN tags t ON btl.tag = t.id
+            LEFT JOIN books_series_link bsl ON b.id = bsl.book
+            LEFT JOIN series s ON bsl.series = s.id
+            LEFT JOIN data d ON b.id = d.book
+            WHERE t.name = 'Comics'
+            ORDER BY b.last_modified DESC
+            LIMIT ? OFFSET ?
+        """, (size, page * size))
+
+        books = []
+        for row in cursor.fetchall():
+            rd = dict(row)
+            ext = rd.get("format", "").lower()
+            if ext in ('cbz', 'zip'):
+                rd["_pages_count"] = _get_book_page_count(rd["id"], ext, cpath)
+            books.append(_make_book_dto(rd))
+        conn.close()
+        return Response(json.dumps(_page_response(books, page, size, total)), mimetype='application/json')
+
+    @app.route('/komga/api/v1/books/<book_id>')
+    def komga_book_detail_v2(book_id):
+        """Get book details (alternate path)."""
+        err = _require_auth()
+        if err:
+            return err
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response(json.dumps({}), status=404, mimetype='application/json')
+
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
+                   d.format, d.name as filename, d.uncompressed_size as file_size,
+                   s.id as series_id
+            FROM books b
+            LEFT JOIN books_series_link bsl ON b.id = bsl.book
+            LEFT JOIN series s ON bsl.series = s.id
+            LEFT JOIN data d ON b.id = d.book
+            WHERE b.id = ?
+        """, (book_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return Response(json.dumps({}), status=404, mimetype='application/json')
+        rd = dict(row)
+        series_id = rd.get("series_id")
+        if series_id and rd.get("title"):
+            derived = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+\s*[-.]\s*)', '', rd["title"])
+            derived = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+)\s*$', '', derived).strip()
+            derived = re.sub(r'\s*[-–—―_]+\s*$', '', derived).strip()
+            rd["series_name"] = derived
+        else:
+            rd["series_name"] = ""
+        ext = rd.get("format", "").lower()
+        if ext in ('cbz', 'zip'):
+            rd["_pages_count"] = _get_book_page_count(book_id, ext, cpath)
+        return Response(json.dumps(_make_book_dto(rd)), mimetype='application/json')
+
+    @app.route('/komga/book/<book_id>')
+    def komga_book_reader_v2(book_id):
+        """Serve the Komga book reader page (alternate path)."""
+        if not session.get("authenticated"):
+            return redirect('/login.html', code=302)
+        return send_from_directory(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../ui/pages'),
+            'komga-book.html'
+        )
+
     # ── Komga OPDS Catalog ─────────────────────────────────────────────────────
     # Sync is now in calibre_routes.py to avoid duplicate route conflicts
 
