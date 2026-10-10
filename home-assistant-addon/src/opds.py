@@ -415,7 +415,7 @@ def register_routes(app, check_auth):
                 return books_path, default_path, None
             return default_base, default_path, None
 
-        return None, None, Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></book>',
+        return None, None, Response('<?xml version="1.0"?><opds><error>metadata.db not found</error></opds>',
                                     mimetype='application/xml')
 
     def _get_db_connection(metadata_db):
@@ -499,7 +499,7 @@ def register_routes(app, check_auth):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></book>',
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
                             mimetype='application/xml')
 
     @app.route('/book/books')
@@ -543,7 +543,7 @@ def register_routes(app, check_auth):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></book>',
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
                             mimetype='application/xml')
 
     @app.route('/book/comics')
@@ -588,7 +588,7 @@ def register_routes(app, check_auth):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></book>',
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
                             mimetype='application/xml')
 
     @app.route('/book/series/<series_id>/<path:series_name>')
@@ -620,7 +620,7 @@ def register_routes(app, check_auth):
 
             if not series_row:
                 conn.close()
-                return Response('<?xml version="1.0"?><opds><error>Series not found</error></book>',
+                return Response('<?xml version="1.0"?><opds><error>Series not found</error></opds>',
                               mimetype='application/xml')
 
             series_title = series_row["name"]
@@ -669,7 +669,7 @@ def register_routes(app, check_auth):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></book>',
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
                             mimetype='application/xml')
 
     @app.route('/book/cover/<int:book_id>')
@@ -1424,7 +1424,7 @@ def register_routes(app, check_auth):
             conn.close()
 
             if not row:
-                return Response('<?xml version="1.0"?><opds><error>Book not found</error></book>',
+                return Response('<?xml version="1.0"?><opds><error>Book not found</error></opds>',
                               mimetype='application/xml', status=404)
 
             row_dict = dict(row)
@@ -1452,7 +1452,7 @@ def register_routes(app, check_auth):
         except Exception as e:
             import traceback
             logger.warning(f"[OPDS] opds_book_detail error: {e}\n{traceback.format_exc()}")
-            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></book>',
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
                             mimetype='application/xml', status=500)
 
     def _build_opds_book_entry(row, now):
@@ -1514,7 +1514,7 @@ def register_routes(app, check_auth):
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
         return Response(
-            '<?xml version="1.0"?><opds><error>Unknown OPDS path</error></book>',
+            '<?xml version="1.0"?><opds><error>Unknown OPDS path</error></opds>',
             mimetype='application/xml',
             status=404
         )
