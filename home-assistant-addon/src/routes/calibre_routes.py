@@ -184,7 +184,7 @@ def register_calibre_routes(app):
                         CREATE TABLE IF NOT EXISTS series (id INTEGER PRIMARY KEY, name TEXT NOT NULL, sort TEXT);
                         CREATE TABLE IF NOT EXISTS books_series_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, series INTEGER NOT NULL, series_index REAL DEFAULT 0);
                         CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, format TEXT, name TEXT, uncompressed_size INTEGER);
-                        CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT NOT NULL, sort TEXT, author_sort TEXT, series_index REAL);
+                        CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT NOT NULL, sort TEXT, author_sort TEXT, series_index REAL, uuid TEXT, has_cover INTEGER DEFAULT 0, last_modified TEXT);
                     """
                     for stmt in schema.strip().split(';'):
                         stmt = stmt.strip()
@@ -487,14 +487,12 @@ def register_calibre_routes(app):
                 schema = """
                     CREATE TABLE IF NOT EXISTS languages (id INTEGER PRIMARY KEY, lang_code TEXT UNIQUE NOT NULL);
                     CREATE TABLE IF NOT EXISTS publishers (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, sort TEXT);
-                    CREATE TABLE IF NOT EXISTS series (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, sort TEXT);
-                    CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL);
-                    CREATE TABLE IF NOT EXISTS identifiers (id INTEGER PRIMARY KEY, type TEXT, val TEXT);
-                    CREATE TABLE IF NOT EXISTS books_identifiers (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, type TEXT, val TEXT);
-                    CREATE TABLE IF NOT EXISTS books_languages_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, lang_code INTEGER NOT NULL);
-                    CREATE TABLE IF NOT EXISTS books_publishers_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, publisher INTEGER NOT NULL);
-                    CREATE TABLE IF NOT EXISTS books_tags_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, tag INTEGER NOT NULL);
-                    CREATE TABLE IF NOT EXISTS books_series_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, series INTEGER NOT NULL);
+                    CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY, name TEXT NOT NULL, sort TEXT);
+                        CREATE TABLE IF NOT EXISTS books_authors_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, author INTEGER NOT NULL);
+                        CREATE TABLE IF NOT EXISTS series (id INTEGER PRIMARY KEY, name TEXT NOT NULL, sort TEXT);
+                        CREATE TABLE IF NOT EXISTS books_series_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, series INTEGER NOT NULL);
+                        CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, format TEXT, name TEXT, uncompressed_size INTEGER);
+                        CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT NOT NULL, sort TEXT, author_sort TEXT, series_index REAL, uuid TEXT, has_cover INTEGER DEFAULT 0, last_modified TEXT);
                 """
                 for stmt in schema.strip().split(';'):
                     stmt = stmt.strip()
