@@ -437,7 +437,25 @@ def register_komga_routes(app, check_auth):
     # ── Auth check helper ────────────────────────────────────────────────────
 
     def _require_auth():
-        if not _authenticate():
+        """Check Basic Auth or session."""
+        logger.warning(f"[Komga] Auth check: path={request.path}")
+        authenticated = session.get("authenticated", False)
+        if not authenticated:
+            auth_header = request.headers.get('Authorization', '')
+            logger.warning(f"[Komga] Auth: session={session.get('authenticated')}, has_basic={auth_header.startswith('Basic ')}")
+            if auth_header.startswith('Basic '):
+                try:
+                    encoded = auth_header[6:]
+                    decoded = base64.b64decode(encoded).decode('utf-8')
+                    username, password = decoded.split(':', 1)
+                    logger.warning(f"[Komga] Auth: trying user={username}")
+                    if check_auth(username, password):
+                        session["authenticated"] = True
+                        authenticated = True
+                        logger.warning(f"[Komga] Auth: SUCCESS for {username}")
+                except Exception as e:
+                    logger.warning(f"[Komga] Auth: failed - {e}")
+        if not authenticated:
             return Response(json.dumps({"error": "Unauthorized"}), status=401,
                            mimetype='application/json',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa"'})
