@@ -1133,6 +1133,7 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] _komga_books_response error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps(_page_response([], 0)), mimetype='application/json')
 
+    @app.route('/api/v1/opds/books/<book_id>')
     @app.route('/opds/api/v1/books/<book_id>')
     @app.route('/api/v1/books/<book_id>')
     def komga_api_book_detail(book_id):
@@ -1184,8 +1185,9 @@ def register_routes(app, check_auth):
     def _get_book_page_url(book_id, page_num):
         """Build the absolute URL for a book page using request.host_url."""
         base = request.host_url.rstrip('/')
-        return f"{base}/opds/api/v1/books/{book_id}/pages/{page_num}"
+        return f"{base}/api/v1/opds/books/{book_id}/pages/{page_num}"
 
+    @app.route('/api/v1/opds/books/<book_id>/pages')
     @app.route('/opds/api/v1/books/<book_id>/pages')
     @app.route('/api/v1/books/<book_id>/pages')
     def komga_api_book_pages(book_id):
@@ -1270,6 +1272,7 @@ def register_routes(app, check_auth):
             logger.warning(f"[OPDS] komga_api_book_pages error: {e}\n{traceback.format_exc()}")
             return Response(json.dumps([]), mimetype='application/json', status=500)
 
+    @app.route('/api/v1/opds/books/<book_id>/pages/<int:page_num>')
     @app.route('/opds/api/v1/books/<book_id>/pages/<int:page_num>')
     @app.route('/api/v1/books/<book_id>/pages/<int:page_num>')
     def komga_api_book_page(book_id, page_num):

@@ -416,7 +416,7 @@ def register_komga_routes(app, check_auth):
     def _build_book_page_url(book_id, page_num):
         """Build absolute URL for a book page."""
         base = request.host_url.rstrip('/')
-        return f"{base}/komga/api/v1/books/{book_id}/pages/{page_num}"
+        return f"{base}/api/v1/komga/books/{book_id}/pages/{page_num}"
 
     # Store calibre_path for use in helper functions
     calibre_path = None
@@ -893,6 +893,7 @@ def register_komga_routes(app, check_auth):
         conn.close()
         return Response(json.dumps(_page_response(books, page, size, total)), mimetype='application/json')
 
+    @app.route('/api/v1/komga/books/<book_id>')
     @app.route('/api/v1/books/<book_id>')
     @app.route('/komga/api/v1/books/<book_id>')
     @app.route('/komga/books/<book_id>')
@@ -936,6 +937,7 @@ def register_komga_routes(app, check_auth):
             rd["_pages_count"] = _get_book_page_count(book_id, ext, cpath)
         return Response(json.dumps(_make_book_dto(rd)), mimetype='application/json')
 
+    @app.route('/api/v1/komga/books/<book_id>/thumbnail')
     @app.route('/api/v1/books/<book_id>/thumbnail')
     @app.route('/komga/api/v1/books/<book_id>/thumbnail')
     @app.route('/komga/books/<book_id>/thumbnail')
@@ -981,6 +983,7 @@ def register_komga_routes(app, check_auth):
                 pass
         return Response("Not found", status=404)
 
+    @app.route('/api/v1/komga/books/<book_id>/pages')
     @app.route('/api/v1/books/<book_id>/pages')
     @app.route('/komga/api/v1/books/<book_id>/pages')
     @app.route('/komga/books/<book_id>/pages')
@@ -1055,6 +1058,7 @@ def register_komga_routes(app, check_auth):
         logger.warning(f"[Komga] book_pages: book_id={book_id} format={ext} pages={len(pages)}")
         return Response(json.dumps(pages), mimetype='application/json')
 
+    @app.route('/api/v1/komga/books/<book_id>/pages/<int:page_num>')
     @app.route('/api/v1/books/<book_id>/pages/<int:page_num>')
     @app.route('/komga/api/v1/books/<book_id>/pages/<int:page_num>')
     @app.route('/komga/books/<book_id>/pages/<int:page_num>')
