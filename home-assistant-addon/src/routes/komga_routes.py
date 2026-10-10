@@ -97,14 +97,13 @@ def register_komga_routes(app, check_auth):
                 if metadata_db.exists():
                     return calibre_path, metadata_db, None
 
-        # Final fallback: /media/comic/metadata.db or /media/books/metadata.db
-        for base in ('/media/comic', '/media/books'):
-            default_path = Path(base) / 'metadata.db'
-            if default_path.exists():
-                books_path = Path(base) / 'books'
-                if books_path.exists() and books_path.is_dir():
-                    return books_path, default_path, None
-                return Path(base), default_path, None
+        # Final fallback: /media/comic/metadata.db
+        default_path = Path('/media/comic') / 'metadata.db'
+        if default_path.exists():
+            books_path = Path('/media/comic') / 'books'
+            if books_path.exists() and books_path.is_dir():
+                return books_path, default_path, None
+            return Path('/media/comic'), default_path, None
 
         return None, None, ({"error": "metadata.db not found"}, 404)
 
@@ -161,7 +160,7 @@ def register_komga_routes(app, check_auth):
             "metadata": {
                 "title": row["name"],
                 "titleLock": True,
-                "titleSort": row["name"],
+                "titleSort": row.get("name_sort") or row["name"],
                 "titleSortLock": True,
                 "summary": row.get("summary", ""),
                 "summaryLock": True,
@@ -224,7 +223,7 @@ def register_komga_routes(app, check_auth):
                     db_path = row2[0]
 
             library_roots = [calibre_path] + [Path(p) for p in [
-                '/media/comic', '/media/comic/book', '/media/books'
+                '/media/comic', '/media/comic/book'
             ] if Path(p) != calibre_path]
 
             if ext in ('cbz', 'zip'):
@@ -353,7 +352,6 @@ def register_komga_routes(app, check_auth):
         library_roots = [calibre_path] + [Path(p) for p in [
             '/media/comic',
             '/media/comic/book',
-            '/media/books',
         ] if Path(p) != calibre_path]
 
         found = None
@@ -376,7 +374,7 @@ def register_komga_routes(app, check_auth):
                         break
                 # db_path might be a relative path under /media/comic directly
                 # e.g. '女神のスプリンター/7.pdf' relative to /media/comic
-                for base in ('/media/comic', '/media/comic/book', '/media/books'):
+                for base in ('/media/comic', '/media/comic/book'):
                     alt = Path(base) / db_path
                     if alt.is_file() and alt.suffix.lstrip('.').lower() == ext:
                         found = alt
@@ -395,7 +393,7 @@ def register_komga_routes(app, check_auth):
         # 2. Fall back: scan ALL subdirectories of known roots for {book_id}.{ext}
         if not found:
             ext_suffix = f'.{ext}'
-            for base in ('/media/comic', '/media/comic/book', '/media/books', str(calibre_path)):
+            for base in ('/media/comic', '/media/comic/book', str(calibre_path)):
                 base_path = Path(base)
                 if not base_path.is_dir():
                     continue
@@ -491,6 +489,39 @@ def register_komga_routes(app, check_auth):
 
     # ── Series ────────────────────────────────────────────────────────────────
 
+    def _derive_series_name(series_id, conn):
+        """Derive series name from first book's title, stripping volume/chapter prefixes."""
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT b.title FROM books b
+            JOIN books_series_link bsl ON b.id = bsl.book
+            WHERE bsl.series = ?
+            ORDER BY b.series_index
+            LIMIT 1
+        """, (series_id,))
+        row = cursor.fetchone()
+        if row and row["title"]:
+            name = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+\s*[-.]\s*)', '', row["title"])
+            name = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+)\s*$', '', name).strip()
+            return name
+        return None
+
+    def _derive_series_name(series_id, cursor):
+        """Derive series name from first book's title, stripping volume/chapter prefixes."""
+        cursor.execute("""
+            SELECT b.title FROM books b
+            JOIN books_series_link bsl ON b.id = bsl.book
+            WHERE bsl.series = ?
+            ORDER BY b.series_index
+            LIMIT 1
+        """, (series_id,))
+        row = cursor.fetchone()
+        if row and row["title"]:
+            name = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+\s*[-.]\s*)', '', row["title"])
+            name = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+)\s*$', '', name).strip()
+            return name
+        return None
+
     def _query_series(extra_where="", extra_params=(), order_by="s.name ASC"):
         """Reusable series query helper."""
         cpath, mdb, err = _get_calibre_config()
@@ -526,13 +557,17 @@ def register_komga_routes(app, check_auth):
         """
         cursor.execute(data_sql, extra_params)
         rows = [dict(row) for row in cursor.fetchall()]
-        conn.close()
 
         for r in rows:
+            # Derive proper name from first book title using shared cursor
+            derived = _derive_series_name(r["id"], cursor)
+            if derived:
+                r["name"] = derived
             r["books_read_count"] = 0
             r["books_in_progress_count"] = 0
             r["last_modified"] = r["latest_date"]
             r["created"] = r["latest_date"]
+        conn.close()
         return rows, total
 
     @app.route('/api/v1/libraries/<library_id>/series')
@@ -614,9 +649,32 @@ def register_komga_routes(app, check_auth):
             return Response(json.dumps({"error": "Not found"}), status=404, mimetype='application/json')
         conn = _get_db_conn(mdb)
         cursor = conn.cursor()
+
+        # Get series + first book title to derive proper series name
         cursor.execute("""
             SELECT s.id, s.name, s.name_sort,
-                   COUNT(DISTINCT b.id) as books_count,
+                   b.id as first_book_id, b.title as first_book_title
+            FROM series s
+            LEFT JOIN books_series_link bsl ON s.id = bsl.series
+            LEFT JOIN books b ON bsl.book = b.id
+            WHERE s.id = ?
+            LIMIT 1
+        """, (series_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return Response(json.dumps({"error": "Not found"}), status=404, mimetype='application/json')
+        rd = dict(row)
+
+        # Derive series name from first book title (strip leading vol/chapter numbers)
+        if rd.get("first_book_title"):
+            series_name = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+\s*[-.]\s*)', '', rd["first_book_title"])
+            series_name = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+)\s*$', '', series_name).strip()
+        else:
+            series_name = rd.get("name", "")
+
+        cursor.execute("""
+            SELECT COUNT(DISTINCT b.id) as books_count,
                    MAX(b.pubdate) as latest_date,
                    MAX(b.last_modified) as last_modified,
                    MIN(b.created) as created
@@ -624,13 +682,15 @@ def register_komga_routes(app, check_auth):
             LEFT JOIN books_series_link bsl ON s.id = bsl.series
             LEFT JOIN books b ON bsl.book = b.id
             WHERE s.id = ?
-            GROUP BY s.id
         """, (series_id,))
-        row = cursor.fetchone()
+        meta = cursor.fetchone()
         conn.close()
-        if not row:
-            return Response(json.dumps({"error": "Not found"}), status=404, mimetype='application/json')
-        rd = dict(row)
+
+        rd["name"] = series_name
+        rd["books_count"] = meta["books_count"] if meta else 0
+        rd["latest_date"] = meta["latest_date"] if meta else None
+        rd["last_modified"] = meta["last_modified"] if meta else None
+        rd["created"] = meta["created"] if meta else None
         rd["books_read_count"] = 0
         rd["books_in_progress_count"] = 0
         return Response(json.dumps(_make_series_dto(rd)), mimetype='application/json')
@@ -662,10 +722,17 @@ def register_komga_routes(app, check_auth):
         """, (series_id,))
         total = cursor.fetchone()["cnt"]
 
+        # Derive series name from first book title (before we iterate)
+        derived_series_name = _derive_series_name(series_id, cursor)
+        if not derived_series_name:
+            cursor.execute("SELECT name FROM series WHERE id = ?", (series_id,))
+            row = cursor.fetchone()
+            derived_series_name = row["name"] if row else ""
+
         cursor.execute("""
             SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
                    d.format, d.name as filename, d.uncompressed_size as file_size,
-                   s.id as series_id, s.name as series_name
+                   s.id as series_id
             FROM books b
             JOIN books_series_link bsl ON b.id = bsl.book
             JOIN series s ON bsl.series = s.id
@@ -680,6 +747,7 @@ def register_komga_routes(app, check_auth):
         books = []
         for row in cursor.fetchall():
             rd = dict(row)
+            rd["series_name"] = derived_series_name
             ext = rd.get("format", "").lower()
             if ext in ('cbz', 'zip'):
                 rd["_pages_count"] = _get_book_page_count(rd["id"], ext, cpath)
@@ -744,10 +812,28 @@ def register_komga_routes(app, check_auth):
         """)
         total = cursor.fetchone()["cnt"]
 
+        # Pre-load series names from book titles for all series in this page
+        cursor.execute("""
+            SELECT DISTINCT bsl.series as series_id
+            FROM books b
+            JOIN books_tags_link btl ON b.id = btl.book
+            JOIN tags t ON btl.tag = t.id
+            LEFT JOIN books_series_link bsl ON b.id = bsl.book
+            WHERE t.name = 'Comics' AND bsl.series IS NOT NULL
+        """)
+        series_ids = [row["series_id"] for row in cursor.fetchall()]
+        series_name_map = {}
+        for sid in series_ids:
+            derived = _derive_series_name(sid, cursor)
+            cursor.execute("SELECT name FROM series WHERE id = ?", (sid,))
+            row = cursor.fetchone()
+            fallback = row["name"] if row else ""
+            series_name_map[sid] = derived or fallback
+
         cursor.execute("""
             SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
                    d.format, d.name as filename, d.uncompressed_size as file_size,
-                   s.id as series_id, s.name as series_name
+                   s.id as series_id
             FROM books b
             JOIN books_tags_link btl ON b.id = btl.book
             JOIN tags t ON btl.tag = t.id
@@ -762,6 +848,7 @@ def register_komga_routes(app, check_auth):
         books = []
         for row in cursor.fetchall():
             rd = dict(row)
+            rd["series_name"] = series_name_map.get(rd["series_id"], "") if rd.get("series_id") else ""
             ext = rd.get("format", "").lower()
             if ext in ('cbz', 'zip'):
                 rd["_pages_count"] = _get_book_page_count(rd["id"], ext, cpath)
@@ -838,7 +925,7 @@ def register_komga_routes(app, check_auth):
         cursor.execute("""
             SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
                    d.format, d.name as filename, d.uncompressed_size as file_size,
-                   s.id as series_id, s.name as series_name
+                   s.id as series_id
             FROM books b
             LEFT JOIN books_series_link bsl ON b.id = bsl.book
             LEFT JOIN series s ON bsl.series = s.id
@@ -850,6 +937,14 @@ def register_komga_routes(app, check_auth):
         if not row:
             return Response(json.dumps({}), status=404, mimetype='application/json')
         rd = dict(row)
+        # Derive series name from book title (s.name is unreliable)
+        series_id = rd.get("series_id")
+        if series_id and rd.get("title"):
+            derived = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+\s*[-.]\s*)', '', rd["title"])
+            derived = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+)\s*$', '', derived).strip()
+            rd["series_name"] = derived
+        else:
+            rd["series_name"] = ""
         ext = rd.get("format", "").lower()
         if ext in ('cbz', 'zip'):
             rd["_pages_count"] = _get_book_page_count(book_id, ext, cpath)
@@ -867,17 +962,37 @@ def register_komga_routes(app, check_auth):
         if err:
             return Response("Not found", status=404)
 
-        search_folders = [cpath / str(book_id), cpath]
-        for folder in search_folders:
-            if folder.exists() and folder.is_dir():
-                for f in folder.iterdir():
-                    if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
-                        name_lower = f.name.lower()
-                        if any(p in name_lower for p in ['cover', 'thumbnail']) or f.stem == str(book_id):
-                            return send_file(str(f))
-                for f in folder.iterdir():
-                    if f.suffix.lower() in ('.jpg', '.jpeg', '.png'):
+        # Always look in the book_id subfolder under cpath
+        book_folder = cpath / str(book_id)
+        if book_folder.exists() and book_folder.is_dir():
+            # Prioritize cover.jpg / cover.png named files
+            for f in book_folder.iterdir():
+                if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+                    name_lower = f.name.lower()
+                    if 'cover' in name_lower or 'thumbnail' in name_lower or f.stem == 'cover':
                         return send_file(str(f))
+            # Fall back to first image
+            for f in book_folder.iterdir():
+                if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+                    return send_file(str(f))
+
+        # Deep scan: search subdirectories of known roots for cover.jpg inside {book_id}/
+        for base in ('/media/comic', '/media/comic/book'):
+            try:
+                base_path = Path(base)
+                if not base_path.is_dir():
+                    continue
+                for sub in base_path.iterdir():
+                    if not sub.is_dir() or sub.stem != str(book_id):
+                        continue
+                    for f in sub.iterdir():
+                        if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp') and 'cover' in f.name.lower():
+                            return send_file(str(f))
+                    for f in sub.iterdir():
+                        if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+                            return send_file(str(f))
+            except PermissionError:
+                pass
         return Response("Not found", status=404)
 
     @app.route('/api/v1/books/<book_id>/pages')
@@ -923,10 +1038,30 @@ def register_komga_routes(app, check_auth):
             pages.append(_build_book_page_url(book_id, 1))
 
         else:
-            book_folder = cpath / (db_path or str(book_id))
-            if book_folder.exists() and book_folder.is_dir():
-                image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
-                files = sorted([f for f in book_folder.iterdir() if f.suffix.lower() in image_exts],
+            # Image folder: search broadly since db_path may be wrong
+            image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+            found_folder = None
+            for base in ('/media/comic', '/media/comic/book'):
+                try:
+                    base_path = Path(base)
+                    if not base_path.is_dir():
+                        continue
+                    for sub in base_path.iterdir():
+                        if not sub.is_dir() or sub.stem != str(book_id):
+                            continue
+                        files = [f for f in sub.iterdir() if f.suffix.lower() in image_exts]
+                        if files:
+                            found_folder = sub
+                            break
+                except PermissionError:
+                    pass
+                if found_folder:
+                    break
+            if not found_folder:
+                # Fall back to cpath
+                found_folder = cpath / (db_path or str(book_id))
+            if found_folder.exists() and found_folder.is_dir():
+                files = sorted([f for f in found_folder.iterdir() if f.suffix.lower() in image_exts],
                               key=lambda x: x.name.lower())
                 for i, _ in enumerate(files, 1):
                     pages.append(_build_book_page_url(book_id, i))
@@ -977,10 +1112,28 @@ def register_komga_routes(app, check_auth):
                     logger.warning(f"[Komga] Error extracting page: {e}")
 
         else:
-            book_folder = cpath / (db_path or str(book_id))
-            if book_folder.exists() and book_folder.is_dir():
-                image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
-                files = sorted([f for f in book_folder.iterdir() if f.suffix.lower() in image_exts],
+            image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+            found_folder = None
+            for base in ('/media/comic', '/media/comic/book'):
+                try:
+                    base_path = Path(base)
+                    if not base_path.is_dir():
+                        continue
+                    for sub in base_path.iterdir():
+                        if not sub.is_dir() or sub.stem != str(book_id):
+                            continue
+                        files = [f for f in sub.iterdir() if f.suffix.lower() in image_exts]
+                        if files:
+                            found_folder = sub
+                            break
+                except PermissionError:
+                    pass
+                if found_folder:
+                    break
+            if not found_folder:
+                found_folder = cpath / (db_path or str(book_id))
+            if found_folder.exists() and found_folder.is_dir():
+                files = sorted([f for f in found_folder.iterdir() if f.suffix.lower() in image_exts],
                               key=lambda x: x.name.lower())
                 if 1 <= page_num <= len(files):
                     return send_file(str(files[page_num - 1]),
@@ -1044,19 +1197,24 @@ def register_komga_routes(app, check_auth):
 
         results = []
         cursor.execute("""
-            SELECT DISTINCT s.id, s.name, COUNT(DISTINCT b.id) as book_count
+            SELECT DISTINCT s.id, COUNT(DISTINCT b.id) as book_count
             FROM series s
             JOIN books_series_link bsl ON s.id = bsl.series
             JOIN books b ON bsl.book = b.id
             JOIN books_tags_link btl ON b.id = btl.book
             JOIN tags t ON btl.tag = t.id
             WHERE t.name = 'Comics' AND s.name LIKE ?
-            GROUP BY s.id, s.name
+            GROUP BY s.id
             ORDER BY s.name LIMIT 20
         """, (f'%{query}%',))
         for row in cursor.fetchall():
-            results.append({"type": "series", "id": str(row["id"]),
-                          "name": row["name"], "bookCount": row["book_count"]})
+            sid = row["id"]
+            derived = _derive_series_name(sid, cursor)
+            cursor.execute("SELECT name FROM series WHERE id = ?", (sid,))
+            fallback_row = cursor.fetchone()
+            fallback = fallback_row["name"] if fallback_row else ""
+            results.append({"type": "series", "id": str(sid),
+                          "name": derived or fallback, "bookCount": row["book_count"]})
 
         conn.close()
         return Response(json.dumps({"results": results}), mimetype='application/json')
