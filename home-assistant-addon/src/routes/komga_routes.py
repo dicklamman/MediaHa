@@ -416,7 +416,7 @@ def register_komga_routes(app, check_auth):
     def _build_book_page_url(book_id, page_num):
         """Build absolute URL for a book page."""
         base = request.host_url.rstrip('/')
-        return f"{base}/api/v1/books/{book_id}/pages/{page_num}"
+        return f"{base}/komga/api/v1/books/{book_id}/pages/{page_num}"
 
     # Store calibre_path for use in helper functions
     calibre_path = None
