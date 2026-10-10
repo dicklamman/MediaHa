@@ -185,6 +185,7 @@ def register_calibre_routes(app):
                         CREATE TABLE IF NOT EXISTS books_series_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, series INTEGER NOT NULL, series_index REAL DEFAULT 0);
                         CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, format TEXT, name TEXT, uncompressed_size INTEGER);
                         CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT NOT NULL, sort TEXT, author_sort TEXT, series_index REAL, path TEXT, uuid TEXT, has_cover INTEGER DEFAULT 0, last_modified TEXT);
+                        CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, text TEXT);
                     """
                     for stmt in schema.strip().split(';'):
                         stmt = stmt.strip()
@@ -493,6 +494,7 @@ def register_calibre_routes(app):
                         CREATE TABLE IF NOT EXISTS books_series_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, series INTEGER NOT NULL);
                         CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, format TEXT, name TEXT, uncompressed_size INTEGER);
                         CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT NOT NULL, sort TEXT, author_sort TEXT, series_index REAL, path TEXT, uuid TEXT, has_cover INTEGER DEFAULT 0, last_modified TEXT);
+                        CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, text TEXT);
                 """
                 for stmt in schema.strip().split(';'):
                     stmt = stmt.strip()
