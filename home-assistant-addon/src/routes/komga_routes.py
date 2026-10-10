@@ -286,6 +286,9 @@ def register_komga_routes(app, check_auth):
         except (TypeError, ValueError):
             number_int = 0
 
+        # Simple chapter number only
+        chapter_num = str(number_int)
+
         size_bytes = row.get("file_size") or 0
         # Page count is computed at call sites and passed as _pages_count
         pages_count = row.get("_pages_count") or 0
@@ -295,8 +298,8 @@ def register_komga_routes(app, check_auth):
             "seriesId": str(row["series_id"]) if row.get("series_id") else None,
             "seriesTitle": row.get("series_name"),
             "libraryId": "comics",
-            "name": row.get("title") or f"Book {book_id}",
-            "title": row.get("title") or f"Book {book_id}",
+            "name": chapter_num,
+            "title": chapter_num,
             "number": number_int,
             "oneshot": row.get("oneshot", False),
             "size": str(size_bytes),
@@ -320,7 +323,7 @@ def register_komga_routes(app, check_auth):
                 "comment": "",
             },
             "metadata": {
-                "title": row.get("title") or f"Book {book_id}",
+                "title": chapter_num,
                 "titleLock": True,
                 "number": str(number_int),
                 "numberLock": True,
@@ -942,23 +945,14 @@ def register_komga_routes(app, check_auth):
                     logger.warning(f"[Komga] Error extracting page: {e}")
 
         elif ext == 'pdf':
-            # For PDF, find and serve the PDF file directly
-            pdf_path = None
-            for base in [cpath, Path('/media/comic'), Path('/media/comic/book')]:
-                if not base.exists():
-                    continue
-                for candidate in [base / db_path, base / str(book_id), base / f"{book_id}.pdf"]:
-                    logger.warning(f"[Komga] Checking PDF: {candidate}")
-                    if candidate.exists() and candidate.suffix.lower() == '.pdf':
-                        pdf_path = candidate
-                        break
-                if pdf_path:
-                    break
-            if pdf_path:
+            # For PDF, use the same file finding logic as CBZ
+            book_path = _find_book_file(book_id, ext, cpath, db_path)
+            logger.warning(f"[Komga] PDF path: {book_path}, exists={book_path.exists() if book_path else False}")
+            if book_path and book_path.exists():
                 try:
-                    with open(pdf_path, 'rb') as f:
+                    with open(book_path, 'rb') as f:
                         data = f.read()
-                    logger.warning(f"[Komga] Serving PDF file: {pdf_path}, size={len(data)}")
+                    logger.warning(f"[Komga] Serving PDF file: {book_path}, size={len(data)}")
                     return Response(data, mimetype='application/pdf')
                 except Exception as e:
                     logger.warning(f"[Komga] Error reading PDF: {e}")
