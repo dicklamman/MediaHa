@@ -160,11 +160,13 @@ def register_web_routes(app):
 
     @app.route('/comic/komga')
     @app.route('/comic/komga/')
-    def comic_komga():
-        """Serve the Komga comic reader page."""
-        if not session.get("authenticated"):
-            return redirect('/login.html', code=302)
-        return render_template('pages/komga.html', page_id='komga', page_title='Komga Comics')
+    @app.route('/comic/komga/<path:rest>')
+    def comic_komga(rest=None):
+        """Serve the Komga comic reader page (Komga-standard SPA)."""
+        return send_from_directory(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../ui/pages'),
+            'komga.html'
+        )
 
     @app.route('/comic/<path:rest>')
     def comic_subpath(rest):
