@@ -203,6 +203,12 @@ def register_calibre_routes(app):
                         CREATE TABLE IF NOT EXISTS books_languages_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, lang_code INTEGER NOT NULL);
                         CREATE TABLE IF NOT EXISTS books_publishers_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, publisher INTEGER NOT NULL);
                         CREATE TABLE IF NOT EXISTS books_tags_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, tag INTEGER NOT NULL);
+                        CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY, name TEXT NOT NULL, sort TEXT);
+                        CREATE TABLE IF NOT EXISTS books_authors_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, author INTEGER NOT NULL);
+                        CREATE TABLE IF NOT EXISTS series (id INTEGER PRIMARY KEY, name TEXT NOT NULL, sort TEXT);
+                        CREATE TABLE IF NOT EXISTS books_series_link (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, series INTEGER NOT NULL, series_index REAL DEFAULT 0);
+                        CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, format TEXT, name TEXT, uncompressed_size INTEGER);
+                        CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT NOT NULL, sort TEXT);
                     """
                     for stmt in schema.strip().split(';'):
                         stmt = stmt.strip()
@@ -869,6 +875,7 @@ def register_calibre_routes(app):
 
                 success_count = 0
                 error_count = 0
+                pdf_converted_count = 0
 
                 def natural_sort_key(s):
                     return [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', s)]
@@ -947,14 +954,39 @@ def register_calibre_routes(app):
                                     pass
                             elif file_format == 'PDF':
                                 try:
+                                    # Convert PDF pages to images and create CBR (RAR) file
+                                    # CBR is just a RAR archive - we'll create a ZIP with .cbr extension (most readers accept this)
                                     doc = fitz.open(Path(file_path))
                                     if len(doc) > 0:
-                                        page = doc[0]
+                                        # Create CBR (ZIP format, most readers accept)
+                                        import io
+                                        cbr_path = book_dir / Path(original_name).with_suffix('.cbr').name
+                                        with zipfile.ZipFile(str(cbr_path), 'w', zipfile.ZIP_DEFLATED) as cbr_zip:
+                                            for page_num in range(len(doc)):
+                                                page = doc[page_num]
+                                                mat = fitz.Matrix(2, 2)  # 2x zoom for better quality
+                                                pix = page.get_pixmap(matrix=mat)
+                                                img_bytes = pix.tobytes('jpg', jpeg_quality=90)
+                                                img_name = f"page_{page_num + 1:04d}.jpg"
+                                                cbr_zip.writestr(img_name, img_bytes)
+                                        
+                                        # Extract cover from first page
+                                        first_page = doc[0]
                                         mat = fitz.Matrix(2, 2)
-                                        pix = page.get_pixmap(matrix=mat)
+                                        pix = first_page.get_pixmap(matrix=mat)
                                         cover_path = book_dir / 'cover.jpg'
                                         pix.save(str(cover_path))
                                         has_cover = 1
+                                        
+                                        # Update format to CBR
+                                        file_format = 'CBR'
+                                        file_size = cbr_path.stat().st_size
+                                        pdf_converted_count += 1
+                                        
+                                        # Remove original PDF (the one copied to dest_file)
+                                        dest_file.unlink(missing_ok=True)
+                                        
+                                        yield json.dumps({'type': 'log', 'message': f'  → Converted PDF to CBR ({len(doc)} pages)', 'level': 'info'}) + '\n'
                                     doc.close()
                                 except:
                                     pass
@@ -963,11 +995,17 @@ def register_calibre_routes(app):
                                 cursor.execute('UPDATE books SET has_cover = 1 WHERE id = ?', (book_id,))
 
                             # Data entry
-                            file_size = Path(file_path).stat().st_size
+                            # For PDF -> CBR conversion, use CBR path; otherwise use original file
+                            if file_format == 'CBR':
+                                data_file = cbr_path
+                            else:
+                                data_file = Path(file_path)
+                            file_size = data_file.stat().st_size
+                            file_name = data_file.stem  # Use CBR filename if converted
                             cursor.execute('''
                                 INSERT INTO data (book, format, name, uncompressed_size)
                                 VALUES (?, ?, ?, ?)
-                            ''', (book_id, file_format, Path(original_name).stem, file_size))
+                            ''', (book_id, file_format, file_name, file_size))
 
                         conn.commit()
                         success_count += 1
@@ -988,6 +1026,8 @@ def register_calibre_routes(app):
                 conn.close()
 
                 yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
+                if pdf_converted_count > 0:
+                    yield json.dumps({'type': 'log', 'message': f'[INFO] Converted {pdf_converted_count} PDF files to CBR', 'level': 'info'}) + '\n'
                 if error_count > 0:
                     yield json.dumps({'type': 'error', 'message': f'Completed: {success_count} comics, {error_count} errors'}) + '\n'
                 else:
