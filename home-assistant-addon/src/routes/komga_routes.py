@@ -147,11 +147,11 @@ def register_komga_routes(app, check_auth):
 
     def _make_series_dto(row, comics_only=True):
         """Build a Komga-standard SeriesDto."""
-        return {
+        dto = {
             "id": str(row["id"]),
             "libraryId": "comics",
             "name": row["name"],
-            "url": f"/comic/api/v1/series/{row['id']}",
+            "url": f"/comic/komga/api/v1/series/{row['id']}",
             "created": _date_iso(row.get("created", "")),
             "lastModified": _date_iso(row.get("last_modified", "")),
             "fileLastModified": _date_iso(row.get("file_last_modified", "")),
@@ -203,6 +203,7 @@ def register_komga_routes(app, check_auth):
                 "lastModified": _date_iso(row.get("metadata_last_modified", "")),
             },
         }
+        return dto
 
     def _get_book_page_count(book_id, ext, calibre_path):
         """Count pages in CBZ/image directories."""
@@ -273,9 +274,9 @@ def register_komga_routes(app, check_auth):
             return "image"
         return "unknown"
 
-    def _make_book_dto(row, base_url="/api/v1"):
+    def _make_book_dto(row, base_url="/comic/komga/api/v1"):
         """Build a Komga-standard BookDto."""
-        book_id = str(row["id"])
+        book_id = row["id"]  # Keep as integer
         ext = row.get("format", "").lower()
         media_type = f"application/{ext}" if ext else "application/octet-stream"
 
@@ -290,7 +291,7 @@ def register_komga_routes(app, check_auth):
         pages_count = row.get("_pages_count") or 0
 
         return {
-            "id": book_id,
+            "id": book_id,  # Keep as integer per Komga standard
             "seriesId": str(row["series_id"]) if row.get("series_id") else None,
             "seriesTitle": row.get("series_name"),
             "libraryId": "comics",
@@ -615,6 +616,7 @@ def register_komga_routes(app, check_auth):
     def komga_series_detail_v3(series_id):
         """Get series details (Tachimanga path)."""
         logger.warning(f"[Komga] HIT: /comic/komga/api/v1/series/{series_id}")
+        logger.warning(f"[Komga] series_id type: {type(series_id)}, value: {series_id}")
         err = _require_auth()
         if err:
             return err
@@ -657,6 +659,7 @@ def register_komga_routes(app, check_auth):
             WHERE s.id = ?
         """, (series_id,))
         meta = cursor.fetchone()
+
         conn.close()
 
         rd["name"] = series_name
