@@ -7,10 +7,8 @@ export const calibreWeb = {
         this.clearCheckbox = document.getElementById('calibre-clear');
         this.saveBtn = document.getElementById('save-calibre-settings');
         this.syncBtn = document.getElementById('sync-calibre-btn');
-        this.syncComicBtn = document.getElementById('sync-comic-btn');
         this.syncKomgaBtn = document.getElementById('sync-komga-btn');
         this.logOutput = document.getElementById('calibre-log-output');
-        this.comicLogOutput = document.getElementById('comic-log-output');
         this.komgaLogOutput = document.getElementById('komga-log-output');
 
         if (!this.libraryPathInput) return;
@@ -22,9 +20,6 @@ export const calibreWeb = {
     bindEvents() {
         this.saveBtn.addEventListener('click', () => this.saveSettings());
         this.syncBtn.addEventListener('click', () => this.syncEpub());
-        if (this.syncComicBtn) {
-            this.syncComicBtn.addEventListener('click', () => this.syncComics());
-        }
         if (this.syncKomgaBtn) {
             this.syncKomgaBtn.addEventListener('click', () => this.syncKomga());
         }
@@ -157,80 +152,6 @@ export const calibreWeb = {
 
         this.logOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
         this.logOutput.scrollTop = this.logOutput.scrollHeight;
-    },
-
-    async syncComics() {
-        if (!this.syncComicBtn || this.syncComicBtn.disabled) return;
-
-        if (!this.libraryPathInput.value.trim()) {
-            this.showLog('Please configure Calibre Library Path first!', 'error');
-            return;
-        }
-        if (!this.comicFolderInput || !this.comicFolderInput.value.trim()) {
-            this.showLog('Please configure Comic Source Folder Path first!', 'error');
-            return;
-        }
-
-        this.syncComicBtn.disabled = true;
-        this.syncComicBtn.innerHTML = '<span class="spinner"></span> Syncing...';
-        if (this.comicLogOutput) this.comicLogOutput.textContent = '';
-
-        this.showLog('Starting Comic sync to Calibre Library...', 'info');
-
-        try {
-            await this.saveSettings();
-
-            const response = await fetch('/api/comic/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (response.status === 401) {
-                window.location.href = '/login.html';
-                return;
-            }
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Sync failed');
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n').filter(line => line.trim());
-
-                for (const line of lines) {
-                    try {
-                        const data = JSON.parse(line);
-                        if (this.comicLogOutput) {
-                            this.showComicLog(data.message, data.level || 'info');
-                        }
-                    } catch (e) {}
-                }
-            }
-
-            this.showLog('=== Comic sync completed ===', 'success');
-        } catch (error) {
-            this.showLog('Comic sync failed: ' + error.message, 'error');
-        } finally {
-            this.syncComicBtn.disabled = false;
-            this.syncComicBtn.innerHTML = '<span class="material-icons" style="font-size: 20px; vertical-align: middle;">sync</span> Sync Comics to Calibre Library';
-        }
-    },
-
-    showComicLog(message, level = 'info') {
-        if (!this.comicLogOutput) return;
-        const timestamp = new Date().toLocaleTimeString();
-        const prefix = level === 'error' ? '❌' : level === 'success' ? '✅' : 'ℹ️';
-
-        this.comicLogOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
-        this.comicLogOutput.scrollTop = this.comicLogOutput.scrollHeight;
     },
 
     async syncKomga() {

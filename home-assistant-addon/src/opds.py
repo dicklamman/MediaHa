@@ -6,7 +6,7 @@ import sqlite3
 import logging
 import zipfile
 import io
-from flask import request, Response, session, send_file
+from flask import request, Response, session, send_file, redirect
 from pathlib import Path
 import json
 import datetime
@@ -1504,6 +1504,11 @@ def register_routes(app, check_auth):
             '    <dcterms:issued>' + pubdate + '</dcterms:issued>',
             '  </entry>'
         ])
+
+    @app.route('/book/opds')
+    def opds_alias():
+        """Redirect /book/opds to /book"""
+        return redirect('/book', code=302)
 
     @app.route('/book/<path:unknown>')
     def opds_catchall(unknown):
