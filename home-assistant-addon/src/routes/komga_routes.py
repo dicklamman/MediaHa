@@ -838,14 +838,22 @@ def register_komga_routes(app, check_auth):
                                       and not n.startswith('__MACOSX')],
                                       key=lambda x: x.lower())
                         logger.warning(f"[Komga] CBZ pages found: {len(names)}")
-                        for i, _ in enumerate(names, 1):
-                            pages.append(f"{request.host_url.rstrip('/')}/comic/komga/api/v1/books/{book_id}/pages/{i}")
+                        for i, name in enumerate(names, 1):
+                            pages.append({
+                                "number": i,
+                                "size": zf.getinfo(name).file_size,
+                                "mediaType": "image/" + (os.path.splitext(name)[1].lstrip('.').lower() or 'jpeg'),
+                            })
                 except Exception as e:
                     logger.warning(f"[Komga] Error reading CBZ: {e}")
 
         elif ext == 'pdf':
             logger.warning(f"[Komga] PDF book: id={book_id}")
-            pages.append(f"{request.host_url.rstrip('/')}/comic/komga/api/v1/books/{book_id}/pages/1")
+            pages.append({
+                "number": 1,
+                "size": 0,
+                "mediaType": "application/pdf",
+            })
         else:
             image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
             found_folder = None
@@ -876,7 +884,11 @@ def register_komga_routes(app, check_auth):
                               key=lambda x: x.name.lower())
                 logger.warning(f"[Komga] Found {len(files)} pages in {found_folder}")
                 for i, _ in enumerate(files, 1):
-                    pages.append(f"{request.host_url.rstrip('/')}/comic/komga/api/v1/books/{book_id}/pages/{i}")
+                    pages.append({
+                        "number": i,
+                        "size": 0,
+                        "mediaType": "image/" + (files[i-1].suffix.lstrip('.').lower() if files[i-1].suffix else 'jpeg'),
+                    })
 
         logger.warning(f"[Komga] Returning pages response: {json.dumps(pages)}")
         return Response(json.dumps(pages), mimetype='application/json')
