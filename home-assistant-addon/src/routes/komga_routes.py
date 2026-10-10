@@ -97,14 +97,14 @@ def register_komga_routes(app, check_auth):
                 if metadata_db.exists():
                     return calibre_path, metadata_db, None
 
-        # Final fallback: /media/comic/metadata.db
-        default_path = Path('/media/comic/metadata.db')
-        if default_path.exists():
-            default_base = Path('/media/comic')
-            books_path = default_base / 'books'
-            if books_path.exists() and books_path.is_dir():
-                return books_path, default_path, None
-            return default_base, default_path, None
+        # Final fallback: /media/comic/metadata.db or /media/books/metadata.db
+        for base in ('/media/comic', '/media/books'):
+            default_path = Path(base) / 'metadata.db'
+            if default_path.exists():
+                books_path = Path(base) / 'books'
+                if books_path.exists() and books_path.is_dir():
+                    return books_path, default_path, None
+                return Path(base), default_path, None
 
         return None, None, ({"error": "metadata.db not found"}, 404)
 
@@ -212,14 +212,21 @@ def register_komga_routes(app, check_auth):
                     cfg = json.load(f)
                 komga_lib = cfg.get('komga_library_path', '/media/comic/book')
                 komga_db = Path(komga_lib) / 'metadata.db'
-                if komga_db.exists():
-                    conn2 = sqlite3.connect(str(komga_db))
-                    c2 = conn2.cursor()
-                    c2.execute("SELECT path FROM books WHERE id = ?", (book_id,))
-                    row2 = c2.fetchone()
-                    conn2.close()
-                    if row2 and row2[0]:
-                        db_path = row2[0]
+            else:
+                komga_db = None
+            if komga_db and komga_db.exists():
+                conn2 = sqlite3.connect(str(komga_db))
+                c2 = conn2.cursor()
+                c2.execute("SELECT path FROM books WHERE id = ?", (book_id,))
+                row2 = c2.fetchone()
+                conn2.close()
+                if row2 and row2[0]:
+                    db_path = row2[0]
+
+            library_roots = [calibre_path] + [Path(p) for p in [
+                '/media/comic', '/media/comic/book', '/media/books'
+            ] if Path(p) != calibre_path]
+
             if ext in ('cbz', 'zip'):
                 book_path = _find_book_file(book_id, ext, calibre_path, db_path)
                 if book_path and book_path.exists():
@@ -228,13 +235,26 @@ def register_komga_routes(app, check_auth):
                         return sum(1 for n in zf.namelist()
                                   if os.path.splitext(n)[1].lower() in image_exts
                                   and not n.startswith('__MACOSX'))
-            book_folder = calibre_path / (db_path or str(book_id))
-            if book_folder.exists() and book_folder.is_dir():
-                image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
-                return sum(1 for f in book_folder.iterdir()
-                          if f.suffix.lower() in image_exts)
-            if ext == 'pdf':
-                return 1
+
+            # Scan all subdirs in known roots for {book_id}.{ext}
+            ext_suffix = f'.{ext}'
+            for base in library_roots:
+                if not base.is_dir():
+                    continue
+                try:
+                    for sub in base.iterdir():
+                        if not sub.is_dir():
+                            continue
+                        candidate = sub / f"{book_id}{ext_suffix}"
+                        if candidate.is_file():
+                            if ext == 'pdf':
+                                return 1
+                            image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+                            return sum(1 for f in sub.iterdir()
+                                      if f.suffix.lower() in image_exts)
+                except PermissionError:
+                    pass
+
         except Exception as e:
             logger.warning(f"[Komga] Error getting page count for {book_id}: {e}")
         return 0
@@ -321,31 +341,79 @@ def register_komga_routes(app, check_auth):
 
     def _find_book_file(book_id, ext, calibre_path, db_path=None):
         """Find a book file by ID and extension.
-        
+
         If db_path is provided (e.g. 'books/女神のスプリンター'), use it directly.
         Otherwise fall back to book_id folder.
+
+        Tries multiple library roots to handle legacy/alternate paths.
         """
         ext = ext.lower().lstrip('.')
-        
-        # Try the stored path first
+
+        # Candidate library roots (most specific first)
+        library_roots = [calibre_path] + [Path(p) for p in [
+            '/media/comic',
+            '/media/comic/book',
+            '/media/books',
+        ] if Path(p) != calibre_path]
+
+        found = None
+
+        # 1. Try the stored path first (most specific)
         if db_path:
-            book_folder = calibre_path / db_path
-            if book_folder.exists() and book_folder.is_dir():
-                for f in book_folder.iterdir():
-                    if f.is_file() and f.suffix.lstrip('.').lower() == ext:
-                        return f
-        
-        # Fall back to book_id folder (legacy)
-        book_folder = calibre_path / str(book_id)
-        if book_folder.exists() and book_folder.is_dir():
-            for f in book_folder.iterdir():
-                if f.suffix.lstrip('.').lower() == ext:
-                    return f
-        for f in calibre_path.iterdir():
-            if f.is_file() and f.suffix.lstrip('.').lower() == ext:
-                if f.stem == str(book_id):
-                    return f
-        return None
+            for root in library_roots:
+                book_folder = root / db_path
+                if book_folder.exists() and book_folder.is_dir():
+                    for f in book_folder.iterdir():
+                        if f.is_file() and f.suffix.lstrip('.').lower() == ext:
+                            found = f
+                            break
+                    if found:
+                        break
+                    # Also check if db_path is already a file
+                    file_path = root / db_path
+                    if file_path.is_file() and file_path.suffix.lstrip('.').lower() == ext:
+                        found = file_path
+                        break
+                # db_path might be a relative path under /media/comic directly
+                # e.g. '女神のスプリンター/7.pdf' relative to /media/comic
+                for base in ('/media/comic', '/media/comic/book', '/media/books'):
+                    alt = Path(base) / db_path
+                    if alt.is_file() and alt.suffix.lstrip('.').lower() == ext:
+                        found = alt
+                        break
+                    alt_dir = Path(base) / db_path
+                    if alt_dir.is_dir():
+                        for f in alt_dir.iterdir():
+                            if f.is_file() and f.suffix.lstrip('.').lower() == ext:
+                                found = f
+                                break
+                        if found:
+                            break
+                if found:
+                    break
+
+        # 2. Fall back: scan ALL subdirectories of known roots for {book_id}.{ext}
+        if not found:
+            ext_suffix = f'.{ext}'
+            for base in ('/media/comic', '/media/comic/book', '/media/books', str(calibre_path)):
+                base_path = Path(base)
+                if not base_path.is_dir():
+                    continue
+                try:
+                    for sub in base_path.iterdir():
+                        if not sub.is_dir():
+                            continue
+                        # Try {book_id}.{ext} inside subdirectory
+                        candidate = sub / f"{book_id}{ext_suffix}"
+                        if candidate.is_file():
+                            found = candidate
+                            break
+                except PermissionError:
+                    pass
+                if found:
+                    break
+
+        return found
 
     def _build_book_page_url(book_id, page_num):
         """Build absolute URL for a book page."""
