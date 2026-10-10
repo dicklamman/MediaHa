@@ -828,6 +828,7 @@ def register_komga_routes(app, check_auth):
 
         if ext in ('cbz', 'zip'):
             book_path = _find_book_file(book_id, ext, cpath, db_path)
+            logger.warning(f"[Komga] CBZ file path: {book_path}, exists={book_path.exists() if book_path else False}")
             if book_path and book_path.exists():
                 try:
                     with zipfile.ZipFile(str(book_path), 'r') as zf:
@@ -836,12 +837,14 @@ def register_komga_routes(app, check_auth):
                                       if os.path.splitext(n)[1].lower() in image_exts
                                       and not n.startswith('__MACOSX')],
                                       key=lambda x: x.lower())
+                        logger.warning(f"[Komga] CBZ pages found: {len(names)}")
                         for i, _ in enumerate(names, 1):
                             pages.append(f"{request.host_url.rstrip('/')}/comic/komga/api/v1/books/{book_id}/pages/{i}")
                 except Exception as e:
                     logger.warning(f"[Komga] Error reading CBZ: {e}")
 
         elif ext == 'pdf':
+            logger.warning(f"[Komga] PDF book: id={book_id}")
             pages.append(f"{request.host_url.rstrip('/')}/comic/komga/api/v1/books/{book_id}/pages/1")
         else:
             image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
@@ -875,6 +878,7 @@ def register_komga_routes(app, check_auth):
                 for i, _ in enumerate(files, 1):
                     pages.append(f"{request.host_url.rstrip('/')}/comic/komga/api/v1/books/{book_id}/pages/{i}")
 
+        logger.warning(f"[Komga] Returning pages response: {json.dumps(pages)}")
         return Response(json.dumps(pages), mimetype='application/json')
 
     @app.route('/comic/komga/api/v1/books/<book_id>/pages/<int:page_num>')
