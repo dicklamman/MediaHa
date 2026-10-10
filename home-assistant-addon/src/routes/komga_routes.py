@@ -2570,6 +2570,74 @@ def register_komga_routes(app, check_auth):
             'komga-book.html'
         )
 
+    # ── Migration: Rename "komga" books to integers ──────────────────────────
+    @app.route('/comic/komga/api/v1/admin/migrate-book-ids', methods=['POST'])
+    def komga_migrate_book_ids():
+        """One-time migration to rename books from 'komga{N}' to integer IDs."""
+        logger.warning("[Komga] HIT: /comic/komga/api/v1/admin/migrate-book-ids")
+        err = _require_auth()
+        if err:
+            return err
+
+        cpath, mdb, err = _get_calibre_config()
+        if err:
+            return Response(json.dumps({"error": "Not found"}), status=404, mimetype='application/json')
+
+        # Get komga books
+        conn = _get_db_conn(mdb)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, path FROM books WHERE id LIKE 'komga%' ORDER BY CAST(SUBSTR(id, 6) AS INTEGER)")
+        komga_books = [(row['id'], row['path']) for row in cursor.fetchall()]
+
+        if not komga_books:
+            conn.close()
+            return Response(json.dumps({"migrated": 0, "message": "No komga books found"}), mimetype='application/json')
+
+        migrated = 0
+        komga_library_path = _get_komga_library_path()
+        comic_folder = _get_comic_folder()
+
+        for old_id, old_path in komga_books:
+            # Derive new integer ID from next available
+            cursor.execute("SELECT MAX(id) FROM books")
+            max_id = cursor.fetchone()[0] or 0
+            new_id = max_id + 1
+
+            # Get the folder name from old_id (e.g., "komga7" -> "/media/comic/book/komga7")
+            old_folder = None
+            for base in [komga_library_path, comic_folder, Path('/media/comic'), Path('/media/comic/book')]:
+                candidate = base / old_id
+                if candidate.exists():
+                    old_folder = candidate
+                    break
+
+            if old_folder:
+                new_folder = old_folder.parent / str(new_id)
+                try:
+                    old_folder.rename(new_folder)
+                    logger.warning(f"[Komga] Renamed folder: {old_folder} -> {new_folder}")
+                except Exception as e:
+                    logger.warning(f"[Komga] Failed to rename folder {old_folder}: {e}")
+
+            # Update database
+            new_path = f"books/{new_id}" if old_path and old_path.startswith("books/") else old_path
+            if new_path:
+                new_path = new_path.replace(f"books/{old_id}", f"books/{new_id}")
+
+            cursor.execute("UPDATE books SET id = ?, path = ? WHERE id = ?", (new_id, new_path, old_id))
+            cursor.execute("UPDATE books_series_link SET book = ? WHERE book = ?", (new_id, old_id))
+            cursor.execute("UPDATE books_tags_link SET book = ? WHERE book = ?", (new_id, old_id))
+            cursor.execute("UPDATE data SET book = ? WHERE book = ?", (new_id, old_id))
+            cursor.execute("UPDATE custom_columns_books_link SET book = ? WHERE book = ?", (new_id, old_id))
+
+            migrated += 1
+            logger.warning(f"[Komga] Migrated book: {old_id} -> {new_id}")
+
+        conn.commit()
+        conn.close()
+
+        return Response(json.dumps({"migrated": migrated, "message": f"Migrated {migrated} books to integer IDs"}), mimetype='application/json')
+
     # ── Komga OPDS Catalog ─────────────────────────────────────────────────────
     # Sync is now in calibre_routes.py to avoid duplicate route conflicts
 
