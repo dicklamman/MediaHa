@@ -815,12 +815,15 @@ def register_komga_routes(app, check_auth):
         cursor = conn.cursor()
         cursor.execute("SELECT b.id, b.path, d.format FROM books b LEFT JOIN data d ON b.id = d.book WHERE b.id = ?", (book_id,))
         row = cursor.fetchone()
+        logger.warning(f"[Komga] SQL result for book_id={book_id}: row={row}")
         conn.close()
         if not row:
+            logger.warning(f"[Komga] Book not found in DB: {book_id}")
             return Response(json.dumps([]), status=404, mimetype='application/json')
 
         ext = row["format"].lower() if row["format"] else ""
         db_path = row["path"]
+        logger.warning(f"[Komga] Book found: id={row['id']}, path={db_path}, format={ext}")
         pages = []
 
         if ext in ('cbz', 'zip'):
@@ -849,21 +852,26 @@ def register_komga_routes(app, check_auth):
                     if not base_path.is_dir():
                         continue
                     for sub in base_path.iterdir():
+                        logger.warning(f"[Komga] Checking folder: {sub}, stem={sub.stem}, book_id={book_id}")
                         if not sub.is_dir() or sub.stem != str(book_id):
                             continue
                         files = [f for f in sub.iterdir() if f.suffix.lower() in image_exts]
                         if files:
                             found_folder = sub
+                            logger.warning(f"[Komga] Found matching folder: {found_folder}")
                             break
                 except PermissionError:
                     pass
                 if found_folder:
                     break
             if not found_folder:
-                found_folder = cpath / (db_path or str(book_id))
+                fallback_path = cpath / (db_path or str(book_id))
+                logger.warning(f"[Komga] No folder match, trying fallback: {fallback_path}")
+                found_folder = fallback_path
             if found_folder.exists() and found_folder.is_dir():
                 files = sorted([f for f in found_folder.iterdir() if f.suffix.lower() in image_exts],
                               key=lambda x: x.name.lower())
+                logger.warning(f"[Komga] Found {len(files)} pages in {found_folder}")
                 for i, _ in enumerate(files, 1):
                     pages.append(f"{request.host_url.rstrip('/')}/comic/komga/api/v1/books/{book_id}/pages/{i}")
 
@@ -2620,9 +2628,11 @@ def register_komga_routes(app, check_auth):
                     logger.warning(f"[Komga] Failed to rename folder {old_folder}: {e}")
 
             # Update database
-            new_path = f"books/{new_id}" if old_path and old_path.startswith("books/") else old_path
-            if new_path:
-                new_path = new_path.replace(f"books/{old_id}", f"books/{new_id}")
+            # Always update path to use new ID
+            if old_path:
+                new_path = old_path.replace(old_id, str(new_id))
+            else:
+                new_path = f"books/{new_id}"
 
             cursor.execute("UPDATE books SET id = ?, path = ? WHERE id = ?", (new_id, new_path, old_id))
             cursor.execute("UPDATE books_series_link SET book = ? WHERE book = ?", (new_id, old_id))
