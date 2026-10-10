@@ -675,6 +675,7 @@ def register_komga_routes(app, check_auth):
     def komga_series_books_v3(series_id):
         """Get books in series (Tachimanga path)."""
         logger.warning(f"[Komga] HIT: /comic/komga/api/v1/series/{series_id}/books")
+        logger.warning(f"[Komga] series_id type: {type(series_id)}, value: {series_id}")
         err = _require_auth()
         if err:
             return err
@@ -721,11 +722,14 @@ def register_komga_routes(app, check_auth):
         books = []
         for row in cursor.fetchall():
             rd = dict(row)
+            logger.warning(f"[Komga] Book from DB: id={rd['id']}, type={type(rd['id'])}")
             rd["series_name"] = derived_series_name
             ext = rd.get("format", "").lower()
             if ext in ('cbz', 'zip'):
                 rd["_pages_count"] = _get_book_page_count(rd["id"], ext, cpath)
-            books.append(_make_book_dto(rd))
+            book_dto = _make_book_dto(rd)
+            logger.warning(f"[Komga] Book DTO: id={book_dto['id']}, type={type(book_dto['id'])}")
+            books.append(book_dto)
         conn.close()
         return Response(json.dumps(_page_response(books, page, size, total)), mimetype='application/json')
 

@@ -520,7 +520,7 @@ def register_calibre_routes(app):
                             if old_dir.is_dir():
                                 shutil.rmtree(old_dir)
 
-                cursor.execute("SELECT MAX(CAST(SUBSTR(id, 6) AS INTEGER)) FROM books WHERE id LIKE 'komga%'")
+                cursor.execute("SELECT MAX(id) FROM books")
                 result = cursor.fetchone()[0]
                 max_book_id = result if result is not None else 0
 
@@ -851,7 +851,7 @@ def register_calibre_routes(app):
 
                 conn.commit()
 
-                cursor.execute("SELECT MAX(CAST(SUBSTR(id, 6) AS INTEGER)) FROM books WHERE id LIKE 'komga%'")
+                cursor.execute("SELECT MAX(id) FROM books")
                 result = cursor.fetchone()[0]
                 max_book_id = result if result is not None else 0
 
@@ -888,7 +888,7 @@ def register_calibre_routes(app):
 
                         for idx, (original_name, file_path, file_format) in enumerate(chapter_list):
                             max_book_id += 1
-                            book_id = f"komga{max_book_id}"
+                            book_id = max_book_id  # Use integer ID per Komga standard
                             book_dir = books_folder / str(book_id)
                             book_dir.mkdir(exist_ok=True)
 
