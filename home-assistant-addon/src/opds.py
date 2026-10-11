@@ -386,18 +386,22 @@ def register_routes(app, check_auth):
     def _authenticate():
         """Check Basic Auth from session or header"""
         authenticated = session.get("authenticated", False)
+        logger.warning(f"[OPDS DEBUG] _authenticate: session_auth={authenticated}")
         if not authenticated:
             auth_header = request.headers.get('Authorization', '')
+            logger.warning(f"[OPDS DEBUG] _authenticate: auth_header_present={bool(auth_header)} header={auth_header[:40]}")
             if auth_header.startswith('Basic '):
                 try:
                     encoded = auth_header[6:]
                     decoded = base64.b64decode(encoded).decode('utf-8')
                     username, password = decoded.split(':', 1)
+                    logger.warning(f"[OPDS DEBUG] _authenticate: decoded user={username} check_auth={check_auth(username, password)}")
                     if check_auth(username, password):
                         session["authenticated"] = True
                         authenticated = True
-                except:
-                    pass
+                except Exception as e:
+                    logger.warning(f"[OPDS DEBUG] _authenticate: decode error: {e}")
+        logger.warning(f"[OPDS DEBUG] _authenticate: returning {authenticated}")
         return authenticated
 
     def _get_calibre_config():
@@ -700,7 +704,13 @@ def register_routes(app, check_auth):
             xml_parts.append('</feed>')
             conn.close()
 
-            return Response('\n'.join(xml_parts), mimetype='application/atom+xml; charset=utf-8')
+            response_xml = '\n'.join(xml_parts)
+            acq_links = [l for l in xml_parts if 'acquisition' in l and 'book/fetch' in l]
+            # Log truncated XML sample for first entry to see exact URL format
+            first_entry_idx = next((i for i, l in enumerate(xml_parts) if l.strip() == '<entry>'), -1)
+            xml_sample = '\n'.join(xml_parts[first_entry_idx:first_entry_idx+15]) if first_entry_idx >= 0 else ''
+            logger.warning(f"[OPDS DEBUG] opds_series_detail: entries={len([l for l in xml_parts if l.strip() == '<entry>'])} acq_links={acq_links[:3]} xml_sample={xml_sample[:500]}")
+            return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
             import traceback
