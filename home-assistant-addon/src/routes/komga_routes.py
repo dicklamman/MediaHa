@@ -302,7 +302,7 @@ def register_komga_routes(app, check_auth):
             "title": chapter_num,
             "number": number_int,
             "oneshot": row.get("oneshot", False),
-            "size": str(size_bytes),
+            "size": f"{size_bytes / 1024 / 1024:.1f} MB",
             "sizeBytes": size_bytes,
             "fileHash": row.get("file_hash") or "",
             "fileLastModified": _date_iso(row.get("file_last_modified", "")),

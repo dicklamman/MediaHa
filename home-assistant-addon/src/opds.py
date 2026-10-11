@@ -210,7 +210,7 @@ def register_routes(app, check_auth):
 
         # size: Komga requires size as string AND sizeBytes as int
         size_bytes = row.get("file_size") or 0
-        size_str = str(size_bytes)
+        size_str = f"{size_bytes / 1024 / 1024:.1f} MB"
 
         # Determine page count - use dynamic count when available
         pages_count = row.get("pages_count")
