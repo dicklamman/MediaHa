@@ -904,7 +904,16 @@ def register_calibre_routes(app):
 
                             uuid_str = str(uuid.uuid4())
                             chapter_idx = idx + 1
-                            book_title = f"{comic_name} - {Path(original_name).stem}"
+                            
+                            # Extract chapter number from filename (e.g., "7 - 7(xxxxxx)" -> "7")
+                            filename_stem = Path(original_name).stem
+                            # Extract first pure number from filename
+                            chapter_match = re.match(r'^(\d+)', filename_stem)
+                            if chapter_match:
+                                book_title = chapter_match.group(1)
+                            else:
+                                # Fallback: use original filename without extension
+                                book_title = filename_stem
 
                             now = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S+00:00')
 
@@ -956,13 +965,13 @@ def register_calibre_routes(app):
                                 except:
                                     pass
                             elif file_format == 'PDF':
+                                cbr_path = None  # Initialize for use later
                                 try:
                                     # Convert PDF pages to images and create CBR (RAR) file
                                     # CBR is just a RAR archive - we'll create a ZIP with .cbr extension (most readers accept this)
                                     doc = fitz.open(Path(file_path))
                                     if len(doc) > 0:
                                         # Create CBR (ZIP format, most readers accept)
-                                        import io
                                         cbr_path = book_dir / Path(original_name).with_suffix('.cbr').name
                                         with zipfile.ZipFile(str(cbr_path), 'w', zipfile.ZIP_DEFLATED) as cbr_zip:
                                             for page_num in range(len(doc)):
@@ -991,17 +1000,18 @@ def register_calibre_routes(app):
                                         
                                         yield json.dumps({'type': 'log', 'message': f'  → Converted PDF to CBR ({len(doc)} pages)', 'level': 'info'}) + '\n'
                                     doc.close()
-                                except:
-                                    pass
+                                except Exception as pdf_err:
+                                    yield json.dumps({'type': 'log', 'message': f'  → PDF conversion failed: {pdf_err}', 'level': 'error'}) + '\n'
 
                             if has_cover:
                                 cursor.execute('UPDATE books SET has_cover = 1 WHERE id = ?', (book_id,))
 
                             # Data entry
                             # For PDF -> CBR conversion, use CBR path; otherwise use original file
-                            if file_format == 'CBR':
+                            if file_format == 'CBR' and cbr_path is not None:
                                 data_file = cbr_path
                             else:
+                                # Use original source file path for data entry
                                 data_file = Path(file_path)
                             file_size = data_file.stat().st_size
                             file_name = data_file.stem  # Use CBR filename if converted
