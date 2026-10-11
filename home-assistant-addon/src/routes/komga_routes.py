@@ -643,13 +643,7 @@ def register_komga_routes(app, check_auth):
             conn.close()
             return Response(json.dumps({"error": "Not found"}), status=404, mimetype='application/json')
         rd = dict(row)
-
-        if rd.get("first_book_title"):
-            series_name = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+\s*[-.]\s*)', '', rd["first_book_title"])
-            series_name = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+)\s*$', '', series_name).strip()
-            series_name = re.sub(r'\s*[-–—―_]+\s*$', '', series_name).strip()
-        else:
-            series_name = rd.get("name", "")
+        series_name = rd.get("name", "")
 
         cursor.execute("""
             SELECT COUNT(DISTINCT b.id) as books_count,
@@ -702,10 +696,6 @@ def register_komga_routes(app, check_auth):
         total = cursor.fetchone()["cnt"]
 
         derived_series_name = _derive_series_name(series_id, cursor)
-        if not derived_series_name:
-            cursor.execute("SELECT name FROM series WHERE id = ?", (series_id,))
-            row = cursor.fetchone()
-            derived_series_name = row["name"] if row else ""
 
         cursor.execute("""
             SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
@@ -1251,21 +1241,10 @@ def register_komga_routes(app, check_auth):
     # ── Series ────────────────────────────────────────────────────────────────
 
     def _derive_series_name(series_id, cursor):
-        """Derive series name from first book's title, stripping volume/chapter prefixes."""
-        cursor.execute("""
-            SELECT b.title FROM books b
-            JOIN books_series_link bsl ON b.id = bsl.book
-            WHERE bsl.series = ?
-            ORDER BY b.series_index
-            LIMIT 1
-        """, (series_id,))
+        """Return series folder name from the series table."""
+        cursor.execute("SELECT name FROM series WHERE id = ?", (series_id,))
         row = cursor.fetchone()
-        if row and row["title"]:
-            name = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+\s*[-.]\s*)', '', row["title"])
-            name = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]l?\.?\s*\d+|\d+)\s*$', '', name).strip()
-            name = re.sub(r'\s*[-–—―_]+\s*$', '', name).strip()
-            return name
-        return None
+        return row["name"] if row else None
 
     def _query_series(extra_where="", extra_params=(), order_by="s.name ASC"):
         """Reusable series query helper."""
@@ -1304,10 +1283,7 @@ def register_komga_routes(app, check_auth):
         rows = [dict(row) for row in cursor.fetchall()]
 
         for r in rows:
-            # Derive proper name from first book title using shared cursor
-            derived = _derive_series_name(r["id"], cursor)
-            if derived:
-                r["name"] = derived
+            # Use series folder name as-is
             r["books_read_count"] = 0
             r["books_in_progress_count"] = 0
             r["last_modified"] = r["latest_date"]
@@ -1458,10 +1434,6 @@ def register_komga_routes(app, check_auth):
 
         # Derive series name from first book title (before we iterate)
         derived_series_name = _derive_series_name(series_id, cursor)
-        if not derived_series_name:
-            cursor.execute("SELECT name FROM series WHERE id = ?", (series_id,))
-            row = cursor.fetchone()
-            derived_series_name = row["name"] if row else ""
 
         cursor.execute("""
             SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
@@ -2090,13 +2062,7 @@ def register_komga_routes(app, check_auth):
             conn.close()
             return Response(json.dumps({"error": "Not found"}), status=404, mimetype='application/json')
         rd = dict(row)
-
-        if rd.get("first_book_title"):
-            series_name = re.sub(r'^(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+\s*[-.]\s*)', '', rd["first_book_title"])
-            series_name = re.sub(r'\s+(第?\d+[卷話话章回集]|[VvOo]ol?\.?\s*\d+|\d+)\s*$', '', series_name).strip()
-            series_name = re.sub(r'\s*[-–—―_]+\s*$', '', series_name).strip()
-        else:
-            series_name = rd.get("name", "")
+        series_name = rd.get("name", "")
 
         cursor.execute("""
             SELECT COUNT(DISTINCT b.id) as books_count,
@@ -2146,10 +2112,6 @@ def register_komga_routes(app, check_auth):
         total = cursor.fetchone()["cnt"]
 
         derived_series_name = _derive_series_name(series_id, cursor)
-        if not derived_series_name:
-            cursor.execute("SELECT name FROM series WHERE id = ?", (series_id,))
-            row = cursor.fetchone()
-            derived_series_name = row["name"] if row else ""
 
         cursor.execute("""
             SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,

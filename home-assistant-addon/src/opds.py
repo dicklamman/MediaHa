@@ -199,12 +199,14 @@ def register_routes(app, check_auth):
         series_slug = slugify(series_name) if series_name else ""
         series_book_count = row.get("series_book_count", 0)
 
-        # Number fields: series_index is float in Calibre, Komga uses int
+        # number fields: series_index is float in Calibre, Komga uses int
         number_raw = row.get("series_index", 0) or 0
         try:
             number_int = int(float(number_raw))
         except (TypeError, ValueError):
             number_int = 0
+
+        chapter_num = str(number_int) if number_int else ""
 
         # size: Komga requires size as string AND sizeBytes as int
         size_bytes = row.get("file_size") or 0
@@ -224,8 +226,8 @@ def register_routes(app, check_auth):
             "oneshot": row.get("oneshot", False),
             "deleted": False,
             "libraryId": "comics",
-            "name": row.get("title") or f"Book {book_id}",
-            "title": row.get("title") or f"Book {book_id}",
+            "name": chapter_num,
+            "title": chapter_num,
             "size": size_str,
             "sizeBytes": size_bytes,
             "fileHash": row.get("file_hash") or "",
