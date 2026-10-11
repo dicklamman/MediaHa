@@ -361,8 +361,6 @@ def register_routes(app, check_auth):
         file_url = '/book/fetch/' + str(book_id) + '/' + ext
         file_length = book_row["file_size"] if "file_size" in book_row.keys() and book_row["file_size"] else 0
         logger.warning(f"[OPDS DEBUG] make_book_entry: book_id={book_id} title='{title}' ext={ext} file_url={file_url} file_length={file_length}")
-        # Log all links being built
-        logger.warning(f"[OPDS DEBUG] make_book_entry: ALL links in entry = {[l.strip() for l in entry if '<link ' in l]}")
         
         # Build entry
         entry = [
@@ -412,6 +410,9 @@ def register_routes(app, check_auth):
         entry.append('    <published>' + issued + 'T00:00:00Z</published>')
         entry.append('    <dcterms:language>' + escape_xml(language) + '</dcterms:language>')
         entry.append('  </entry>')
+
+        all_links = [l.strip() for l in entry if '<link ' in l]
+        logger.warning(f"[OPDS DEBUG] make_book_entry: ALL_LINKS in entry ({len(all_links)})={all_links}")
 
         return '\n'.join(entry)
 
