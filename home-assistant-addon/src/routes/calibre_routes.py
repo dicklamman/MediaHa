@@ -9,7 +9,7 @@ import zipfile
 import sqlite3
 import datetime
 import io
-import PIL
+from PIL import Image as PILImage
 import fitz  # PyMuPDF
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -967,7 +967,7 @@ def register_calibre_routes(app):
                                                 pix = page.get_pixmap(matrix=mat)
                                                 # Use PIL to save with quality (mode: RGB for 3 components, RGBA for 4)
                                                 mode = 'RGB' if pix.n <= 3 else 'RGBA'
-                                                img = PIL.Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+                                                img = PILImage.frombytes(mode, [pix.width, pix.height], pix.samples)
                                                 buf = io.BytesIO()
                                                 if mode == 'RGBA':
                                                     img = img.convert('RGB')
@@ -981,7 +981,7 @@ def register_calibre_routes(app):
                                         pix = first_page.get_pixmap(matrix=mat)
                                         cover_path = book_dir / 'cover.jpg'
                                         mode = 'RGB' if pix.n <= 3 else 'RGBA'
-                                        img = PIL.Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+                                        img = PILImage.frombytes(mode, [pix.width, pix.height], pix.samples)
                                         if mode == 'RGBA':
                                             img = img.convert('RGB')
                                         img.save(str(cover_path), format='JPEG', quality=90)
