@@ -111,7 +111,7 @@ def register_routes(app, check_auth):
             },
         }
 
-    def _get_book_page_count(book_id, ext, calibre_path):
+    def _get_book_page_count(book_id, ext, calibre_path, metadata_db=None):
         """Get the page count for a book by examining its file.
         
         Returns the number of pages in the book, or 0 if unknown.
@@ -121,7 +121,7 @@ def register_routes(app, check_auth):
             
             # Handle CBZ (ZIP) files
             if ext in ('cbz', 'zip'):
-                book_path, _ = _get_book_file(book_id, ext, calibre_path)
+                book_path, _ = _get_book_file(book_id, ext, calibre_path, metadata_db)
                 if book_path and book_path.exists():
                     with zipfile.ZipFile(str(book_path), 'r') as zf:
                         image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
@@ -394,7 +394,9 @@ def register_routes(app, check_auth):
 
     def _get_calibre_config():
         """Load Calibre config and return (calibre_path, metadata_db) or error Response"""
+        logger.warning(f"[OPDS DEBUG] _get_calibre_config: CALIBRE_CONFIG_PATH={CALIBRE_CONFIG_PATH}")
         if not os.path.exists(CALIBRE_CONFIG_PATH):
+            logger.warning(f"[OPDS DEBUG] _get_calibre_config: config file not found")
             return None, None, Response('<?xml version="1.0"?><opds><error>Calibre config not found. Please configure Calibre library path.</error></opds>',
                                        mimetype='application/xml')
 
@@ -402,6 +404,7 @@ def register_routes(app, check_auth):
             config = json.load(f)
 
         calibre_library_path = config.get('calibre_library_path', '')
+        logger.warning(f"[OPDS DEBUG] _get_calibre_config: calibre_library_path='{calibre_library_path}'")
         if not calibre_library_path:
             return None, None, Response('<?xml version="1.0"?><opds><error>Calibre library path not configured.</error></opds>',
                                        mimetype='application/xml')
@@ -409,7 +412,9 @@ def register_routes(app, check_auth):
         calibre_path = Path(calibre_library_path)
         if (calibre_path / 'books').exists() and (calibre_path / 'books').is_dir():
             calibre_path = calibre_path / 'books'
+            logger.warning(f"[OPDS DEBUG] _get_calibre_config: adjusted to books subfolder: {calibre_path}")
         metadata_db = Path(calibre_library_path) / 'metadata.db'
+        logger.warning(f"[OPDS DEBUG] _get_calibre_config: metadata_db={metadata_db} exists={metadata_db.exists()}")
         if not metadata_db.exists():
             return None, None, Response('<?xml version="1.0"?><opds><error>metadata.db not found at ' + str(metadata_db) + '</error></opds>',
                                        mimetype='application/xml')
@@ -422,39 +427,64 @@ def register_routes(app, check_auth):
         conn.row_factory = sqlite3.Row
         return conn
 
-    def _get_book_file(book_id, ext, calibre_path):
+    def _get_book_file(book_id, ext, calibre_path, metadata_db=None):
         """Find the book file for a given book ID and format extension.
 
-        Searches for the file in this order:
-        1. <book_id>/<book_id>.<ext>   (Calibre default)
-        2. <book_id>/<any>.<ext>       (any matching format in book folder)
-        3. <any>/<book_id>.<ext>       (file named after book_id in root)
-        Returns (file_path, file_size) or (None, None) if not found.
+        First looks up the filename from the metadata DB (data.name column),
+        then falls back to scanning the filesystem if DB lookup fails.
         """
-        # Normalize extension
         ext = ext.lower().lstrip('.')
+        logger.warning(f"[OPDS DEBUG] _get_book_file: book_id={book_id} ext={ext} calibre_path={calibre_path} metadata_db={metadata_db}")
 
-        # Search in book folder
+        # Try DB lookup first using the data table
+        if metadata_db and metadata_db.exists():
+            try:
+                conn = sqlite3.connect(str(metadata_db), timeout=10)
+                cursor = conn.cursor()
+                # data.format stores the uppercase extension
+                cursor.execute(
+                    "SELECT name, uncompressed_size FROM data WHERE book = ? AND format = ?",
+                    (book_id, ext.upper())
+                )
+                row = cursor.fetchone()
+                conn.close()
+                if row:
+                    file_name = row[0]
+                    file_size = row[1]
+                    # Construct path: <calibre_path>/<file_name>.<ext>  (file_name is title without ext)
+                    file_path = calibre_path / f"{file_name}.{ext}"
+                    logger.warning(f"[OPDS DEBUG] _get_book_file: DB lookup found name='{file_name}' -> path={file_path} exists={file_path.exists()}")
+                    if file_path.exists():
+                        return file_path, file_size
+                    else:
+                        logger.warning(f"[OPDS DEBUG] _get_book_file: DB path not found on disk, trying fallback")
+            except Exception as e:
+                logger.warning(f"[OPDS DEBUG] _get_book_file: DB lookup error: {e}")
+
+        # Fallback: filesystem search
+        # Search in book folder: <book_id>/<any>.<ext>
         book_folder = calibre_path / str(book_id)
+        logger.warning(f"[OPDS DEBUG] _get_book_file: fallback scan folder={book_folder} exists={book_folder.exists()}")
         if book_folder.exists() and book_folder.is_dir():
             for f in book_folder.iterdir():
                 if f.suffix.lstrip('.').lower() == ext:
+                    logger.warning(f"[OPDS DEBUG] _get_book_file: fallback found {f}")
                     return f, f.stat().st_size
 
-        # Search root folder for file named <book_id>.<ext>
+        # Search root: <book_id>.<ext>
         for f in calibre_path.iterdir():
             if f.is_file() and f.suffix.lstrip('.').lower() == ext:
-                # Match if stem is the book_id or contains it
                 if f.stem == str(book_id):
+                    logger.warning(f"[OPDS DEBUG] _get_book_file: fallback found root {f}")
                     return f, f.stat().st_size
 
+        logger.warning(f"[OPDS DEBUG] _get_book_file: NOT FOUND for book_id={book_id}")
         return None, None
 
     @app.route('/book')
     @app.route('/book/')
     def opds_root():
         """OPDS root - Books and Comics"""
-        logger.warning(f"[OPDS DEBUG] path={request.path} method={request.method} auth={request.headers.get('Authorization','')[:30]}...")
         authenticated = _authenticate()
         if not authenticated:
             logger.warning(f"[OPDS DEBUG] opds_root: returning 401")
@@ -747,7 +777,7 @@ def register_routes(app, check_auth):
         }
         mime = mime_map.get(ext, 'application/octet-stream')
 
-        book_path, file_size = _get_book_file(book_id, ext, calibre_path)
+        book_path, file_size = _get_book_file(book_id, ext, calibre_path, metadata_db)
 
         if not book_path or not book_path.exists():
             return Response('File not found', status=404, mimetype='text/plain')
@@ -865,11 +895,11 @@ def register_routes(app, check_auth):
                 # Compute page count dynamically for CBZ/image directories
                 ext = row_dict.get("format", "").lower()
                 if ext in ('cbz', 'zip'):
-                    row_dict["_computed_pages"] = _get_book_page_count(row_dict["id"], ext, calibre_path)
+                    row_dict["_computed_pages"] = _get_book_page_count(row_dict["id"], ext, calibre_path, metadata_db)
                 elif ext in ('cbr', 'rar'):
                     row_dict["_computed_pages"] = 0  # Can't determine without rarfile
                 elif ext in ('jpg', 'jpeg', 'png', 'gif', 'webp'):
-                    row_dict["_computed_pages"] = _get_book_page_count(row_dict["id"], ext, calibre_path)
+                    row_dict["_computed_pages"] = _get_book_page_count(row_dict["id"], ext, calibre_path, metadata_db)
                 books.append(_make_book_dto(row_dict, base_url=base_url))
             
             resp = _page_response(books, len(books))
@@ -1095,7 +1125,7 @@ def register_routes(app, check_auth):
                 row_dict = dict(row)
                 ext = row_dict.get("format", "").lower()
                 if ext in ('cbz', 'zip'):
-                    row_dict["_computed_pages"] = _get_book_page_count(row_dict["id"], ext, calibre_path)
+                    row_dict["_computed_pages"] = _get_book_page_count(row_dict["id"], ext, calibre_path, metadata_db)
                 elif ext in ('cbr', 'rar'):
                     row_dict["_computed_pages"] = 0
                 books.append(_make_book_dto(row_dict))
@@ -1144,7 +1174,7 @@ def register_routes(app, check_auth):
             # Compute page count dynamically for CBZ/image directories
             ext = row_dict.get("format", "").lower()
             if ext in ('cbz', 'zip'):
-                row_dict["_computed_pages"] = _get_book_page_count(book_id, ext, calibre_path)
+                row_dict["_computed_pages"] = _get_book_page_count(book_id, ext, calibre_path, metadata_db)
             elif ext in ('cbr', 'rar'):
                 row_dict["_computed_pages"] = 0
 
@@ -1202,7 +1232,7 @@ def register_routes(app, check_auth):
             
             # Handle CBZ (ZIP) files
             if ext in ('cbz', 'zip'):
-                book_path, _ = _get_book_file(book_id, ext, calibre_path)
+                book_path, _ = _get_book_file(book_id, ext, calibre_path, metadata_db)
                 if book_path and book_path.exists():
                     try:
                         with zipfile.ZipFile(str(book_path), 'r') as zf:
@@ -1279,7 +1309,7 @@ def register_routes(app, check_auth):
             
             # Handle CBZ (ZIP) files
             if ext in ('cbz', 'zip'):
-                book_path, _ = _get_book_file(book_id, ext, calibre_path)
+                book_path, _ = _get_book_file(book_id, ext, calibre_path, metadata_db)
                 if book_path and book_path.exists():
                     try:
                         with zipfile.ZipFile(str(book_path), 'r') as zf:
