@@ -37,7 +37,35 @@ def register_routes(app, check_auth):
     # ── Global before_request: log every OPDS request ─────────────────────────
     @app.before_request
     def log_request():
-        logger.warning(f"[OPDS REQUEST] path={request.path} method={request.method} args={dict(request.args)} headers_auth={request.headers.get('Authorization','')[:30]}")
+        import json as _json
+        logger.warning(
+            f"[OPDS REQUEST] path={request.path} method={request.method} "
+            f"args={dict(request.args)} "
+            f"url_root={request.url_root} "
+            f"base_url={request.base_url} "
+            f"host_url={request.host_url} "
+            f"remote_addr={request.remote_addr} "
+            f"Authorization={request.headers.get('Authorization', 'NONE')[:40]} "
+            f"Accept={request.headers.get('Accept', 'NONE')[:60]} "
+            f"User-Agent={request.headers.get('User-Agent', 'NONE')[:80]} "
+            f"Referer={request.headers.get('Referer', 'NONE')[:100]}"
+        )
+
+    # ── Global after_request: log every OPDS response ─────────────────────────
+    @app.after_request
+    def log_response(response):
+        import json as _json
+        try:
+            body_preview = response.get_data(as_text=True)[:500] if response.is_json or 'xml' in response.mimetype else response.get_data()[:200].hex()[:200]
+        except Exception:
+            body_preview = '<unreadable>'
+        logger.warning(
+            f"[OPDS RESPONSE] path={request.path} status={response.status_code} "
+            f"mimetype={response.content_type} "
+            f"content_length={response.content_length} "
+            f"body_preview={body_preview}"
+        )
+        return response
 
     # ── Komga-standard DTO helpers ──────────────────────────────────────────
 
@@ -333,6 +361,8 @@ def register_routes(app, check_auth):
         file_url = '/book/fetch/' + str(book_id) + '/' + ext
         file_length = book_row["file_size"] if "file_size" in book_row.keys() and book_row["file_size"] else 0
         logger.warning(f"[OPDS DEBUG] make_book_entry: book_id={book_id} title='{title}' ext={ext} file_url={file_url} file_length={file_length}")
+        # Log all links being built
+        logger.warning(f"[OPDS DEBUG] make_book_entry: ALL links in entry = {[l.strip() for l in entry if '<link ' in l]}")
         
         # Build entry
         entry = [
@@ -724,7 +754,10 @@ def register_routes(app, check_auth):
             # Log what's actually in the response (after URL replacement)
             import re as _re
             acq_links_in_response = _re.findall(r'href="([^"]*book/fetch[^"]*)"', response_xml)
-            logger.warning(f"[OPDS DEBUG] opds_series_detail: host={host} acq_links_in_response={acq_links_in_response[:3]} xml_first_300={response_xml[:300]}")
+            logger.warning(f"[OPDS DEBUG] opds_series_detail: host={host} acq_links_in_response={acq_links_in_response[:3]}")
+            all_links = _re.findall(r'<link [^>]*>', response_xml)
+            logger.warning(f"[OPDS DEBUG] opds_series_detail: ALL_LINKS ({len(all_links)})={all_links}")
+            logger.warning(f"[OPDS DEBUG] opds_series_detail: FULL_XML={response_xml}")
             return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
@@ -1522,6 +1555,9 @@ def register_routes(app, check_auth):
             import re as _re
             acq_links = _re.findall(r'href="([^"]*book/fetch[^"]*)"', response_xml)
             logger.warning(f"[OPDS DEBUG] opds_book_detail: book_id={book_id} host={host} acq_links={acq_links}")
+            all_links = _re.findall(r'<link [^>]*>', response_xml)
+            logger.warning(f"[OPDS DEBUG] opds_book_detail: ALL_LINKS in response ({len(all_links)} total)={all_links}")
+            logger.warning(f"[OPDS DEBUG] opds_book_detail: FULL_XML={response_xml}")
             return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
