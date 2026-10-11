@@ -317,7 +317,7 @@ def register_routes(app, check_auth):
             '  <id>' + feed_id + '</id>',
             '  <updated>' + now + '</updated>',
             '  <icon>' + u('/media/books/book.png') + '</icon>',
-            '  <link href="' + h + '" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
+            '  <link href="' + h.rstrip('/') + '" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
             '  <link href="' + u(self_path) + '" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="self"/>',
             '  <link href="' + u('/book/search') + '" type="application/opensearchdescription+xml" rel="search" title="Search here"/>'
         ]
