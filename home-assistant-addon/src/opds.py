@@ -733,51 +733,6 @@ def register_routes(app, check_auth):
             return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
                             mimetype='application/xml')
 
-    @app.route('/book/book/<int:book_id>')
-    def opds_book_detail(book_id):
-        """OPDS single book entry - standard acquisition flow, some readers click here first."""
-        import re as _re
-        authenticated = _authenticate()
-        if not authenticated:
-            return Response('Authentication required', status=401, mimetype='text/plain',
-                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
-        try:
-            calibre_path, metadata_db, error = _get_calibre_config()
-            if error:
-                return error
-            conn = _get_db_connection(metadata_db)
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
-                       s.id as series_id, s.name as series_name,
-                       d.format, d.name as filename, d.uncompressed_size as file_size
-                FROM books b
-                LEFT JOIN books_series_link bsl ON b.id = bsl.book
-                LEFT JOIN series s ON bsl.series = s.id
-                JOIN data d ON b.id = d.book
-                WHERE b.id = ? AND d.format = 'EPUB'
-            """, (book_id,))
-            row = cursor.fetchone()
-            if not row:
-                conn.close()
-                return Response('<?xml version="1.0"?><opds><error>Book not found</error></opds>',
-                              mimetype='application/xml')
-            host = request.url_root.rstrip('/')
-            entry_lines = make_book_entry(cursor, row)
-            conn.close()
-            response_xml = '\n'.join(entry_lines)
-            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
-            response_xml = response_xml.replace('src="/book/', f'src="{host}/book/')
-            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
-            acq_links = _re.findall(r'href="([^"]*book/fetch[^"]*)"', response_xml)
-            logger.warning(f"[OPDS DEBUG] opds_book_detail: book_id={book_id} acq_links={acq_links}")
-            return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
-                            mimetype='application/xml')
-
     @app.route('/book/cover/<int:book_id>')
     def opds_cover(book_id):
         """Serve book cover images for OPDS readers"""
@@ -1553,13 +1508,21 @@ def register_routes(app, check_auth):
                 '  <title>Book ' + str(book_id) + '</title>',
                 '  <id>mediaha:book:' + str(book_id) + '</id>',
                 '  <updated>' + now + '</updated>',
-                '  <link href="/book" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
-                '  <link href="/book/book/' + str(book_id) + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="self"/>',
+                '  <link href="' + request.url_root.rstrip('/') + '/book" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
+                '  <link href="' + request.url_root.rstrip('/') + '/book/book/' + str(book_id) + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="self"/>',
                 entry_xml,
                 '</feed>'
             ]
 
-            return Response('\n'.join(xml_parts), mimetype='application/atom+xml; charset=utf-8')
+            response_xml = '\n'.join(xml_parts)
+            host = request.url_root.rstrip('/')
+            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
+            response_xml = response_xml.replace('src="/book/', f'src="{host}/book/')
+            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
+            import re as _re
+            acq_links = _re.findall(r'href="([^"]*book/fetch[^"]*)"', response_xml)
+            logger.warning(f"[OPDS DEBUG] opds_book_detail: book_id={book_id} host={host} acq_links={acq_links}")
+            return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
             import traceback
