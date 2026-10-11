@@ -281,7 +281,7 @@ def register_routes(app, check_auth):
     def make_opds_header(title, feed_id, self_path, host_url=''):
         now = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00')
         h = host_url
-        def u(path): return h + path if path.startswith('/') else h + '/' + path
+        def u(path): return (h.rstrip('/') if h.endswith('/') else h) + path if path.startswith('/') else h + '/' + path
         return [
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://book-spec.org/2010/catalog" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:thr="http://purl.org/syndication/thread/1.0">',
@@ -360,7 +360,7 @@ def register_routes(app, check_auth):
         mime = mime_map.get(ext, 'application/octet-stream')
 
         # Add acquisition link with correct MIME type and file size
-        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://book-spec.org/acquisition"'
+        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://book-spec.org/acquisition;kind=acquisition"'
         if file_length:
             acq_link += ' length="' + str(file_length) + '"'
         acq_link += ' />'
@@ -536,9 +536,10 @@ def register_routes(app, check_auth):
             xml_parts.append('</feed>')
             conn.close()
             response_xml = '\n'.join(xml_parts)
-            response_xml = response_xml.replace('href="/book/', f'href="{request.url_root}book/')
-            response_xml = response_xml.replace('"/media/', f'"{request.url_root}media/')
-            logger.warning(f"[OPDS DEBUG] opds_root: host={request.url_root} response_links={[l for l in xml_parts if 'href=' in l][:3]}")
+            host = request.url_root.rstrip('/')
+            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
+            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
+            logger.warning(f"[OPDS DEBUG] opds_root: host={host} response_links={[l for l in xml_parts if 'href=' in l][:3]}")
             return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
@@ -583,8 +584,9 @@ def register_routes(app, check_auth):
             xml_parts.append('</feed>')
             conn.close()
             response_xml = '\n'.join(xml_parts)
-            response_xml = response_xml.replace('href="/book/', f'href="{request.url_root}book/')
-            response_xml = response_xml.replace('"/media/', f'"{request.url_root}media/')
+            host = request.url_root.rstrip('/')
+            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
+            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
             return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
@@ -630,8 +632,9 @@ def register_routes(app, check_auth):
             xml_parts.append('</feed>')
             conn.close()
             response_xml = '\n'.join(xml_parts)
-            response_xml = response_xml.replace('href="/book/', f'href="{request.url_root}book/')
-            response_xml = response_xml.replace('"/media/', f'"{request.url_root}media/')
+            host = request.url_root.rstrip('/')
+            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
+            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
             return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
@@ -714,16 +717,61 @@ def register_routes(app, check_auth):
             conn.close()
 
             response_xml = '\n'.join(xml_parts)
-            host = request.url_root
-            response_xml = response_xml.replace('href="/book/', f'href="{host}book/')
-            response_xml = response_xml.replace('src="/book/', f'src="{host}book/')
-            response_xml = response_xml.replace('"/media/', f'"{host}media/')
+            host = request.url_root.rstrip('/')
+            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
+            response_xml = response_xml.replace('src="/book/', f'src="{host}/book/')
+            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
             # Log what's actually in the response (after URL replacement)
             import re as _re
             acq_links_in_response = _re.findall(r'href="([^"]*book/fetch[^"]*)"', response_xml)
             logger.warning(f"[OPDS DEBUG] opds_series_detail: host={host} acq_links_in_response={acq_links_in_response[:3]} xml_first_300={response_xml[:300]}")
             return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response('<?xml version="1.0"?><opds><error>' + escape_xml(str(e)) + '</error></opds>',
+                            mimetype='application/xml')
+
+    @app.route('/book/book/<int:book_id>')
+    def opds_book_detail(book_id):
+        """OPDS single book entry - standard acquisition flow, some readers click here first."""
+        import re as _re
+        authenticated = _authenticate()
+        if not authenticated:
+            return Response('Authentication required', status=401, mimetype='text/plain',
+                           headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
+        try:
+            calibre_path, metadata_db, error = _get_calibre_config()
+            if error:
+                return error
+            conn = _get_db_connection(metadata_db)
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
+                       s.id as series_id, s.name as series_name,
+                       d.format, d.name as filename, d.uncompressed_size as file_size
+                FROM books b
+                LEFT JOIN books_series_link bsl ON b.id = bsl.book
+                LEFT JOIN series s ON bsl.series = s.id
+                JOIN data d ON b.id = d.book
+                WHERE b.id = ? AND d.format = 'EPUB'
+            """, (book_id,))
+            row = cursor.fetchone()
+            if not row:
+                conn.close()
+                return Response('<?xml version="1.0"?><opds><error>Book not found</error></opds>',
+                              mimetype='application/xml')
+            host = request.url_root.rstrip('/')
+            entry_lines = make_book_entry(cursor, row)
+            conn.close()
+            response_xml = '\n'.join(entry_lines)
+            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
+            response_xml = response_xml.replace('src="/book/', f'src="{host}/book/')
+            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
+            acq_links = _re.findall(r'href="([^"]*book/fetch[^"]*)"', response_xml)
+            logger.warning(f"[OPDS DEBUG] opds_book_detail: book_id={book_id} acq_links={acq_links}")
+            return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -1549,7 +1597,7 @@ def register_routes(app, check_auth):
         file_url = '/book/fetch/' + str(book_id) + '/' + ext
         file_size = row.get("file_size") or 0
 
-        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://book-spec.org/acquisition"'
+        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://book-spec.org/acquisition;kind=acquisition"'
         if file_size:
             acq_link += ' length="' + str(file_size) + '"'
         acq_link += ' />'
