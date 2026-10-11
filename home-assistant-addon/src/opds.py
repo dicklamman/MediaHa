@@ -234,6 +234,8 @@ def register_routes(app, check_auth):
                 "lastModified": _date_iso(row.get("metadata_last_modified", "")),
             },
         }
+        logger.warning(f"[OPDS DEBUG] _make_book_dto: book_id={book_id} url={dto['url']} thumbnailUrl={dto['thumbnailUrl']}")
+        return dto
 
     def _media_profile(media_type):
         mt = media_type.lower()
