@@ -388,11 +388,18 @@ def register_routes(app, check_auth):
         mime = mime_map.get(ext, 'application/octet-stream')
 
         # Add acquisition link with correct MIME type and file size
-        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://book-spec.org/acquisition;kind=acquisition"'
+        # Use canonical OPDS spec rel + fallback book-spec for compatibility
+        acq_link = '    <link href="' + file_url + '" type="' + mime + '" rel="http://opds-spec.org/acquisition/open-access"'
         if file_length:
             acq_link += ' length="' + str(file_length) + '"'
         acq_link += ' />'
         entry.append(acq_link)
+        # Fallback: also add with book-spec.org rel (some readers need this)
+        acq_link2 = '    <link href="' + file_url + '" type="' + mime + '" rel="http://opds-spec.org/acquisition"'
+        if file_length:
+            acq_link2 += ' length="' + str(file_length) + '"'
+        acq_link2 += ' />'
+        entry.append(acq_link2)
         
         # Add author link if available
         if author_name and author_id:
