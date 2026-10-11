@@ -945,33 +945,17 @@ def register_calibre_routes(app):
                                 author_id = cursor.lastrowid
                             cursor.execute("INSERT INTO books_authors_link (book, author) VALUES (?, ?)", (book_id, author_id))
 
-                            # Copy file to library
-                            dest_file = book_dir / original_name
-                            shutil.copy2(Path(file_path), dest_file)
-
-                            # Extract cover
+                            # Prepare file and cover based on format
                             has_cover = 0
-                            if file_format == 'CBZ':
+                            cbr_path = None
+                            data_file = None
+                            
+                            if file_format == 'PDF':
+                                # PDF: Convert to CBR without copying original PDF
                                 try:
-                                    with zipfile.ZipFile(Path(file_path), 'r') as zf:
-                                        images = [f for f in zf.namelist() if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not f.startswith('__MACOSX')]
-                                        if images:
-                                            first_img = sorted(images)[0]
-                                            img_data = zf.read(first_img)
-                                            cover_path = book_dir / 'cover.jpg'
-                                            with open(cover_path, 'wb') as cf:
-                                                cf.write(img_data)
-                                            has_cover = 1
-                                except:
-                                    pass
-                            elif file_format == 'PDF':
-                                cbr_path = None  # Initialize for use later
-                                try:
-                                    # Convert PDF pages to images and create CBR (RAR) file
-                                    # CBR is just a RAR archive - we'll create a ZIP with .cbr extension (most readers accept this)
                                     doc = fitz.open(Path(file_path))
                                     if len(doc) > 0:
-                                        # Create CBR (ZIP format, most readers accept)
+                                        # Create CBR (ZIP format with .cbr extension)
                                         cbr_path = book_dir / Path(original_name).with_suffix('.cbr').name
                                         with zipfile.ZipFile(str(cbr_path), 'w', zipfile.ZIP_DEFLATED) as cbr_zip:
                                             for page_num in range(len(doc)):
@@ -992,29 +976,41 @@ def register_calibre_routes(app):
                                         
                                         # Update format to CBR
                                         file_format = 'CBR'
-                                        file_size = cbr_path.stat().st_size
+                                        data_file = cbr_path
                                         pdf_converted_count += 1
-                                        
-                                        # Remove original PDF (the one copied to dest_file)
-                                        dest_file.unlink(missing_ok=True)
                                         
                                         yield json.dumps({'type': 'log', 'message': f'  → Converted PDF to CBR ({len(doc)} pages)', 'level': 'info'}) + '\n'
                                     doc.close()
                                 except Exception as pdf_err:
                                     yield json.dumps({'type': 'log', 'message': f'  → PDF conversion failed: {pdf_err}', 'level': 'error'}) + '\n'
+                            else:
+                                # CBZ/CBR: Copy original file and extract cover from first image
+                                dest_file = book_dir / original_name
+                                shutil.copy2(Path(file_path), dest_file)
+                                
+                                # Extract cover from archive
+                                try:
+                                    with zipfile.ZipFile(Path(file_path), 'r') as zf:
+                                        images = [f for f in zf.namelist() if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and not f.startswith('__MACOSX')]
+                                        if images:
+                                            first_img = sorted(images)[0]
+                                            img_data = zf.read(first_img)
+                                            cover_path = book_dir / 'cover.jpg'
+                                            with open(cover_path, 'wb') as cf:
+                                                cf.write(img_data)
+                                            has_cover = 1
+                                except:
+                                    pass
+                                
+                                data_file = dest_file
 
                             if has_cover:
                                 cursor.execute('UPDATE books SET has_cover = 1 WHERE id = ?', (book_id,))
 
                             # Data entry
-                            # For PDF -> CBR conversion, use CBR path; otherwise use original file
-                            if file_format == 'CBR' and cbr_path is not None:
-                                data_file = cbr_path
-                            else:
-                                # Use original source file path for data entry
-                                data_file = Path(file_path)
+                            # data_file is already set in the format-specific handling above
                             file_size = data_file.stat().st_size
-                            file_name = data_file.stem  # Use CBR filename if converted
+                            file_name = data_file.stem
                             cursor.execute('''
                                 INSERT INTO data (book, format, name, uncompressed_size)
                                 VALUES (?, ?, ?, ?)
