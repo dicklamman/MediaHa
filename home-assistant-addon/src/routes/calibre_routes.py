@@ -8,6 +8,9 @@ import uuid
 import zipfile
 import sqlite3
 import datetime
+import io
+import PIL
+import fitz  # PyMuPDF
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from flask import jsonify, request
@@ -962,16 +965,26 @@ def register_calibre_routes(app):
                                                 page = doc[page_num]
                                                 mat = fitz.Matrix(2, 2)  # 2x zoom for better quality
                                                 pix = page.get_pixmap(matrix=mat)
-                                                img_bytes = pix.tobytes('jpg', jpeg_quality=90)
+                                                # Use PIL to save with quality (mode: RGB for 3 components, RGBA for 4)
+                                                mode = 'RGB' if pix.n <= 3 else 'RGBA'
+                                                img = PIL.Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+                                                buf = io.BytesIO()
+                                                if mode == 'RGBA':
+                                                    img = img.convert('RGB')
+                                                img.save(buf, format='JPEG', quality=90)
                                                 img_name = f"page_{page_num + 1:04d}.jpg"
-                                                cbr_zip.writestr(img_name, img_bytes)
+                                                cbr_zip.writestr(img_name, buf.getvalue())
                                         
                                         # Extract cover from first page
                                         first_page = doc[0]
                                         mat = fitz.Matrix(2, 2)
                                         pix = first_page.get_pixmap(matrix=mat)
                                         cover_path = book_dir / 'cover.jpg'
-                                        pix.save(str(cover_path))
+                                        mode = 'RGB' if pix.n <= 3 else 'RGBA'
+                                        img = PIL.Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+                                        if mode == 'RGBA':
+                                            img = img.convert('RGB')
+                                        img.save(str(cover_path), format='JPEG', quality=90)
                                         has_cover = 1
                                         
                                         # Update format to CBR
