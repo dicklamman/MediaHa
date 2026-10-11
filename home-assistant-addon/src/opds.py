@@ -369,8 +369,8 @@ def register_routes(app, check_auth):
             '    <updated>' + now + '</updated>',
             '    <id>' + entry_uuid + '</id>',
             '    <content type="text">Book ' + str(int(series_index)) + ' of ' + escape_xml(series_name) + '</content>',
-            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://book-spec.org/image"/>',
-            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://book-spec.org/image/thumbnail"/>'
+            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image"/>',
+            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>'
         ]
         
         # Map extension to MIME type (used in both feed entries and download)
@@ -725,10 +725,13 @@ def register_routes(app, check_auth):
                 cursor.execute("""
                     SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
                            s.id as series_id, s.name as series_name,
+                           a.name as author_name, a.id as author_id,
                            d.format, d.name as filename, d.uncompressed_size as file_size
                     FROM books b
                     JOIN books_series_link bsl ON b.id = bsl.book
                     JOIN series s ON bsl.series = s.id
+                    JOIN books_authors_link bal ON b.id = bal.book
+                    JOIN authors a ON bal.author = a.id
                     JOIN books_tags_link btl ON b.id = btl.book
                     JOIN tags t ON btl.tag = t.id
                     JOIN data d ON b.id = d.book
@@ -739,10 +742,13 @@ def register_routes(app, check_auth):
                 cursor.execute("""
                     SELECT b.id, b.title, b.series_index, b.pubdate, b.uuid,
                            s.id as series_id, s.name as series_name,
+                           a.name as author_name, a.id as author_id,
                            d.format, d.name as filename, d.uncompressed_size as file_size
                     FROM books b
                     JOIN books_series_link bsl ON b.id = bsl.book
                     JOIN series s ON bsl.series = s.id
+                    JOIN books_authors_link bal ON b.id = bal.book
+                    JOIN authors a ON bal.author = a.id
                     JOIN data d ON b.id = d.book
                     WHERE bsl.series = ? AND d.format = 'EPUB'
                     ORDER BY b.series_index
@@ -1615,8 +1621,8 @@ def register_routes(app, check_auth):
             '    <updated>' + now + '</updated>',
             '    <id>' + entry_uuid + '</id>',
             '    <content type="text">' + series_content + '</content>',
-            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://book-spec.org/image"/>',
-            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://book-spec.org/image/thumbnail"/>',
+            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image"/>',
+            '    <link href="/book/cover/' + str(book_id) + '" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>',
             acq_link,
             series_link,
             '    <author><name>' + escape_xml(author_name) + '</name></author>',
