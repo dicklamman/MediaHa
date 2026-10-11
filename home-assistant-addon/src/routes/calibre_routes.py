@@ -950,17 +950,17 @@ def register_calibre_routes(app):
 
                             # Prepare file and cover based on format
                             has_cover = 0
-                            cbr_path = None
+                            cbz_path = None
                             data_file = None
                             
                             if file_format == 'PDF':
-                                # PDF: Convert to CBR without copying original PDF
+                                # PDF: Convert to CBZ without copying original PDF
                                 try:
                                     doc = fitz.open(Path(file_path))
                                     if len(doc) > 0:
-                                        # Create CBR (ZIP format with .cbr extension)
-                                        cbr_path = book_dir / Path(original_name).with_suffix('.cbr').name
-                                        with zipfile.ZipFile(str(cbr_path), 'w', zipfile.ZIP_DEFLATED) as cbr_zip:
+                                        # Create CBZ (ZIP format with .cbz extension)
+                                        cbz_path = book_dir / Path(original_name).with_suffix('.cbz').name
+                                        with zipfile.ZipFile(str(cbz_path), 'w', zipfile.ZIP_DEFLATED) as cbz_zip:
                                             for page_num in range(len(doc)):
                                                 page = doc[page_num]
                                                 mat = fitz.Matrix(2, 2)  # 2x zoom for better quality
@@ -973,7 +973,7 @@ def register_calibre_routes(app):
                                                     img = img.convert('RGB')
                                                 img.save(buf, format='JPEG', quality=90)
                                                 img_name = f"page_{page_num + 1:04d}.jpg"
-                                                cbr_zip.writestr(img_name, buf.getvalue())
+                                                cbz_zip.writestr(img_name, buf.getvalue())
                                         
                                         # Extract cover from first page
                                         first_page = doc[0]
@@ -987,12 +987,12 @@ def register_calibre_routes(app):
                                         img.save(str(cover_path), format='JPEG', quality=90)
                                         has_cover = 1
                                         
-                                        # Update format to CBR
-                                        file_format = 'CBR'
-                                        data_file = cbr_path
+                                        # Update format to CBZ
+                                        file_format = 'CBZ'
+                                        data_file = cbz_path
                                         pdf_converted_count += 1
                                         
-                                        yield json.dumps({'type': 'log', 'message': f'  → Converted PDF to CBR ({len(doc)} pages)', 'level': 'info'}) + '\n'
+                                        yield json.dumps({'type': 'log', 'message': f'  → Converted PDF to CBZ ({len(doc)} pages)', 'level': 'info'}) + '\n'
                                     doc.close()
                                 except Exception as pdf_err:
                                     yield json.dumps({'type': 'log', 'message': f'  → PDF conversion failed: {pdf_err}', 'level': 'error'}) + '\n'
@@ -1049,7 +1049,7 @@ def register_calibre_routes(app):
 
                 yield json.dumps({'type': 'log', 'message': '', 'level': 'info'}) + '\n'
                 if pdf_converted_count > 0:
-                    yield json.dumps({'type': 'log', 'message': f'[INFO] Converted {pdf_converted_count} PDF files to CBR', 'level': 'info'}) + '\n'
+                    yield json.dumps({'type': 'log', 'message': f'[INFO] Converted {pdf_converted_count} PDF files to CBZ', 'level': 'info'}) + '\n'
                 if error_count > 0:
                     yield json.dumps({'type': 'error', 'message': f'Completed: {success_count} comics, {error_count} errors'}) + '\n'
                 else:
