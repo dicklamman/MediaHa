@@ -751,12 +751,14 @@ def register_routes(app, check_auth):
         Looks up the book's file in the Calibre library folder and streams it
         with the correct MIME type. Supports EPUB, PDF, MOBI, AZW3, and CBR/CBZ.
         """
+        logger.warning(f"[OPDS DEBUG] opds_fetch: book_id={book_id} ext={ext}")
         authenticated = _authenticate()
         if not authenticated:
             return Response('Authentication required', status=401, mimetype='text/plain',
                            headers={'WWW-Authenticate': 'Basic realm="MediaHa OPDS"'})
 
         calibre_path, metadata_db, error = _get_calibre_config()
+        logger.warning(f"[OPDS DEBUG] opds_fetch: calibre_path={calibre_path} metadata_db={metadata_db}")
         if error:
             return error
 
@@ -778,10 +780,13 @@ def register_routes(app, check_auth):
         mime = mime_map.get(ext, 'application/octet-stream')
 
         book_path, file_size = _get_book_file(book_id, ext, calibre_path, metadata_db)
+        logger.warning(f"[OPDS DEBUG] opds_fetch: _get_book_file returned path={book_path} size={file_size}")
 
         if not book_path or not book_path.exists():
+            logger.warning(f"[OPDS DEBUG] opds_fetch: FILE NOT FOUND book_id={book_id} ext={ext} calibre_path={calibre_path}")
             return Response('File not found', status=404, mimetype='text/plain')
 
+        logger.warning(f"[OPDS DEBUG] opds_fetch: sending file {book_path}")
         return send_file(
             str(book_path),
             mimetype=mime,
@@ -1141,6 +1146,7 @@ def register_routes(app, check_auth):
     @app.route('/book/api/v1/books/<book_id>')
     def komga_api_book_detail(book_id):
         """Komga API - single book detail (BookDto)."""
+        logger.warning(f"[OPDS DEBUG] komga_api_book_detail: book_id={book_id}")
         authenticated = _authenticate()
         if not authenticated:
             return Response('{"error":"Unauthorized"}', status=401, mimetype='application/json',
