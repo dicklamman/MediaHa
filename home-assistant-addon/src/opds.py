@@ -13,6 +13,12 @@ import datetime
 
 logger = logging.getLogger("opds")
 
+def url_root():
+    """Return request.url_root with correct scheme from X-Forwarded-Proto (for reverse proxy HTTPS)."""
+    scheme = request.headers.get('X-Forwarded-Proto', request.scheme)
+    host = request.headers.get('X-Forwarded-Host', request.host)
+    return f'{scheme}://{host}/'
+
 CALIBRE_CONFIG_PATH = '/data/calibre_options.json' if os.path.exists('/data') else os.path.join(os.path.dirname(__file__), '../config/calibre_options.json')
 
 def escape_xml(text):
@@ -41,9 +47,9 @@ def register_routes(app, check_auth):
         logger.warning(
             f"[OPDS REQUEST] path={request.path} method={request.method} "
             f"args={dict(request.args)} "
-            f"url_root={request.url_root} "
+            f"url_root={url_root()} "
             f"base_url={request.base_url} "
-            f"host_url={request.host_url} "
+            f"host_url={url_root()} "
             f"remote_addr={request.remote_addr} "
             f"Authorization={request.headers.get('Authorization', 'NONE')[:40]} "
             f"Accept={request.headers.get('Accept', 'NONE')[:60]} "
@@ -306,20 +312,18 @@ def register_routes(app, check_auth):
     rules = [(r.rule, list(r.methods - {'OPTIONS', 'HEAD'})) for r in app.url_map.iter_rules()]
     logger.warning(f"[OPDS STARTUP] Pre-registration routes: {rules}")
 
-    def make_opds_header(title, feed_id, self_path, host_url=''):
+    def make_opds_header(title, feed_id, self_path):
         now = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00')
-        h = host_url
-        def u(path): return (h.rstrip('/') if h.endswith('/') else h) + path if path.startswith('/') else h + '/' + path
         return [
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://book-spec.org/2010/catalog" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:thr="http://purl.org/syndication/thread/1.0">',
             '  <title>' + escape_xml(title) + '</title>',
             '  <id>' + feed_id + '</id>',
             '  <updated>' + now + '</updated>',
-            '  <icon>' + u('/media/books/book.png') + '</icon>',
-            '  <link href="' + h.rstrip('/') + '" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
-            '  <link href="' + u(self_path) + '" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="self"/>',
-            '  <link href="' + u('/book/search') + '" type="application/opensearchdescription+xml" rel="search" title="Search here"/>'
+            '  <icon>/media/books/book.png</icon>',
+            '  <link href="/" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
+            '  <link href="' + self_path + '" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="self"/>',
+            '  <link href="/book/search" type="application/opensearchdescription+xml" rel="search" title="Search here"/>'
         ]
 
     def make_book_entry(cursor, book_row):
@@ -551,7 +555,7 @@ def register_routes(app, check_auth):
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
 
-            xml_parts = make_opds_header('MediaHa Library', 'mediaha:root', '/book', request.url_root)
+            xml_parts = make_opds_header('MediaHa Library', 'mediaha:root', '/book')
 
             # Books entry with count
             cursor.execute("""
@@ -574,10 +578,7 @@ def register_routes(app, check_auth):
             xml_parts.append('</feed>')
             conn.close()
             response_xml = '\n'.join(xml_parts)
-            host = request.url_root.rstrip('/')
-            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
-            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
-            logger.warning(f"[OPDS DEBUG] opds_root: host={host} response_links={[l for l in xml_parts if 'href=' in l][:3]}")
+            logger.warning(f"[OPDS DEBUG] opds_root: response_links={[l for l in xml_parts if 'href=' in l][:3]}")
             return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
@@ -602,7 +603,7 @@ def register_routes(app, check_auth):
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
 
-            xml_parts = make_opds_header('Books', 'mediaha:books', '/book/books', request.url_root)
+            xml_parts = make_opds_header('Books', 'mediaha:books', '/book/books')
 
             # Show book series with counts
             cursor.execute("""
@@ -622,9 +623,6 @@ def register_routes(app, check_auth):
             xml_parts.append('</feed>')
             conn.close()
             response_xml = '\n'.join(xml_parts)
-            host = request.url_root.rstrip('/')
-            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
-            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
             return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
@@ -649,7 +647,7 @@ def register_routes(app, check_auth):
             conn = _get_db_connection(metadata_db)
             cursor = conn.cursor()
 
-            xml_parts = make_opds_header('Comics', 'mediaha:comics', '/book/comics', request.url_root)
+            xml_parts = make_opds_header('Comics', 'mediaha:comics', '/book/comics')
 
             # Show comic series with counts - use /book/series/ for detail pages
             cursor.execute("""
@@ -670,9 +668,6 @@ def register_routes(app, check_auth):
             xml_parts.append('</feed>')
             conn.close()
             response_xml = '\n'.join(xml_parts)
-            host = request.url_root.rstrip('/')
-            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
-            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
             return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
@@ -718,7 +713,7 @@ def register_routes(app, check_auth):
             is_comic = comic_count > 0
 
             self_path = '/book/series/' + series_id + '/' + slugify(series_title)
-            xml_parts = make_opds_header(series_title, 'mediaha:series:' + series_id, self_path, request.url_root)
+            xml_parts = make_opds_header(series_title, 'mediaha:series:' + series_id, self_path)
 
             # Get books in series
             if is_comic:
@@ -761,17 +756,13 @@ def register_routes(app, check_auth):
             conn.close()
 
             response_xml = '\n'.join(xml_parts)
-            host = request.url_root.rstrip('/')
-            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
-            response_xml = response_xml.replace('src="/book/', f'src="{host}/book/')
-            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
-            # Log what's actually in the response (after URL replacement)
+            # Log what's actually in the response
             import re as _re
             acq_links_in_response = _re.findall(r'href="([^"]*book/fetch[^"]*)"', response_xml)
-            logger.warning(f"[OPDS DEBUG] opds_series_detail: host={host} acq_links_in_response={acq_links_in_response[:3]}")
+            logger.warning(f"[OPDS DEBUG] opds_series_detail: acq_links_in_response={acq_links_in_response[:3]}")
             all_links = _re.findall(r'<link [^>]*>', response_xml)
             logger.warning(f"[OPDS DEBUG] opds_series_detail: ALL_LINKS ({len(all_links)})={all_links}")
-            logger.warning(f"[OPDS DEBUG] opds_series_detail: FULL_XML={response_xml}")
+            logger.warning(f"[OPDS DEBUG] opds_series_detail: FULL_XML={response_xml[:200]}...")
             return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
@@ -1272,8 +1263,8 @@ def register_routes(app, check_auth):
             return Response(json.dumps({}), mimetype='application/json', status=500)
 
     def _get_book_page_url(book_id, page_num):
-        """Build the absolute URL for a book page using request.host_url."""
-        base = request.host_url.rstrip('/')
+        """Build the absolute URL for a book page using url_root()."""
+        base = url_root().rstrip('/')
         return f"{base}/book/api/v1/books/{book_id}/pages/{page_num}"
 
     @app.route('/book/api/v1/books/<book_id>/pages')
@@ -1555,23 +1546,19 @@ def register_routes(app, check_auth):
                 '  <title>Book ' + str(book_id) + '</title>',
                 '  <id>mediaha:book:' + str(book_id) + '</id>',
                 '  <updated>' + now + '</updated>',
-                '  <link href="' + request.url_root.rstrip('/') + '/book" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
-                '  <link href="' + request.url_root.rstrip('/') + '/book/book/' + str(book_id) + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="self"/>',
+                '  <link href="/" type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" title="Home"/>',
+                '  <link href="/book/book/' + str(book_id) + '" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="self"/>',
                 entry_xml,
                 '</feed>'
             ]
 
             response_xml = '\n'.join(xml_parts)
-            host = request.url_root.rstrip('/')
-            response_xml = response_xml.replace('href="/book/', f'href="{host}/book/')
-            response_xml = response_xml.replace('src="/book/', f'src="{host}/book/')
-            response_xml = response_xml.replace('"/media/', f'"{host}/media/')
             import re as _re
             acq_links = _re.findall(r'href="([^"]*book/fetch[^"]*)"', response_xml)
-            logger.warning(f"[OPDS DEBUG] opds_book_detail: book_id={book_id} host={host} acq_links={acq_links}")
+            logger.warning(f"[OPDS DEBUG] opds_book_detail: book_id={book_id} acq_links={acq_links}")
             all_links = _re.findall(r'<link [^>]*>', response_xml)
             logger.warning(f"[OPDS DEBUG] opds_book_detail: ALL_LINKS in response ({len(all_links)} total)={all_links}")
-            logger.warning(f"[OPDS DEBUG] opds_book_detail: FULL_XML={response_xml}")
+            logger.warning(f"[OPDS DEBUG] opds_book_detail: FULL_XML={response_xml[:200]}...")
             return Response(response_xml, mimetype='application/atom+xml; charset=utf-8')
 
         except Exception as e:
