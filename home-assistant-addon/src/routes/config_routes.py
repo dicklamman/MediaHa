@@ -72,7 +72,9 @@ def register_config_routes(app, ONE_LIST_CONFIG_PATH, CALIBRE_CONFIG_PATH, DROPB
         refresh_token = config.get('refresh_token', '')
 
         from utils.dropbox_sync import run_sync
-        return Response(run_sync(target, app_key, app_secret, refresh_token), mimetype='text/plain')
+        response = Response(run_sync(target, app_key, app_secret, refresh_token), mimetype='text/plain')
+        response.headers['X-Accel-Buffering'] = 'no'
+        return response
 
     # Calibre settings
     @app.route('/api/calibre/settings', methods=['GET'])
